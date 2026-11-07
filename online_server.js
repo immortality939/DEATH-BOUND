@@ -114,7 +114,7 @@ const OnlineUI = (() => {
   function town() {
     view = 'town';
     const p = session.player, r = Assets.robots.robots[p.robot] || Assets.robots.robots[0];
-    const stage = h('div', { class: 'stage', style: "background-image:url('assets/online/town.png')" });
+    const stage = h('div', { class: 'stage', style: "background-image:url('town.png')" });
     for (const b of BUILDINGS) {
       const go = () => { beep(); building(b); };
       stage.append(h('div', { class: 'hs', style: `left:${b.x / 16}%;top:${b.y / 9}%;width:${b.w / 16}%;height:${b.h / 9}%`, onclick: go }));
@@ -128,7 +128,25 @@ const OnlineUI = (() => {
       btn('Exit', close, 'alt sm')));
     set(stage);
   }
+  // ---- Adventure Gate / Shop / Workshop open the game's own screens (same as the offline game) ----
+  let fromTown = false;
+  function backToTown() { fromTown = false; if (session) { root.hidden = false; town(); } else open(); }
+  function installReturn() {   // when the game goes back to its title screen, come back to the town instead
+    if (installReturn.done || typeof UI === 'undefined') return; installReturn.done = true;
+    const orig = UI.show.bind(UI);
+    UI.show = function (name) { const r = orig(name); if (name === 'title' && fromTown) setTimeout(backToTown, 0); return r; };
+  }
+  function syncRobot() {   // a brand-new game save starts with the robot you chose online
+    try { Profile.load(); if (!Profile.data.picked) Profile.newGame(session.player.robot); } catch (e) { }
+    try { UI.setup.teams[0].robot = Profile.data.char; store.set('setup', UI.setup); } catch (e) { }
+  }
+  function launch(kind) {
+    installReturn(); syncRobot(); fromTown = true; root.hidden = true; view = null;
+    try { goLandscape(); } catch (e) { } beep();
+    if (kind === 'gate') Adventure.open(); else if (kind === 'work') Forge.open(null); else if (kind === 'shop') Shop.open();
+  }
   function building(b) {
+    if (b.id === 'gate' || b.id === 'work' || b.id === 'shop') { try { return launch(b.id); } catch (e) { fromTown = false; root.hidden = false; toastMsg('Could not open ' + b.name + '.'); return; } }
     const pop = h('div', { class: 'pop', onclick: e => { if (e.target === pop) pop.remove(); } }, h('div', { class: 'box' }, h('h2', null, b.name), h('p', null, b.text), h('p', { class: 'warn' }, 'Coming next.'), h('div', { class: 'row' }, btn('OK', () => pop.remove()))));
     root.firstChild.append(pop);
   }
