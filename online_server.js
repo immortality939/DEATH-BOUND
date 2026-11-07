@@ -114,7 +114,7 @@ const OnlineUI = (() => {
   function town() {
     view = 'town';
     const p = session.player, r = Assets.robots.robots[p.robot] || Assets.robots.robots[0];
-    const stage = h('div', { class: 'stage', style: "background-image:url('town.png')" });
+    const stage = h('div', { class: 'stage', style: "background-image:url('assets/online/town.png'),url('town.png')" });
     for (const b of BUILDINGS) {
       const go = () => { beep(); building(b); };
       stage.append(h('div', { class: 'hs', style: `left:${b.x / 16}%;top:${b.y / 9}%;width:${b.w / 16}%;height:${b.h / 9}%`, onclick: go }));
