@@ -1,0 +1,263 @@
+{
+ "explosion_big": {
+  "file": "fx/explosion_big.webp",
+  "frames": 14,
+  "cols": 7,
+  "fw": 256,
+  "fh": 256,
+  "fps": 22,
+  "loop": false
+ },
+ "explosion_small": {
+  "file": "fx/explosion_small.webp",
+  "frames": 10,
+  "cols": 5,
+  "fw": 128,
+  "fh": 128,
+  "fps": 22,
+  "loop": false
+ },
+ "plasma_hit": {
+  "file": "fx/plasma_hit.webp",
+  "frames": 10,
+  "cols": 5,
+  "fw": 128,
+  "fh": 128,
+  "fps": 22,
+  "loop": false
+ },
+ "energy_hit": {
+  "file": "fx/energy_hit.webp",
+  "frames": 10,
+  "cols": 5,
+  "fw": 128,
+  "fh": 128,
+  "fps": 22,
+  "loop": false
+ },
+ "ice_hit": {
+  "file": "fx/ice_hit.webp",
+  "frames": 10,
+  "cols": 5,
+  "fw": 128,
+  "fh": 128,
+  "fps": 20,
+  "loop": false
+ },
+ "spark_hit": {
+  "file": "fx/spark_hit.webp",
+  "frames": 8,
+  "cols": 4,
+  "fw": 96,
+  "fh": 96,
+  "fps": 24,
+  "loop": false
+ },
+ "slash_cyan": {
+  "file": "fx/slash_cyan.webp",
+  "frames": 8,
+  "cols": 4,
+  "fw": 192,
+  "fh": 192,
+  "fps": 24,
+  "loop": false
+ },
+ "slash_orange": {
+  "file": "fx/slash_orange.webp",
+  "frames": 8,
+  "cols": 4,
+  "fw": 192,
+  "fh": 192,
+  "fps": 24,
+  "loop": false
+ },
+ "smoke": {
+  "file": "fx/smoke.webp",
+  "frames": 12,
+  "cols": 6,
+  "fw": 128,
+  "fh": 128,
+  "fps": 14,
+  "loop": false
+ },
+ "splash": {
+  "file": "fx/splash.webp",
+  "frames": 10,
+  "cols": 5,
+  "fw": 128,
+  "fh": 128,
+  "fps": 18,
+  "loop": false
+ },
+ "heal": {
+  "file": "fx/heal.webp",
+  "frames": 10,
+  "cols": 5,
+  "fw": 128,
+  "fh": 128,
+  "fps": 16,
+  "loop": false
+ },
+ "proj_bolt_orange": {
+  "file": "proj/proj_bolt_orange.webp",
+  "frames": 6,
+  "cols": 6,
+  "fw": 96,
+  "fh": 32,
+  "fps": 18,
+  "loop": true
+ },
+ "proj_bolt_cyan": {
+  "file": "proj/proj_bolt_cyan.webp",
+  "frames": 6,
+  "cols": 6,
+  "fw": 96,
+  "fh": 32,
+  "fps": 18,
+  "loop": true
+ },
+ "proj_bullet": {
+  "file": "proj/proj_bullet.webp",
+  "frames": 2,
+  "cols": 2,
+  "fw": 48,
+  "fh": 12,
+  "fps": 12,
+  "loop": true
+ },
+ "proj_plasma": {
+  "file": "proj/proj_plasma.webp",
+  "frames": 8,
+  "cols": 8,
+  "fw": 64,
+  "fh": 64,
+  "fps": 16,
+  "loop": true
+ },
+ "proj_fire": {
+  "file": "proj/proj_fire.webp",
+  "frames": 8,
+  "cols": 8,
+  "fw": 64,
+  "fh": 64,
+  "fps": 16,
+  "loop": true
+ },
+ "proj_ice": {
+  "file": "proj/proj_ice.webp",
+  "frames": 6,
+  "cols": 6,
+  "fw": 80,
+  "fh": 32,
+  "fps": 14,
+  "loop": true
+ },
+ "proj_rocket": {
+  "file": "proj/proj_rocket.webp",
+  "frames": 6,
+  "cols": 6,
+  "fw": 192,
+  "fh": 64,
+  "fps": 16,
+  "loop": true
+ },
+ "proj_missile": {
+  "file": "proj/proj_missile.webp",
+  "frames": 6,
+  "cols": 6,
+  "fw": 192,
+  "fh": 64,
+  "fps": 16,
+  "loop": true
+ },
+ "proj_bomblet": {
+  "file": "proj/proj_bomblet.webp",
+  "frames": 1,
+  "cols": 1,
+  "fw": 64,
+  "fh": 64,
+  "fps": 1,
+  "loop": true
+ },
+ "crate_health": {
+  "file": "proj/crate_health.webp",
+  "frames": 1,
+  "cols": 1,
+  "fw": 96,
+  "fh": 108,
+  "fps": 1,
+  "loop": true
+ },
+ "crate_ammo": {
+  "file": "proj/crate_ammo.webp",
+  "frames": 1,
+  "cols": 1,
+  "fw": 96,
+  "fh": 108,
+  "fps": 1,
+  "loop": true
+ },
+ "proj_meteor": {
+  "file": "proj/proj_meteor.webp",
+  "frames": 6,
+  "cols": 6,
+  "fw": 192,
+  "fh": 80,
+  "fps": 16,
+  "loop": true
+ },
+ "proj_banana_small": {
+  "file": "proj/proj_banana_small.webp",
+  "frames": 1,
+  "cols": 1,
+  "fw": 64,
+  "fh": 64,
+  "fps": 1,
+  "loop": true
+ },
+ "proj_meteorlet": {
+  "file": "proj/proj_meteorlet.webp",
+  "frames": 1,
+  "cols": 1,
+  "fw": 64,
+  "fh": 64,
+  "fps": 1,
+  "loop": true
+ },
+ "teleport": {
+  "file": "fx/teleport.webp",
+  "frames": 12,
+  "cols": 6,
+  "fw": 128,
+  "fh": 128,
+  "fps": 20,
+  "loop": false
+ },
+ "shuriken_hit_t1": {
+  "file": "fx/shuriken_hit_t1.webp",
+  "frames": 12,
+  "cols": 6,
+  "fw": 192,
+  "fh": 192,
+  "fps": 24,
+  "loop": false
+ },
+ "shuriken_hit_t2": {
+  "file": "fx/shuriken_hit_t2.webp",
+  "frames": 12,
+  "cols": 6,
+  "fw": 192,
+  "fh": 192,
+  "fps": 24,
+  "loop": false
+ },
+ "shuriken_hit_t3": {
+  "file": "fx/shuriken_hit_t3.webp",
+  "frames": 12,
+  "cols": 6,
+  "fw": 192,
+  "fh": 192,
+  "fps": 24,
+  "loop": false
+ }
+}
