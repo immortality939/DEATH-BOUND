@@ -124,7 +124,7 @@ const OnlineUI = (() => {
     const er = h('div', { class: 'err' }, err || '');
     set(h('div', { class: 'center' },
       h('div', { class: 'box' }, h('h2', null, 'Play online'), h('p', null, 'No sign-up. You get a guest account and a long recovery code.'),
-        h('div', { class: 'row' }, btn('Play as guest', createGuest), btn('Back', close, 'alt'))),
+        h('div', { class: 'row' }, btn('Play as guest', createGuest), btn('Back', leave, 'alt'))),
       h('div', { class: 'box' }, h('h2', { style: 'font-size:19px' }, 'I already have a code'), inp, er,
         h('div', { class: 'row' }, btn('Log in with code', () => login(inp.value), 'alt')))));
   }
@@ -165,7 +165,7 @@ const OnlineUI = (() => {
       s.players != null ? h('small', null, s.players + ' players') : null));
     set(h('div', { class: 'center' }, h('h2', { style: 'margin:0' }, 'Choose a server'), h('p', { class: 'sub' }, 'Each server has its own character and its own players.'),
       h('div', { class: 'servers' }, cells), h('div', { class: 'err' }, err || ''),
-      h('div', { class: 'row' }, btn('My code', () => showCode(store.get('ocode', 'Not saved on this phone - use your written copy'), false), 'alt'), btn('Back', close, 'alt'))));
+      h('div', { class: 'row' }, btn('My code', () => showCode(store.get('ocode', 'Not saved on this phone - use your written copy'), false), 'alt'), btn('Back', leave, 'alt'))));
   }
   async function pickServer(s) {
     curServer = s.id;
@@ -244,7 +244,7 @@ const OnlineUI = (() => {
       h('div', { class: 'sp' }),
       btn('My code', () => showCode(store.get('ocode', 'Not saved on this phone - use your written copy'), false), 'alt sm'),
       btn('Servers', serverList, 'alt sm'),
-      btn('Exit', close, 'alt sm'));
+      btn('Exit', leave, 'alt sm'));
     const bar = h('div', { class: 'ibar' }, ICONS.map(ic => h('button', { 'aria-label': ic.name, onclick: () => { beep(); iconPop(ic); } }, h('img', { src: 'assets/online/i_' + ic.id + '.webp', alt: ic.name }))));
     set(h('div', { class: 'town' }, stage, top, chatBox(p), bar));
   }
@@ -297,6 +297,7 @@ const OnlineUI = (() => {
   }
   function expired() { session = null; store.set('otoken', ''); welcome('Your session ended. Log in with your code.'); }
   function close() { root.hidden = true; view = null; }
+  function leave() { try { if (history.length > 1) return history.back(); } catch (e) { } close(); }   // back to the app's own menu (the app opened this page)
 
   async function open() {
     ensure(); root.hidden = false; try { goLandscape(); } catch (e) { }
