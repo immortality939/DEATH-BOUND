@@ -333,10 +333,26 @@ const ArenaUI = (() => {
     const card = x => h('div', { class: 'vc' }, rimg(x.robot).cloneNode(), h('b', null, x.name), h('small', null, 'Lv ' + x.lv));
     const st = stage(h('div', { class: 'ttl sm' }, MODES[r.mode].name),
       h('div', { class: 'vsrow' }, h('div', { class: 'vteam' }, mine.map(card)), h('div', { class: 'vs' }, 'VS'), h('div', { class: 'vteam' }, foe.map(card))),
-      h('div', { class: 'abs', style: 'left:0;right:0;top:300px;text-align:center;font:400 26px var(--disp,sans-serif);color:#ffd34a;text-shadow:0 3px 0 #3a1c06' }, 'Map: ' + map.name),
-      h('div', { class: 'abs', style: 'left:180px;width:600px;top:352px;text-align:center;font:600 15px/1.35 var(--body,sans-serif);color:#ffe9c4' }, 'Matched with real players. The battle itself (turn sync between the phones) comes next.'),
-      btn('Back to room', 380, 430, 200, 58, async () => { await act('back'); if (S.myRoom) room(); else lobby(); }, ''));
+      h('div', { class: 'abs', style: 'left:0;right:0;top:296px;text-align:center;font:400 26px var(--disp,sans-serif);color:#ffd34a;text-shadow:0 3px 0 #3a1c06' }, 'Map: ' + map.name),
+      map.thumb ? h('img', { class: 'abs', src: map.thumb, style: 'left:396px;top:340px;width:168px;height:60px;border:3px solid #3a1c06;border-radius:6px;object-fit:cover' }) : null,
+      h('div', { id: 'arCount', class: 'abs', style: 'left:0;right:0;top:410px;text-align:center;font:700 20px var(--body,sans-serif);color:#ffe9c4' }, 'Get ready...'),
+      btn('Leave', 380, 456, 200, 52, async () => {
+        clearTimers();
+        try { await C.fight({ match: m.id, since: 0, ev: [{ k: 'quit' }] }); } catch (e) { }
+        await act('back'); if (S.myRoom) room(); else lobby();
+      }, ''));
     mount(st);
+    let n = 4; const myMatch = m.id;
+    const go = async () => {
+      if (S.view !== 'vs' || !S.myRoom || !S.myRoom.match || S.myRoom.match.id !== myMatch) return;
+      try {
+        if (!map.img) throw new Error('no map');
+        if (typeof ArenaFight === 'undefined') await C.load('arena_fight.js');
+        await ArenaFight.start(C, m, map);
+      } catch (e) { C.toast('Could not start the battle. Check your internet.'); const c = document.getElementById('arCount'); if (c) c.textContent = 'Could not start. Press Leave.'; }
+    };
+    const tick = () => { const c = document.getElementById('arCount'); if (c) c.textContent = n > 0 ? 'Battle starts in ' + n : 'Loading the battle...'; if (n-- > 0) later(tick, 1000); else go(); };
+    tick();
   }
 
   // ===================== open / close =====================

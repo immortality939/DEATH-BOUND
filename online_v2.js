@@ -148,8 +148,7 @@ const OnlineUI = (() => {
     try {
       if (!Profile.data) Profile.load(); const r = robotOf(session.player.robot), eq = Profile.eqOf(r.id);
       const w = (eq.weapon && itemById(eq.weapon)) || weaponItemFor(r.id);
-      let power; try { power = Adventure.myPower(); } catch (e2) { }
-      return { lv: Profile.level(), power, weapon: w ? { name: w.name, img: Profile.imgOf(w) } : undefined };
+      return { lv: Profile.level(), weapon: w ? { name: w.name, img: Profile.imgOf(w) } : undefined };
     } catch (e) { return {}; }
   }
 
@@ -164,7 +163,7 @@ const OnlineUI = (() => {
       subs.forEach(f => { try { f(j); } catch (e) { } });
     };
     const call = async (path, body) => {
-      const j = await api((/^adv\//.test(path) ? '/api/' : '/api/arena/') + path, Object.assign({ server: srv, since }, myInfo(), body || {}), session.token); apply(j); return j;
+      const j = await api('/api/arena/' + path, Object.assign({ server: srv, since }, myInfo(), body || {}), session.token); apply(j); return j;
     };
     const tick = async () => {
       if (!on) return; if (!inflight) { inflight = true; try { await call('poll'); } catch (e) { if (e.status === 401) { stop(); return expired(); } } inflight = false; }
@@ -367,15 +366,8 @@ const OnlineUI = (() => {
       .then(code => { const s = document.createElement('script'); s.textContent = code + '\n//# sourceURL=' + file; document.head.appendChild(s); }).catch(e => { delete extraDone[file]; throw e; });
   }
   function arenaCtx() {
-    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo };
-  }
-  function advCtx() { const c = arenaCtx(); c.reopenAdv = openAdventure; return c; }   // (not Object.assign: it would freeze the live `player` getter)
-  async function openAdventure() {   // ADVENTURE LOBBY (adventure_lobby.js, downloaded from GitHub the first time, like the Arena)
-    try {
-      if (typeof AdvLobbyUI === 'undefined') { toastMsg('Loading Adventure...'); await loadExtra('adventure_lobby.js'); }
-      if (typeof AdvLobbyUI === 'undefined') throw new Error('adventure did not start');
-      installReturn(); root.hidden = false; AdvLobbyUI.open(advCtx());
-    } catch (e) { toastMsg('Cannot load Adventure. Check your internet.'); }
+    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo,
+      load: loadExtra, fight: b => api('/api/arena/fight', Object.assign({ server: curServer }, b), session.token) };   // load = download another file from GitHub; fight = the live battle messages
   }
   async function openArena() {
     try {
@@ -410,7 +402,6 @@ const OnlineUI = (() => {
   }
   function building(b) {
     if (b.id === 'arena') return openArena();
-    if (b.id === 'gate') return openAdventure();
     if (b.id === 'gate' || b.id === 'armory' || b.id === 'shop') { try { return launch(b.id); } catch (e) { fromTown = false; root.hidden = false; toastMsg('Could not open ' + b.name + '.'); return; } }
     pop(b.name, b.text);
   }
