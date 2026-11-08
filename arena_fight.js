@@ -64,7 +64,8 @@ const ArenaFight = (() => {
     } else if (w && inp && owner && f.gone.has(owner)) {              // his phone is gone: nobody steers, the turn timer runs out
       for (const k of IN_KEYS) In[k] = false; In.firePressed = In.jump = In.flip = false;
     }
-    f.stallSince = 0;
+    if (f.stallSince) { const d = Date.now() - f.stallSince; f.lastStall = d; if (d > f.maxStall) f.maxStall = d; f.stallSince = 0; }
+    f.steps++;
     { const self = this, args = arguments; seeded(() => ug.apply(self, args)); }   // the engine runs on the shared random numbers
     f.thr = G.frame;
     if (steer === f.me) { f.pj = !!In.jump; f.pfl = !!In.flip; } else if (steer && f.rem[steer]) { f.rem[steer].pj = !!In.jump; f.rem[steer].pfl = !!In.flip; }
@@ -148,7 +149,9 @@ const ArenaFight = (() => {
       }
       if (f.report) body.done = f.report;
       try {
+        const tq = Date.now();
         const j = await f.C.post('fight', body);
+        f.rtt = Date.now() - tq;
         if (f.stop) break;
         if (sent) f.out.splice(0, sent);
         handle(j);
@@ -184,7 +187,7 @@ const ArenaFight = (() => {
     members.forEach((t, i) => t.forEach(id => { teamOf[id] = i; }));
     if (teamOf[me] == null) return Promise.reject(new Error('You are not in this match.'));
     const f = F = { C, cb: cb || {}, match, id: match.id, me, myTeam: teamOf[me], members, teamOf, names: {}, rem: {}, out: [], seen: 0, n: 0, thr: 0, snaps: [], gone: new Set(), post: [0, -1, 0, 0], bits: 0, pj: false, pfl: false,
-      live: false, ended: false, stop: false, finished: false, lastData: Date.now(), stallSince: 0, tc: 0, tcOwner: null, snapWait: null, loads: null, ready: false, loadout: null, report: null, over: null, replay: false, t0: Date.now() };
+      live: false, ended: false, stop: false, finished: false, lastData: Date.now(), stallSince: 0, tc: 0, tcOwner: null, snapWait: null, loads: null, ready: false, loadout: null, report: null, over: null, replay: false, t0: Date.now(), steps: 0, frames: 0, lastStall: 0, maxStall: 0, rtt: 0 };
     match.teams.forEach(t => t.forEach(x => { f.names[x.id] = x.name; }));
     for (const id of members.flat()) if (id !== me) f.rem[id] = { q: [], thr: -1, bits: 0, pulse: 0, pj: false, pfl: false, wait: false };
     f.goP = new Promise(res => { f.goRes = res; });
@@ -235,7 +238,8 @@ const ArenaFight = (() => {
     UI.paused = false; try { Snd.init(); } catch (e) { }
     UI.show('game'); UI.lastSig = ''; f.C.hideOnline();
     f.tc = G.turnCount; f.tcOwner = ownerOf(G.activeWorm); f.post = sigNow(); f.lastData = Date.now();
-    f.msgTimer = setInterval(updateMsg, 250);
+    f.msgTimer = setInterval(() => { updateMsg(); updateDbg(); }, 250);
+    const raf = () => { if (F === f && !f.finished) { f.frames++; requestAnimationFrame(raf); } }; requestAnimationFrame(raf);
     f.live = true;
   }
 
@@ -292,6 +296,16 @@ const ArenaFight = (() => {
     if (!el) { el = document.createElement('div'); el.id = 'arFightMsg'; el.style.cssText = 'position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:45;background:rgba(10,14,28,.88);border:2px solid #ffc15a;border-radius:99px;padding:6px 18px;font:700 15px var(--body,sans-serif);color:#ffe3b0;pointer-events:none;white-space:nowrap'; document.body.appendChild(el); }
     el.textContent = f.stallWhy === 'sync' ? 'Syncing...' : 'Waiting for ' + ((f.stallOwner && f.names[f.stallOwner]) || 'the other player') + '...';
   }
+  // small readout (bottom centre) so a slow fight can be explained: draw = pictures per second of this phone, sim = battle steps per second (60 is full speed),
+  // ping = last answer time of the server, wait = longest "Waiting for ..." in the last 10 s
+  function updateDbg() {
+    const f = F; if (!f || !f.live) return; let el = $('arFightDbg');
+    if (!el) { el = document.createElement('div'); el.id = 'arFightDbg'; el.style.cssText = 'position:fixed;left:50%;bottom:2px;transform:translateX(-50%);z-index:44;font:700 11px monospace;color:#9ff;background:rgba(0,0,0,.55);padding:1px 8px;border-radius:6px;pointer-events:none;white-space:nowrap'; document.body.appendChild(el); f.dbgT = Date.now(); f.dbgS = f.steps; f.dbgF = f.frames; }
+    const now = Date.now(), dt = (now - f.dbgT) / 1000; if (dt < 1) return;
+    f.sim = Math.round((f.steps - f.dbgS) / dt); f.fps = Math.round((f.frames - f.dbgF) / dt); f.dbgT = now; f.dbgS = f.steps; f.dbgF = f.frames;
+    if (!f.mxT || now - f.mxT > 10000) { f.mxShow = f.maxStall; f.maxStall = 0; f.mxT = now; }
+    el.textContent = 'draw ' + f.fps + '/s  sim ' + f.sim + '/s  ping ' + f.rtt + 'ms  wait ' + f.mxShow + 'ms';
+  }
   function showResult(r) {
     const f = F; if (!f || f.resultShown) return; f.resultShown = true; f.ended = true;
     if (!f.report) f.report = r.forfeit ? { forfeit: 1 } : { w: r.draw ? -1 : (r.win ? f.myTeam : (f.members.length === 2 ? 1 - f.myTeam : -1)) };
@@ -320,7 +334,7 @@ const ArenaFight = (() => {
     const f = F; if (!f || f.finished) return; f.finished = true; f.stop = true;
     clearInterval(f.msgTimer); clearTimeout(f.overTimer);
     unhook();
-    for (const id of ['arFightMsg', 'arFightEnd', 'arFightAsk']) { const e = $(id); if (e) e.remove(); }
+    for (const id of ['arFightMsg', 'arFightEnd', 'arFightAsk', 'arFightDbg']) { const e = $(id); if (e) e.remove(); }
     try { if (f.live) { G.mode = 'menu'; G.projs = []; } for (const id of ['over', 'wmenu', 'pauseScr']) { const e = $(id); if (e) e.hidden = true; } UI.paused = false; UI.show('title'); } catch (e) { }
     try { f.C.showOnline(); } catch (e) { }
     if (f.goRes) f.goRes();
