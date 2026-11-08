@@ -440,7 +440,7 @@ const AdvLobbyUI = (() => {
     run.unsub = C.live.subscribe(onRunData);
     run.tick = setInterval(runBeat, 1500);
     try { C.launch('gate', () => C.reopenAdv()); } finally { run.launching = false; }   // hides the room, goes landscape; coming back to the title screen returns to the room
-    connectCoop(r).then(() => { if (run) startStage(r.run.stage); }).catch(() => { C.toast('Cannot start the shared map. Check your internet.'); leaveRun(); });
+    connectCoop(r).then(() => { if (run) startStage(r.run.stage); }).catch(e => { console.error('coop connect', e); C.toast('Cannot start the shared map: ' + ((e && e.message) || 'check your internet') + '. (Is the server updated?)'); leaveRun(); });
   }
   // ONE shared stage for the whole room (coop_server.js): same map, same enemies, one robot per player. The host phone is the clock.
   async function connectCoop(r) {
@@ -457,7 +457,8 @@ const AdvLobbyUI = (() => {
     Adventure.diff = run.diff; try { $('over').hidden = true; } catch (e) { }
     drawRun(); runBeat();
     const members = ((run.cur && run.cur.members) || []).map(m => ({ id: m.id, name: m.name, robot: m.robot | 0 }));
-    Coop.begin({ sk: run.id + ':' + si + ':' + (att | 0), mi: run.mi, si, diff: run.diff, members });   // every phone builds the same stage (see coop_server.js)
+    try { Coop.begin({ sk: run.id + ':' + si + ':' + (att | 0), mi: run.mi, si, diff: run.diff, members }); }
+    catch (e) { console.error('coop begin', e); C.toast('Co-op could not start: ' + ((e && e.message) || e)); leaveRun(); }   // every phone builds the same stage (see coop_server.js)
   }
   function retryStage() {   // defeat screen -> Retry: the host restarts the stage for the whole room
     if (!run) return;

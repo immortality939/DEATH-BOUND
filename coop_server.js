@@ -117,6 +117,7 @@ const Coop = (() => {
     Adventure.playerRobot = function () { return my.members[0].robot | 0; };   // enemy looks depend on "your" robot: every phone must use the same one
     Adventure.diff = my.diff;
     try { await Adventure.start(my.mi, my.si); }
+    catch (e) { console.error('coop start', e); toast('Co-op could not start: ' + ((e && e.message) || e)); if (hooks.onLost) hooks.onLost(); }
     finally { Adventure.playerRobot = o.pr; if (window.newGame === wrap) window.newGame = o.newGame; }
   }
   function coopNewGame(setup, my, realNew) {
