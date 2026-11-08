@@ -286,8 +286,7 @@ const OnlineUI = (() => {
 
   // ---- Adventure / Shop / Armory open the game's own screens (same as the offline game) ----
   let fromTown = false;
-  let returnCb = null;   // where the game's own screens (profile, an arena fight) come back to; null = the town
-  function backToTown() { fromTown = false; if (returnCb && session) { const f = returnCb; returnCb = null; root.hidden = false; f(); return; } returnCb = null; if (session) { root.hidden = false; town(); } else open(); }
+  function backToTown() { fromTown = false; if (session) { root.hidden = false; town(); } else open(); }
   function installReturn() {   // when the game goes back to its title screen, come back to the town instead
     if (installReturn.done || typeof UI === 'undefined') return; installReturn.done = true;
     const orig = UI.show.bind(UI);
@@ -302,34 +301,7 @@ const OnlineUI = (() => {
     try { goLandscape(); } catch (e) { } beep();
     if (kind === 'gate') Adventure.open(); else if (kind === 'armory') Forge.open(null); else if (kind === 'shop') Shop.open();
   }
-  // ---- ARENA (arena_server.js + arena_maps_server.js): loaded on first use; inside the app they come from GitHub, on the online page they are already there ----
-  const ARENA_BASE = 'https://immortality939.github.io/DEATH-BOUND/';
-  let arenaPromise = null;
-  function loadArena() {
-    if (typeof ArenaUI !== 'undefined') return Promise.resolve();
-    if (arenaPromise) return arenaPromise;
-    const grab = async f => { const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 30000); try { const r = await fetch(ARENA_BASE + f + '?t=' + Date.now(), { cache: 'no-store', signal: ctl.signal }); if (!r.ok) throw new Error(f + ' ' + r.status); return await r.text(); } finally { clearTimeout(t); } };
-    arenaPromise = (async () => {
-      const [maps, ui] = await Promise.all([grab('arena_maps_server.js'), grab('arena_server.js')]);
-      for (const [code, nm] of [[maps, 'arena_maps_server.js'], [ui, 'arena_server.js']]) { const el = document.createElement('script'); el.textContent = code + '\n//# sourceURL=' + nm; document.head.appendChild(el); }
-      if (typeof ArenaUI === 'undefined') throw new Error('arena did not start');
-    })().catch(e => { arenaPromise = null; throw e; });
-    return arenaPromise;
-  }
-  async function openArena() {
-    toastMsg('Opening Arena...');
-    try { await loadArena(); } catch (e) { return toastMsg('Cannot load the Arena. Check your internet.'); }
-    ArenaUI.open({
-      api: (p, b) => api(p, b, session.token), session: () => session, h, set, root: () => root, beep, toast: toastMsg, btn, store,
-      robots, robotOf, robotImg, chatBox, town,
-      goTown: () => { view = 'town'; town(); },
-      // run one of the game's own screens (profile, a fight) and come back to `cb` when the game returns to its title screen
-      goGame: (fn, cb) => { installReturn(); syncRobot(); fromTown = true; returnCb = cb; root.hidden = true; view = null; try { goLandscape(); } catch (e) { } beep(); fn(); },
-      showRoot: () => { root.hidden = false; },
-    });
-  }
   function building(b) {
-    if (b.id === 'arena') return openArena();
     if (b.id === 'gate' || b.id === 'armory' || b.id === 'shop') { try { return launch(b.id); } catch (e) { fromTown = false; root.hidden = false; toastMsg('Could not open ' + b.name + '.'); return; } }
     pop(b.name, b.text);
   }

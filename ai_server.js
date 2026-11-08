@@ -26,7 +26,7 @@ const AI = {
   },
   los(x1, y1, x2, y2) { const T = G.terrain, n = Math.ceil(dist(x1, y1, x2, y2) / 4); for (let i = 1; i < n; i++) if (T.solid(lerp(x1, x2, i / n), lerp(y1, y2, i / n))) return false; return true; },
   think(w) {
-    const team = G.teams[w.team], enemies = aliveWorms().filter(e => !sameSide(e,w));
+    const team = G.teams[w.team], enemies = aliveWorms().filter(e => e.team !== w.team);
     if (!enemies.length) return null;
     enemies.sort((a, b) => dist(w.x, w.y, a.x, a.y) * (1 + a.hp / 200) - dist(w.x, w.y, b.x, b.y) * (1 + b.hp / 200));
     const [er, ep] = this.err[G.diff]; let best = null;
@@ -48,7 +48,7 @@ const AI = {
         } else if (wd.proj && wd.proj.speed) {
           const charge = !!wd.charge, powers = charge ? [.3, .38, .46, .54, .62, .7, .78, .86, .94, .96] : [1]; let bestE = 1e9, ba = 0, bp = 1, hitT = false;
           for (let a = -50; a <= 80; a += 2.5) for (const pw of powers) {
-            const r = this.sim(w, wd, a, pw); if (!r) continue; let e = dist(r.x, r.y, tx, ty); if (r.hit === tg) e = 0; else if (r.hit && sameSide(r.hit,w)) e = 1e8;
+            const r = this.sim(w, wd, a, pw); if (!r) continue; let e = dist(r.x, r.y, tx, ty); if (r.hit === tg) e = 0; else if (r.hit && r.hit.team === w.team) e = 1e8;
             const selfD = dist(r.x, r.y, w.x, w.y - 30); const blast = wd.proj.blast || 12; if (selfD < blast + 36 && wd.type !== 'burst') e += 400;
             if (e < bestE) { bestE = e; ba = a; bp = pw; hitT = r.hit === tg; }
           }
@@ -89,7 +89,7 @@ const AI = {
   safeDrop(x, y) { if (x < 90 || x > WORLD_W - 90) return false; for (let d = 4; d <= 100; d += 4) if (G.terrain.solid(x, y + d)) return y + d < WATER_Y - 40; return false; },
   flyStep(m) {   // BABY DRAGONS: no melee. Every turn they fly to a NEW spot, hover, and spit 2 fireballs at the nearest player
     if (m.frozen > 0) { m.done = true; return; }
-    const foes = aliveWorms().filter(e => !sameSide(e,m)); if (!foes.length) { m.done = true; return; }
+    const foes = aliveWorms().filter(e => e.team !== m.team); if (!foes.length) { m.done = true; return; }
     foes.sort((a, b) => Math.abs(a.x - m.x) - Math.abs(b.x - m.x)); const tg = foes[0];
     if (m.fp == null) { const side = Math.random() < .5 ? -1 : 1; m.fx = clamp(tg.x + side * rnd(230, 430), 90, WORLD_W - 90); m.fp = 1; m.ft = 0; m.flyGoal = rnd(115, 190); }
     if (m.fp === 1) {   // glide to the new hover spot
@@ -108,7 +108,7 @@ const AI = {
     if (m.hover) return this.flyStep(m);
     if (m.state !== 'ground') return;   // in the air: wait to land
     if (m.frozen > 0) { m.done = true; return; }
-    const foes = aliveWorms().filter(e => !sameSide(e,m)); if (!foes.length) { m.done = true; return; }
+    const foes = aliveWorms().filter(e => e.team !== m.team); if (!foes.length) { m.done = true; return; }
     foes.sort((a, b) => Math.abs(a.x - m.x) - Math.abs(b.x - m.x)); const tg = foes[0], wd = m.mw, dir = tg.x >= m.x ? 1 : -1, sc = m.sc || 1;
     const [cx, cy] = bodyCenter(tg), dx = (cx - m.x) * dir, dy = cy - (m.y - 40);
     if (dx < wd.range + 8 && dx > -14 && Math.abs(dy) < 46) {   // in reach: swing once, then it is finished
@@ -131,7 +131,7 @@ const AI = {
     const I = this.input; I.firePressed = false; I.up = I.down = false;
     if (G.phase !== 'aim') { I.left = I.right = false; return; }   // after the swing it just stands there until the turn ends
     if (w.state !== 'ground') { I.left = I.right = false; return; }
-    const foes = aliveWorms().filter(e => !sameSide(e,w)); if (!foes.length) { I.left = I.right = false; return; }
+    const foes = aliveWorms().filter(e => e.team !== w.team); if (!foes.length) { I.left = I.right = false; return; }
     foes.sort((a, b) => Math.abs(a.x - w.x) - Math.abs(b.x - w.x)); const tg = foes[0], wd = w.mw, dir = tg.x >= w.x ? 1 : -1;
     w.face = dir; const [cx, cy] = bodyCenter(tg), dx = (cx - w.x) * dir, dy = cy - (w.y - 40);
     if (dx < wd.range + 8 && dx > -14 && Math.abs(dy) < 46) {   // in reach: swing
@@ -172,8 +172,8 @@ const AI = {
       this.plan = this.think(w);
       if (this.plan) { this.st = 'aim'; w.face = this.plan.face; const t = curTeam(); t.sel = WEAPONS.indexOf(this.plan.wd); this.t = 0; }
       else if (G.timer < 420 || this.thinks > 5) { // desperate shot with whatever is available
-        const e = aliveWorms().filter(x => !sameSide(x,w))[0], fb = WEAPONS.find(x => curTeam().ammo[x.id] > 0) || WEAPONS[0]; if (e) { this.plan = { wd: fb, rel: 20, power: 1, face: e.x > w.x ? 1 : -1 }; this.st = 'aim'; w.face = this.plan.face; curTeam().sel = WEAPONS.indexOf(fb); }   // desperate shot with the weapon this team really owns (never a locked one)
-      } else { this.st = 'move'; this.moved = 0; this.t = 70 + rint(0, 40); const e = aliveWorms().filter(x => !sameSide(x,w)).sort((a, b) => dist(w.x, w.y, a.x, a.y) - dist(w.x, w.y, b.x, b.y))[0]; this.dir = e && e.x < w.x ? -1 : 1;
+        const e = aliveWorms().filter(x => x.team !== w.team)[0], fb = WEAPONS.find(x => curTeam().ammo[x.id] > 0) || WEAPONS[0]; if (e) { this.plan = { wd: fb, rel: 20, power: 1, face: e.x > w.x ? 1 : -1 }; this.st = 'aim'; w.face = this.plan.face; curTeam().sel = WEAPONS.indexOf(fb); }   // desperate shot with the weapon this team really owns (never a locked one)
+      } else { this.st = 'move'; this.moved = 0; this.t = 70 + rint(0, 40); const e = aliveWorms().filter(x => x.team !== w.team).sort((a, b) => dist(w.x, w.y, a.x, a.y) - dist(w.x, w.y, b.x, b.y))[0]; this.dir = e && e.x < w.x ? -1 : 1;
         if (isBoss(w)) { if (!this.bdir) this.bdir = this.dir; else if (this.thinks % 2 === 0) this.bdir = -this.bdir; this.dir = this.bdir; this.t = 30 + rint(0, 25); }   // boss: short steps in either direction, re-aiming after each one (never just backing off)
       }
     } else if (this.st === 'flee') {

@@ -43,7 +43,7 @@ function frontSVG_old(id) {
   return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${back}${legs}${body}${chest}${visor}${hands}</svg>`;
 }
 const UI = {
-  paused: false, setup: store.get('setup', { teams: [{ cpu: false, robot: 0 }, { cpu: true, robot: 1 }, { cpu: true, robot: 2 }, { cpu: true, robot: 3 }], nT: 2, per: 1, diff: 1, theme: 'auto', map: 'random' }),
+  paused: false, setup: store.get('setup', { teams: [{ cpu: false, robot: 0 }, { cpu: true, robot: 1 }, { cpu: true, robot: 2 }, { cpu: true, robot: 3 }], nT: 2, per: 3, diff: 1, theme: 'auto', map: 'random' }),
   touchOn: false, hudT: 0, lastSig: '',
   show(name) { for (const id of ['loading', 'title', 'howto', 'setup', 'profile', 'shop', 'adventure', 'over', 'wmenu', 'pauseScr']) { const el = $(id); if (el) el.hidden = id !== name; } $('menufx').hidden = !(name === 'title' || name === 'howto' || name === 'setup' || name === 'profile' || name === 'shop' || name === 'adventure' || name === 'loading'); $('hud').hidden = !(name === 'game' || name === 'wmenu' || name === 'pauseScr' || name === 'over'); $('touch').hidden = !(this.touchOn && (name === 'game')); if (name === 'game') { $('wmenu').hidden = true; } $('hint').hidden = this.touchOn; },
   seg(el, vals, cur, cb) { el.innerHTML = ''; vals.forEach(([v, label]) => { const b = document.createElement('button'); b.textContent = label; if (v === cur) b.className = 'on'; b.onclick = () => { cb(v); this.seg(el, vals, v, cb); }; el.appendChild(b); }); },
@@ -91,10 +91,10 @@ const UI = {
       box.appendChild(row);
     }
   },
-  async start(ov) {   // ov = a ready-made setup (Arena fights: teams, squads, names, colors, plan); without it the Play menu setup is used
+  async start() {
     Snd.init(); this.show('loading'); $('loadtxt').textContent = 'Building the battlefield…';
-    if (typeof Profile !== 'undefined' && !ov) this.setup.teams[0].robot = (Profile.data || Profile.load()).char;   // your own robot
-    const S = ov || this.setup, used = new Set(S.teams.slice(0, S.nT).map(t => t.robot));
+    if (typeof Profile !== 'undefined') this.setup.teams[0].robot = (Profile.data || Profile.load()).char;   // your own robot
+    const S = this.setup, used = new Set(S.teams.slice(0, S.nT).map(t => t.robot));
     await Promise.all([...used].map(k => loadImage(Assets.robots.robots[k].death)));
     const mp = S.map === 'random' ? MAPS[rint(0, MAPS.length - 1)] : (mapById(S.map) || MAPS[0]);
     const sky = S.theme === 'auto' ? mp.bg : S.theme === 'random' ? ['day', 'sunset', 'night'][rint(0, 2)] : S.theme;
@@ -103,7 +103,7 @@ const UI = {
     await Promise.all(Assets.robots.robots.map(r => loadImage(r.sheet)));
     if (mp.img) await loadImage(mp.img).catch(() => { });   // the map picture
     await new Promise(r => setTimeout(r, 30));
-    newGame({ teams: S.teams.slice(0, S.nT), per: S.per, diff: S.diff, theme: sky, map: mp, squads: S.squads, names: S.names, colors: S.colors, plan: S.plan, first: S.first });
+    newGame({ teams: S.teams.slice(0, S.nT), per: S.per, diff: S.diff, theme: sky, map: mp });
     this.show('game'); this.lastSig = '';
   },
   buildWeapons() {
