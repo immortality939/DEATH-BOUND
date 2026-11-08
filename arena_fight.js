@@ -7,8 +7,8 @@
    - Only the player whose turn it is controls the battle. His keys (walk / aim / fire / jump), weapon choice, potion, POW, teleport and PASS are sent to the server
      tagged with the frame number ("events") plus "thr" = up to which frame his input is complete. The other phones feed those events into their own copy at exactly
      the same frame, and simply wait (shown as "Waiting for ...") if the data is late.
-   - At every turn change the player whose turn just ended sends a small snapshot (positions, health, wind). The next player waits for it (max 1.5 s) and corrects himself
-     if anything differs, so a tiny difference between two phones can never grow.
+   - At every turn change the player whose turn just ended sends a small snapshot (positions, health, wind). A phone that is at exactly that frame corrects itself
+     if anything differs (safety net only, nobody waits for it).
    - The end of the battle is decided by the engine itself on both phones (last team standing); the result is reported to the server.
    Server calls: only POST /api/arena/fight (see server.js: loading barrier, event relay, "over", "gone").
    Nothing of the offline game files is changed: the hooks below replace a few game functions while the fight runs and put them back when it ends. */
@@ -17,8 +17,8 @@ const ArenaFight = (() => {
   const $ = id => document.getElementById(id);
   const IN_KEYS = ['left', 'right', 'up', 'down', 'fire', 'fast'];
   const STATE_CODE = { ground: 0, air: 1, dead: 2, drown: 3 };
-  const BUF = 18;                 // frames of input the watcher keeps in hand before it (re)starts after a wait (smooth play on slow phones)
-  const POLL_MS = 140, POLL_FAST_MS = 70;
+  const BUF = 6;                  // frames of input the watcher keeps in hand before it (re)starts after a wait (smooth play on slow phones)
+  const POLL_MS = 100, POLL_FAST_MS = 50;
   const SNAP_WAIT_MS = 1500, STALL_GIVEUP_MS = 45000, LOST_MS = 30000;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   let F = null;                   // the running fight (null = none)
@@ -100,7 +100,7 @@ const ArenaFight = (() => {
     for (const id in f.rem) { const R = f.rem[id]; R.bits = 0; R.pulse = 0; R.pj = R.pfl = false; }
     f.post = sigNow();
     if (ended === f.me) pushSnap();
-    f.snapWait = (G.activeWorm && ownerOf(G.activeWorm) === f.me && ended && ended !== f.me && !f.gone.has(ended)) ? { tc: G.turnCount, until: Date.now() + SNAP_WAIT_MS } : null;
+    f.snapWait = null;   // nobody waits at a turn change any more (a wait = one full network round trip = a visible freeze after every shot); the snapshot is only a safety net
   }
 
   // ---------- snapshots (tiny resync at every turn change) ----------
