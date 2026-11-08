@@ -6,16 +6,16 @@
    HOW (so you can fix / tune it later)
    - Every phone runs the game's own engine (world.js / ai.js / the boss files). Nothing in those files is changed.
    - The engine is deterministic: same start (seed, robots, gear) + same button presses on the same frame = same fight on every phone.
-   - The HOST phone (the room host) is the clock. It numbers the frames. When a player presses something, the host stamps it with
-     the frame number and sends it to everybody; every phone applies it on that frame. The server (server.js /ws) only carries the messages.
-   - Guests never run ahead of the host. They play a few frames behind it (about 0.2 s).
+   - THE PLAYER WHOSE TURN IT IS is the clock (no delay for him): his phone numbers the frames of his turn, stamps every press of his with its frame
+     number and sends it to everybody; every other phone applies it on that same frame, a few frames behind him (about 0.2 s).
+     During enemy turns the HOST phone is the clock. At a turn change the old clock waits a moment for the new one to arrive at the same frame.
+     The server (server.js /ws) only carries the messages.
    - Every ~1 s the host sends a short fingerprint of the fight. If a phone sees a different one it shows "Out of sync" (and logs to the console).
    Messages (all inside { to, d } / { from, d } of server.js):
      load  guest -> host  : my robot + my gear for this stage
      init  host  -> all   : seed + the list of players (robot, name, gear). Everybody builds the stage from it.
-     gin   guest -> host  : my buttons / actions
-     in    host  -> all   : the same, stamped with a frame number
-     hb    host  -> all   : "I am at frame F" (+ fingerprint)
+     in    clock -> all   : my buttons / actions, stamped with a frame number
+     hb    clock -> all   : "I am at frame F" (+ fingerprint)
      retry guest -> host / again host -> all : restart the stage after a defeat
    TUNE: COOP_ENEMY_HP_PER_PLAYER below. */
 'use strict';
@@ -62,10 +62,11 @@ const Coop = (() => {
   function onMsg(from, d) {
     if (!d || !d.k || !d.sk) return;
     if (d.k === 'load') { if (!amHost()) return; (loads[d.sk] = loads[d.sk] || {})[from] = d.load; if (S && S.sk === d.sk) tryInit(); return; }
-    if (d.k === 'gin') { if (!amHost() || !S || S.sk !== d.sk || !S.sim) return; const tm = S.members.findIndex(m => m.id === from); if (tm >= 0) stamp(tm, d.s, d.ev); return; }
     if (d.k === 'retry') { if (!amHost()) return; if (S && S.sk === d.sk) doAgain(); return; }
-    if (from !== net.hostId) return;   // everything else may only come from the host
-    if (d.k === 'again') { if (hooks.onAgain) hooks.onAgain(d.si, d.att); return; }
+    if (d.k === 'again') { if (from === net.hostId && hooks.onAgain) hooks.onAgain(d.si, d.att); return; }
+    if (d.k === 'init') { if (from !== net.hostId) return; }
+    else if (d.k !== 'in' && d.k !== 'hb') return;
+    else if (S && !S.members.some(m => m.id === from)) return;
     if (!S || S.sk !== d.sk) { (pend[d.sk] = pend[d.sk] || []).push(d); if (pend[d.sk].length > 4000) pend[d.sk].shift(); return; }
     handle(d);
   }
@@ -175,12 +176,17 @@ const Coop = (() => {
   function myTurn() { return !!(S && S.sim && S.myTeam >= 0 && G.mode === 'play' && G.activeWorm && G.activeWorm.team === S.myTeam && !G.swarm && !S.over); }
   function submit(payload) {   // my buttons / actions -> the host (or straight to the stamp if I am the host)
     if (!S || !S.sim) return;
-    if (S.host) stamp(S.myTeam, payload.s, payload.ev); else tx('h', { k: 'gin', sk: S.sk, s: payload.s, ev: payload.ev });
+    stamp(S.myTeam, payload.s, payload.ev);
   }
-  function stamp(tm, s, ev) {   // host: give an input a frame number, apply it, tell everybody
+  function stamp(tm, s, ev) {   // I am the clock: give my input the next frame number, apply it, tell everybody
     if (!G.activeWorm || G.activeWorm.team !== tm || G.mode !== 'play') return;
     const rec = { k: 'in', sk: S.sk, f: S.f, tm, s, ev };
     tx('*', rec); S.pre.push(rec);
+  }
+  function clockId() {   // who numbers the frames right now: the player whose turn it is, otherwise the host
+    const w = G.activeWorm;
+    if (w && G.mode === 'play' && !G.swarm) { const t = G.teams[w.team]; if (t && !t.cpu && t.pid && !(S.gone && S.gone[w.team])) return t.pid; }
+    return net.hostId;
   }
   function sampleLocal() {   // read my real fingers (the game's own In), turn them into an input message
     const cur = { l: +In.left, r: +In.right, u: +In.up, d: +In.down, fi: +In.fire, fa: +!!In.fast }, ev = [];
@@ -194,13 +200,13 @@ const Coop = (() => {
   }
   function emitUi(u) { if (!S || !S.sim) return false; if (!myTurn()) { try { Snd.play('dud'); } catch (e) { } return true; } S.uiq.push(u); return true; }
 
-  function step(orig_) {   // exactly one frame of the fight, the same on every phone
+  function step(orig_, iAmClock) {   // exactly one frame of the fight, the same on every phone
     const rnd0 = Math.random; Math.random = S.rng; S.stepping = true;
     const ph = { left: In.left, right: In.right, up: In.up, down: In.down, fire: In.fire, fast: In.fast, firePressed: In.firePressed, jump: In.jump, flip: In.flip };
     try {
       // 1. inputs that belong to this frame
-      if (S.host) { const pre = S.pre; S.pre = []; for (const r of pre) applyRec(r); }
-      else while (S.q.length && S.q[0].f <= S.f) applyRec(S.q.shift());
+      { const pre = S.pre; S.pre = []; for (const r of pre) applyRec(r); }
+      while (S.q.length && S.q[0].f <= S.f) applyRec(S.q.shift());
       // 2. my buttons are replaced by the stamped ones of whoever's turn it is
       const aw = G.activeWorm, si = (aw && S.simIn[aw.team]) || null;
       In.left = !!(si && si.l); In.right = !!(si && si.r); In.up = !!(si && si.u); In.down = !!(si && si.d); In.fire = !!(si && si.fi); In.fast = !!(si && si.fa);
@@ -212,23 +218,30 @@ const Coop = (() => {
       Math.random = rnd0; S.stepping = false;
     }
     S.f++;
-    if (S.f % 60 === 0) { const h = hash(); if (S.host) S.myHash = h; else { const hh = S.hashes[S.f]; if (hh != null) { delete S.hashes[S.f]; S.checks = (S.checks || 0) + 1; if (hh !== h && !S.bad) { S.bad = true; console.warn('COOP out of sync at frame', S.f); toast('Out of sync with the host (leave and join again)'); if (hooks.onDesync) hooks.onDesync(S.f); } } } }
+    if (S.f % 60 === 0) { const h = hash(); if (iAmClock) S.myHash = h; else { const hh = S.hashes[S.f]; if (hh != null) { delete S.hashes[S.f]; S.checks = (S.checks || 0) + 1; if (hh !== h && !S.bad) { S.bad = true; console.warn('COOP out of sync at frame', S.f); toast('Out of sync with the host (leave and join again)'); if (hooks.onDesync) hooks.onDesync(S.f); } } } }
     if (G.mode !== 'play') S.over = true;
   }
 
   function coopUpdate(orig_) {   // replaces the game's updateGame while a co-op stage is on
     if (!S || !S.sim || S.dead || G.mp !== S) return orig_.call(null);
     if (G.mode !== 'play') { if (S.over) return orig_.call(null); return; }
-    if (S.host) {
-      sampleLocal(); step(orig_);
+    const me = clockId() === net.myId;
+    sampleLocal();
+    if (me) {   // my turn (or an enemy turn and I am the host): I number the frames, nobody can run ahead of me
+      S.stall = 0; step(orig_, true);
+      if (clockId() !== net.myId) { S.limit = S.f; S.lastHb = 0; }   // the turn went to somebody else: I wait for him at this frame
       const now = performance.now();
-      if (now - S.lastHb >= 90 || S.f % 60 === 0) { S.lastHb = now; tx('*', { k: 'hb', sk: S.sk, f: S.f, h: S.f % 60 === 0 ? S.myHash : undefined }); }
+      if (now - S.lastHb >= 40 || S.f % 60 === 0) { S.lastHb = now; tx('*', { k: 'hb', sk: S.sk, f: S.f, h: S.f % 60 === 0 ? S.myHash : undefined }); }
+      if (S.gone) for (const k in S.gone) if (S.gone[k] === 1) { S.gone[k] = 2; const rec = { k: 'in', sk: S.sk, f: S.f, tm: -1, drop: +k }; tx('*', rec); S.pre.push(rec); }
       return;
     }
-    sampleLocal();
     let n = 1, behind = S.limit - S.f; if (behind > 120) n = 12; else if (behind > 24) n = 4; else if (behind > 10) n = 2;
     const t0 = performance.now();
-    for (let i = 0; i < n; i++) { if (S.f >= S.limit) break; step(orig_); if (G.mode !== 'play') break; if (performance.now() - t0 > 12) break; }
+    for (let i = 0; i < n; i++) {
+      if (S.f >= S.limit) break;
+      const c = clockId() === net.myId; step(orig_, c); if (G.mode !== 'play') break; if (c) break; if (performance.now() - t0 > 12) break;
+    }
+    if (S.f >= S.limit) { const now = performance.now(); if (!S.stall) S.stall = now; else if (now - S.stall > 15000 && !S.bad) { S.bad = true; toast('A player lost connection'); if (hooks.onLost) hooks.onLost(); } } else S.stall = 0;
   }
 
   // ---------------- hooks into the game (installed once, they do nothing unless a co-op stage is on) ----------------
@@ -284,9 +297,8 @@ const Coop = (() => {
   }
 
   // ---------------- for the lobby ----------------
-  function dropMember(id) {   // host: a player left the room -> his robot is taken out on the same frame everywhere
-    if (!on() || !S.host || S.over) return; const k = S.members.findIndex(m => m.id === id); if (k < 0 || (S.gone || (S.gone = {}))[k]) return; S.gone[k] = 1;
-    S.pre.push({ k: 'in', sk: S.sk, f: S.f, tm: -1, drop: k }); tx('*', { k: 'in', sk: S.sk, f: S.f, tm: -1, drop: k });
+  function dropMember(id) {   // a player left the room: whoever numbers the frames takes his robot out, on the same frame everywhere
+    if (!on() || S.over) return; const k = S.members.findIndex(m => m.id === id); if (k < 0) return; S.gone = S.gone || {}; if (!S.gone[k]) S.gone[k] = 1;
   }
   return { connect, close, begin, retry, endStage, dropMember, get active() { return on(); }, get host() { return amHost(); }, get desync() { return !!(S && S.bad); }, get frame() { return S ? S.f : 0; }, get state() { return S; } };
 })();
