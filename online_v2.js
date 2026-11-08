@@ -311,9 +311,22 @@ const OnlineUI = (() => {
     const orig = UI.show.bind(UI);
     UI.show = function (name) { const r = orig(name); if (name === 'title' && fromTown) setTimeout(backToTown, 0); return r; };
   }
-  function syncRobot() {   // a brand-new game save starts with the robot you chose online
-    try { Profile.load(); if (!Profile.data.picked) Profile.newGame(session.player.robot); } catch (e) { }
-    try { UI.setup.teams[0].robot = Profile.data.char; store.set('setup', UI.setup); } catch (e) { }
+  // While you are online, Profile / Shop / Armory / Adventure use YOUR ONLINE character (the robot you picked on this server).
+  // Your offline character is saved first and put back when you leave online mode.
+  function syncRobot() {
+    try {
+      Profile.load(); const idx = (session.player.robot | 0);
+      if (store.get('offchar_backup', -1) < 0) store.set('offchar_backup', Profile.data.char | 0);
+      if (Profile.data.char !== idx) { Profile.data.char = idx; Profile.ensureWeapon(); Profile.save(); }
+      UI.setup.teams[0].robot = idx; store.set('setup', UI.setup);
+    } catch (e) { }
+  }
+  function restoreOfflineChar() {
+    try {
+      const b = store.get('offchar_backup', -1); if (b < 0) return;
+      Profile.load(); Profile.data.char = Math.max(0, Math.min(b | 0, Assets.robots.robots.length - 1)); Profile.ensureWeapon(); Profile.save();
+      UI.setup.teams[0].robot = Profile.data.char; store.set('setup', UI.setup); store.set('offchar_backup', -1);
+    } catch (e) { }
   }
   function launch(kind) {
     installReturn(); syncRobot(); fromTown = true; root.hidden = true; view = null;
@@ -326,7 +339,7 @@ const OnlineUI = (() => {
     pop(b.name, b.text);
   }
   function expired() { session = null; store.set('otoken', ''); welcome('Your session ended. Log in with your code.'); }
-  function close() { root.hidden = true; view = null; }
+  function close() { root.hidden = true; view = null; restoreOfflineChar(); }
   function leave() { close(); }   // this code runs inside the app's own page, so closing shows the app's menu again
 
   async function open() {
