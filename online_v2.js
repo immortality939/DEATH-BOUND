@@ -9,6 +9,7 @@
 'use strict';
 const ONLINE_API = 'https://death-bound-server.onrender.com';   // <- address of your Render web service (no slash at the end)
 const ONLINE_SERVERS = 5;                                        // Server 1 .. Server 5
+const ONLINE_SERVER_CAPACITY = 200;                              // players per server; the list shows Smooth / Busy / Full from this
 
 const OnlineUI = (() => {
   // ---------- tiny helpers ----------
@@ -41,6 +42,9 @@ const OnlineUI = (() => {
 #onl .sv:hover,#onl .sv:active{border-color:#ffc15a;background:rgba(80,56,14,.9);box-shadow:0 0 18px rgba(255,193,90,.45)}
 #onl .sv b{font:400 clamp(18px,3.4vh,26px) var(--disp,sans-serif);color:#ffd27a}
 #onl .sv small{color:#9eacc9;font-size:13px}
+#onl .sv .st{font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px}
+#onl .sv .st i{width:10px;height:10px;border-radius:50%;display:inline-block}
+#onl .sv.full{opacity:.65}
 #onl .sv .mine{display:flex;align-items:center;gap:6px;color:#fff;font-size:14px;max-width:100%}
 #onl .sv .mine img{width:30px;height:30px;object-fit:contain}
 #onl .sv .mine span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -161,11 +165,14 @@ const OnlineUI = (() => {
     try { const j = await api('/api/servers', {}, session.token); list = j.servers; }
     catch (e) { if (e.status === 401) return expired(); }
     if (!Array.isArray(list)) { const lc = localChars(); list = Array.from({ length: ONLINE_SERVERS }, (_, i) => ({ id: i + 1, players: null, mine: lc[i + 1] || null })); }
-    const cells = list.map(s => h('div', { class: 'sv', onclick: () => { beep(); pickServer(s); } },
-      h('b', null, 'Server ' + s.id),
-      s.mine ? h('div', { class: 'mine' }, robotImg(robotOf(s.mine.robot)), h('span', null, s.mine.name)) : h('small', null, 'New character'),
-      s.players != null ? h('small', null, s.players + ' players') : null));
-    set(h('div', { class: 'center' }, h('h2', { style: 'margin:0' }, 'Choose a server'), h('p', { class: 'sub' }, 'Each server has its own character and its own players.  (v2)'),
+    const stat = s => { if (s.players == null) return null; const r = s.players / ONLINE_SERVER_CAPACITY; return r < .5 ? ['Smooth', '#4ade80'] : r < .85 ? ['Busy', '#fbbf24'] : ['Full', '#f87171']; };
+    const cells = list.map(s => { const st = stat(s), full = st && st[0] === 'Full';
+      return h('div', { class: 'sv' + (full ? ' full' : ''), onclick: () => { beep(); if (full && !s.mine) return toastMsg('Server ' + s.id + ' is full. Choose another server.'); pickServer(s); } },
+        h('b', null, 'Server ' + s.id),
+        st ? h('div', { class: 'st', style: 'color:' + st[1] }, h('i', { style: 'background:' + st[1] }), st[0] + '  |  ' + s.players + ' players') : null,
+        s.mine ? h('div', { class: 'mine' }, robotImg(robotOf(s.mine.robot)), h('span', null, s.mine.name)) : h('small', null, 'Create a new character'));
+    });
+    set(h('div', { class: 'center' }, h('h2', { style: 'margin:0' }, 'Choose a server'), h('p', { class: 'sub' }, 'Each server has its own characters and its own players. A new server means a new character.  (v2)'),
       h('div', { class: 'servers' }, cells), h('div', { class: 'err' }, err || ''),
       h('div', { class: 'row' }, btn('My code', () => showCode(store.get('ocode', 'Not saved on this phone - use your written copy'), false), 'alt'), btn('Back', leave, 'alt'))));
   }
@@ -240,7 +247,6 @@ const OnlineUI = (() => {
       if (b.plank) el.append(h('div', { class: 'sign plank', style: 'top:88%' }, b.name));
       stage.append(el);
     }
-    stage.append(h('div', { class: 'hero', style: 'left:50%;top:56%' }, h('span', null, p.name), robotImg(r)));
     const top = h('div', { class: 'top' },
       h('div', { class: 'me' }, robotImg(r), h('div', null, h('b', null, p.name), h('small', null, 'Server ' + (p.server || curServer) + '  |  ' + r.name + '  |  Power ' + (p.power || 0)))),
       h('div', { class: 'sp' }),
