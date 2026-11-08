@@ -440,20 +440,30 @@ const AdvLobbyUI = (() => {
     run.unsub = C.live.subscribe(onRunData);
     run.tick = setInterval(runBeat, 1500);
     try { C.launch('gate', () => C.reopenAdv()); } finally { run.launching = false; }   // hides the room, goes landscape; coming back to the title screen returns to the room
-    startStage(r.run.stage);
+    connectCoop(r).then(() => { if (run) startStage(r.run.stage); }).catch(() => { C.toast('Cannot start the shared map. Check your internet.'); leaveRun(); });
   }
-  function startStage(si) {
+  // ONE shared stage for the whole room (coop_server.js): same map, same enemies, one robot per player. The host phone is the clock.
+  async function connectCoop(r) {
+    if (typeof Coop === 'undefined') await C.loadExtra('coop_server.js');
+    if (typeof Coop === 'undefined') throw new Error('coop missing');
+    const ss = C.session(), base = String(ONLINE_API).replace(/^http/, 'ws');
+    await Coop.connect(base + '/ws?t=' + ss.token + '&sv=' + (ss.player.server | 0), ss.player.id, r.hostId,
+      { toast: m => C.toast(m), onLost: () => { C.toast('Connection to the room was lost.'); leaveRun(); }, onAgain: (si, att) => { if (run) startStage(si, att); } });
+    run.hostId = r.hostId;
+  }
+  function startStage(si, att) {
     if (!run) return;
     clearWait(); run.si = si; run.st = 'fight'; run.phase = 'fight';
     Adventure.diff = run.diff; try { $('over').hidden = true; } catch (e) { }
     drawRun(); runBeat();
-    Adventure.start(run.mi, si);
+    const members = ((run.cur && run.cur.members) || []).map(m => ({ id: m.id, name: m.name, robot: m.robot | 0 }));
+    Coop.begin({ sk: run.id + ':' + si + ':' + (att | 0), mi: run.mi, si, diff: run.diff, members });   // every phone builds the same stage (see coop_server.js)
   }
-  function retryStage() {
+  function retryStage() {   // defeat screen -> Retry: the host restarts the stage for the whole room
     if (!run) return;
     try { $('over').hidden = true; } catch (e) { }
     run.st = 'fight'; run.phase = 'fight'; drawRun(); runBeat();
-    Adventure.start(run.mi, run.si);
+    Coop.retry();
   }
   function runOver(orig) {   // a stage ended (Adventure.onOver): the game's own code gives XP, chips and the loot cards
     const A = this, win = !!(G.winner && !G.winner.cpu);
@@ -485,7 +495,12 @@ const AdvLobbyUI = (() => {
     try { await C.live.call('adv/report', { stage: run.si, st: run.st }); } catch (e) { }
     if (run) { run.beating = false; if (run.again) { run.again = false; runBeat(); } }
   }
-  function onRunData(j) { if (!run) return; run.cur = j.myAdv || null; evalRun(); drawRun(); }
+  function onRunData(j) {
+    if (!run) return; run.cur = j.myAdv || null;
+    if (run.cur && run.hostId && run.cur.hostId !== run.hostId) { C.toast('The host left the room.'); return void leaveRun(); }   // the host phone is the clock of the fight
+    if (run.cur && run.hostId === C.player.id && Coop.host) { const ids = new Set(run.cur.members.map(m => m.id)); const st = Coop.state; if (st) for (const m of st.members) if (!ids.has(m.id)) Coop.dropMember(m.id); }
+    evalRun(); drawRun();
+  }
   function evalRun() {
     if (!run || run.ending) return; const r = run.cur;
     if (!r) return endRun('left');                                              // the room is gone / I was dropped
@@ -511,6 +526,7 @@ const AdvLobbyUI = (() => {
   function endRun(kind) {   // back to the room (or the lobby if I left)
     if (!run || run.ending) return; run.ending = true;
     clearInterval(run.tick); if (run.unsub) run.unsub(); clearWait(); run.hud.remove();
+    try { Coop.close(); } catch (e) { }
     run = null;
     try { Loot.cb = null; clearInterval(Loot.timer); if (Loot.el) Loot.el.hidden = true; } catch (e) { }
     try { $('over').hidden = true; $('hud').hidden = true; $('touch').hidden = true; G.mode = 'menu'; Adventure.active = false; } catch (e) { }

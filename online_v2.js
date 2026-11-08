@@ -7,7 +7,6 @@
      /api/guest  /api/login  /api/me           (already existed)
      /api/servers   /api/enter   /api/character                                                                    (character + servers)
      /api/arena/*  (poll, chat, create, join, leave, config, ready, start, cancel, back, invite)                       (real players: rooms, chat, matchmaking)
-     /api/arena/fight                                                                                               (the live battle: loading barrier, input relay, end of fight)
    ONLINE SAVE: while you are online the game uses a SEPARATE save (profile, chips, stones, adventure...) for the character you created,
    so the Bag / Shop / Armory / Adventure show YOUR ONLINE CHARACTER, never the offline one. Leaving online puts the offline save back. */
 'use strict';
@@ -149,7 +148,8 @@ const OnlineUI = (() => {
     try {
       if (!Profile.data) Profile.load(); const r = robotOf(session.player.robot), eq = Profile.eqOf(r.id);
       const w = (eq.weapon && itemById(eq.weapon)) || weaponItemFor(r.id);
-      return { lv: Profile.level(), weapon: w ? { name: w.name, img: Profile.imgOf(w) } : undefined };
+      let power; try { power = Adventure.myPower(); } catch (e2) { }
+      return { lv: Profile.level(), power, weapon: w ? { name: w.name, img: Profile.imgOf(w) } : undefined };
     } catch (e) { return {}; }
   }
 
@@ -164,7 +164,7 @@ const OnlineUI = (() => {
       subs.forEach(f => { try { f(j); } catch (e) { } });
     };
     const call = async (path, body) => {
-      const j = await api('/api/arena/' + path, Object.assign({ server: srv, since }, myInfo(), body || {}), session.token); apply(j); return j;
+      const j = await api((/^adv\//.test(path) ? '/api/' : '/api/arena/') + path, Object.assign({ server: srv, since }, myInfo(), body || {}), session.token); apply(j); return j;
     };
     const tick = async () => {
       if (!on) return; if (!inflight) { inflight = true; try { await call('poll'); } catch (e) { if (e.status === 401) { stop(); return expired(); } } inflight = false; }
@@ -367,22 +367,15 @@ const OnlineUI = (() => {
       .then(code => { const s = document.createElement('script'); s.textContent = code + '\n//# sourceURL=' + file; document.head.appendChild(s); }).catch(e => { delete extraDone[file]; throw e; });
   }
   function arenaCtx() {
-    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo, fight: startFight };
+    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo };
   }
-
-  // ---- Arena FIGHT: the VS screen asks for the battle. arena_fight.js (downloaded from GitHub like arena_v2.js) runs it inside the game's own battle screen ----
-  // It resolves when the fight is over and the player is back (the arena screens are shown again by the caller).
-  async function startFight(match, cb) {
-    await loadExtra('arena_maps.js'); await loadExtra('arena_fight.js');
-    if (typeof ArenaFight === 'undefined') throw new Error('fight code did not start');
-    installReturn(); syncRobot(); try { goLandscape(); } catch (e) { }
-    const post = (path, body) => api('/api/arena/' + path, Object.assign({ server: curServer }, body || {}), session.token);
-    const fc = {
-      get player() { return session.player; }, post, toast: toastMsg, beep, robots, expired,
-      hideOnline: () => { fromTown = false; root.hidden = true; },      // the battle uses the game's own screen
-      showOnline: () => { fromTown = false; root.hidden = false; },     // back to the arena screens
-    };
-    return ArenaFight.run(fc, match, cb || {});
+  function advCtx() { const c = arenaCtx(); c.reopenAdv = openAdventure; c.loadExtra = loadExtra; c.session = () => session; return c; }   // (not Object.assign: it would freeze the live `player` getter)
+  async function openAdventure() {   // ADVENTURE LOBBY (adventure_lobby.js, downloaded from GitHub the first time, like the Arena)
+    try {
+      if (typeof AdvLobbyUI === 'undefined') { toastMsg('Loading Adventure...'); await loadExtra('adventure_lobby.js'); }
+      if (typeof AdvLobbyUI === 'undefined') throw new Error('adventure did not start');
+      installReturn(); root.hidden = false; AdvLobbyUI.open(advCtx());
+    } catch (e) { toastMsg('Cannot load Adventure. Check your internet.'); }
   }
   async function openArena() {
     try {
@@ -417,6 +410,7 @@ const OnlineUI = (() => {
   }
   function building(b) {
     if (b.id === 'arena') return openArena();
+    if (b.id === 'gate') return openAdventure();
     if (b.id === 'gate' || b.id === 'armory' || b.id === 'shop') { try { return launch(b.id); } catch (e) { fromTown = false; root.hidden = false; toastMsg('Could not open ' + b.name + '.'); return; } }
     pop(b.name, b.text);
   }
