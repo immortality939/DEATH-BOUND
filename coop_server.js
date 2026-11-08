@@ -44,6 +44,7 @@ const Coop = (() => {
       const open = () => {
         const ws = new WebSocket(url); net.ws = ws;
         ws.onopen = () => { opened = true; net.tries = 0; res(); };
+        setTimeout(() => { if (!opened && net && net.ws === ws) { try { ws.close(); } catch (e) { } rej(new Error('server did not answer (is it updated and awake?)')); } }, 70000);
         ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m && m.d) onMsg(m.from, m.d); };
         ws.onclose = () => { if (!net || net.closed || net.ws !== ws) return; if (!opened) { rej(new Error('no connection')); return; } if (net.tries++ < 2) { toast('Connection lost... trying again'); setTimeout(() => { if (net && !net.closed) open(); }, 1200); } else { toast('Connection lost'); if (hooks.onLost) hooks.onLost(); } };
         ws.onerror = () => { };
@@ -84,6 +85,7 @@ const Coop = (() => {
     install(); endStage();
     S = { sk: opts.sk, mi: opts.mi, si: opts.si, diff: opts.diff, members: opts.members.slice(), host: amHost(), init: null, sim: false, f: 0, limit: 0, q: [], simIn: {}, hashes: {}, myTeam: -1, rng: null, lastHb: 0, over: false, t0: performance.now(), applying: false, stepping: false, lastSent: null, bad: false, pre: [], uiq: [] };
     const mine = { robot: opts.members.find(m => m.id === net.myId).robot, bonus: JSON.parse(JSON.stringify(profileBonuses(opts.members.find(m => m.id === net.myId).robot))) };
+    toast(S.host ? 'Waiting for the other players...' : 'Waiting for the host to start...');
     if (S.host) { (loads[S.sk] = loads[S.sk] || {})[net.myId] = mine; S.timer = setTimeout(() => { if (S && !S.init) tryInit(true); }, 12000); tryInit(); }
     else {
       tx('h', { k: 'load', sk: S.sk, load: mine });
@@ -110,6 +112,7 @@ const Coop = (() => {
 
   async function startSim(init) {
     if (!S || S.init) return; clearTimeout(S.timer);
+    toast('Building the shared map...');
     S.init = init; S.members = init.mem; S.myTeam = init.mem.findIndex(m => m.id === net.myId); S.rng = mulberry(init.seed);
     const my = S, o = { newGame: window.newGame, pr: Adventure.playerRobot };
     const wrap = function (setup) { window.newGame = o.newGame; return coopNewGame(setup, my, o.newGame); };   // Adventure.start calls newGame once: we reshape what it asks for

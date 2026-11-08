@@ -440,6 +440,7 @@ const AdvLobbyUI = (() => {
     run.unsub = C.live.subscribe(onRunData);
     run.tick = setInterval(runBeat, 1500);
     try { C.launch('gate', () => C.reopenAdv()); } finally { run.launching = false; }   // hides the room, goes landscape; coming back to the title screen returns to the room
+    C.toast('Connecting to the room...');
     connectCoop(r).then(() => { if (run) startStage(r.run.stage); }).catch(e => { console.error('coop connect', e); C.toast('Cannot start the shared map: ' + ((e && e.message) || 'check your internet') + '. (Is the server updated?)'); leaveRun(); });
   }
   // ONE shared stage for the whole room (coop_server.js): same map, same enemies, one robot per player. The host phone is the clock.

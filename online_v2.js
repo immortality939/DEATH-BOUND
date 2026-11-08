@@ -367,7 +367,16 @@ const OnlineUI = (() => {
       .then(code => { const s = document.createElement('script'); s.textContent = code + '\n//# sourceURL=' + file; document.head.appendChild(s); }).catch(e => { delete extraDone[file]; throw e; });
   }
   function arenaCtx() {
-    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo };
+    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo, fight: startFight };
+  }
+  async function startFight(match, cb) {   // ARENA FIGHT: the real battle between the players of a match (arena_fight.js, downloaded from GitHub like the arena itself)
+    if (typeof MAP_RUNS === 'undefined' || !MAP_RUNS.colosseum) await loadExtra('arena_maps_runs.js');
+    if (typeof ArenaFight === 'undefined') await loadExtra('arena_fight.js');
+    if (typeof ArenaFight === 'undefined') throw new Error('arena_fight.js did not load');
+    const fc = { get player() { return session.player; }, toast: toastMsg, expired,
+      post: (path, body) => api('/api/arena/' + path, Object.assign({ server: session.player.server || curServer }, body || {}), session.token),
+      hideOnline: () => { root.hidden = true; }, showOnline: () => { root.hidden = false; } };
+    return ArenaFight.run(fc, match, cb);
   }
   function advCtx() { const c = arenaCtx(); c.reopenAdv = openAdventure; c.loadExtra = loadExtra; c.session = () => session; return c; }   // (not Object.assign: it would freeze the live `player` getter)
   async function openAdventure() {   // ADVENTURE LOBBY (adventure_lobby.js, downloaded from GitHub the first time, like the Arena)
