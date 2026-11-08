@@ -1,4 +1,5 @@
-/* ONLINE MODE (client) - only used by the online page (index_server.html). The offline game never loads this file.
+/* ONLINE MODE (client) - lives on GitHub only. The app downloads it when the player taps Online (see online_loader.js in the app) and runs it inside the app page,
+   so the images come from the phone and none of this code is stored in the app.
    Flow: Online button -> guest login -> Server 1..5 -> choose one of the 10 robots -> name your character -> TOWN
    TOWN = island picture with 6 buildings (Adventure, Arena, League, Hall of Fame, Shop, Armory) + chat box + icon bar.
    The server (Render + Supabase) owns the account and the character; this file only shows screens and asks the server.
@@ -95,6 +96,7 @@ const OnlineUI = (() => {
     if (root) return;
     document.head.append(h('style', null, css));
     root = h('div', { id: 'onl', hidden: '' }); document.body.append(root);
+    if (!document.getElementById('toast')) document.body.append(h('div', { id: 'toast' }));
   }
   const set = (...kids) => { root.replaceChildren(...kids); };
   const toastMsg = m => { const t = document.getElementById('toast'); if (!t) return; t.textContent = m; t.classList.add('on'); clearTimeout(toastMsg.k); toastMsg.k = setTimeout(() => t.classList.remove('on'), 2200); };
@@ -297,7 +299,7 @@ const OnlineUI = (() => {
   }
   function expired() { session = null; store.set('otoken', ''); welcome('Your session ended. Log in with your code.'); }
   function close() { root.hidden = true; view = null; }
-  function leave() { try { if (history.length > 1) return history.back(); } catch (e) { } close(); }   // back to the app's own menu (the app opened this page)
+  function leave() { close(); }   // this code runs inside the app's own page, so closing shows the app's menu again
 
   async function open() {
     ensure(); root.hidden = false; try { goLandscape(); } catch (e) { }
