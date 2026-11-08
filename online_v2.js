@@ -45,6 +45,8 @@ const OnlineUI = (() => {
 #onl .sv .st{font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px}
 #onl .sv .st i{width:10px;height:10px;border-radius:50%;display:inline-block}
 #onl .sv.full{opacity:.65}
+#onl .sv .on{color:#dfe7ff;font-size:clamp(14px,2.6vh,18px)}
+#onl .sv .on b{display:inline;font:700 1em var(--body,sans-serif);color:#fff}
 #onl .sv .mine{display:flex;align-items:center;gap:6px;color:#fff;font-size:14px;max-width:100%}
 #onl .sv .mine img{width:30px;height:30px;object-fit:contain}
 #onl .sv .mine span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -169,10 +171,10 @@ const OnlineUI = (() => {
     const cells = list.map(s => { const st = stat(s), full = st && st[0] === 'Full';
       return h('div', { class: 'sv' + (full ? ' full' : ''), onclick: () => { beep(); if (full && !s.mine) return toastMsg('Server ' + s.id + ' is full. Choose another server.'); pickServer(s); } },
         h('b', null, 'Server ' + s.id),
-        st ? h('div', { class: 'st', style: 'color:' + st[1] }, h('i', { style: 'background:' + st[1] }), st[0] + '  |  ' + s.players + ' players') : null,
-        s.mine ? h('div', { class: 'mine' }, robotImg(robotOf(s.mine.robot)), h('span', null, s.mine.name)) : h('small', null, 'Create a new character'));
+        h('div', { class: 'on' }, 'Online: ', h('b', null, s.players != null ? s.players : '--')),
+        st ? h('div', { class: 'st', style: 'color:' + st[1] }, h('i', { style: 'background:' + st[1] }), st[0]) : null);
     });
-    set(h('div', { class: 'center' }, h('h2', { style: 'margin:0' }, 'Choose a server'), h('p', { class: 'sub' }, 'Each server has its own characters and its own players. A new server means a new character.  (v2)'),
+    set(h('div', { class: 'center' }, h('h2', { style: 'margin:0' }, 'Choose a server'), h('p', { class: 'sub' }, 'Each server has its own players. A new server means a new character.  (v2)'),
       h('div', { class: 'servers' }, cells), h('div', { class: 'err' }, err || ''),
       h('div', { class: 'row' }, btn('My code', () => showCode(store.get('ocode', 'Not saved on this phone - use your written copy'), false), 'alt'), btn('Back', leave, 'alt'))));
   }
