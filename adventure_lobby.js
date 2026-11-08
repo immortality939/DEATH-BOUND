@@ -206,6 +206,7 @@ const AdvLobbyUI = (() => {
       return repaint();
     }
     if (r.state === 'starting') { if (S.view !== 'starting') starting(); return; }
+    if (r.state === 'running') { if (!run) beginRun(r); return; }   // the party goes into the map's stages
     if (S.view !== 'room') return room();
     repaint();
   }
@@ -329,7 +330,7 @@ const AdvLobbyUI = (() => {
     if (host) st.append(btn('START', 836, 316, 118, 62, async () => {
       if (!M) { C.toast('Select an adventure map first.'); return picker(); }
       if (mm.some(m => !m.host && !m.ready)) return C.toast('Everyone must press Ready first.');
-      if (await act('start')) route();
+      if (await act('start', { total: stagesOf(M, d).length })) route();
     }, 'go'));
     else st.append(btn(mine && mine.ready ? 'CANCEL' : 'READY', 836, 316, 118, 62, () => { if (!M) return C.toast('Wait for the host to choose a map.'); act('ready', { ready: !(mine && mine.ready) }); }, mine && mine.ready ? '' : 'rd'));
     st.append(iconBar(716, 392, ['bag', 'friends', 'scroll', 'gear']));
@@ -387,9 +388,134 @@ const AdvLobbyUI = (() => {
     const r = S.my; if (!r) return lobby(); S.view = 'starting'; const M = mapOf(r.map), d = r.diff | 0;
     const cover = h('div', { class: 'cover' }, h('div', { class: 'spin' }), h('div', null, 'Adventure is starting'),
       h('small', null, (M ? M.name + '  |  ' + DIFFS[d].n + '  |  ' : '') + r.members.length + ' player' + (r.members.length > 1 ? 's' : '')),
-      h('small', null, 'The battle itself (all phones playing together) comes next.'),
+      h('small', null, 'Get ready: all players go into the map together in a moment.'),
       btn('Back to room', 0, 0, 190, 50, async () => { await act('back'); }, ''));
     cover.lastChild.style.position = 'static'; el.append(cover);
+  }
+
+  // ===================== THE RUN: the whole room plays the map's stages together =====================
+  // Every phone runs the stage on its own copy of the game (same engine, same maps and bosses as the offline Adventure, with this online character's save).
+  // The server keeps the party together: a stage ends for everybody when all players have cleared it and taken their loot cards,
+  // then everybody starts the next stage at the same time. After the last stage the party is back in the room (choose another map, or leave).
+  // Loot cards (1 flip per stage, 2 on the boss stage) and character XP are the game's own Adventure.onOver / Loot code, so they work exactly like offline.
+  let run = null;       // { id, mi, diff, total, si, phase: 'fight' | 'loot' | 'over' | 'wait', st, cur (last room data), tick, unsub, hud, wait }
+  let hooked = false;
+  const ST = { fight: ['Fighting', '#ffb23c'], won: ['Cleared', '#5be37a'], dead: ['Down', '#ff5a4d'] };
+  function runCss() {
+    if (document.getElementById('coopcss')) return;
+    const s = document.createElement('style'); s.id = 'coopcss'; s.textContent = `
+#coophud{position:fixed;left:50%;top:calc(76px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:9;display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;max-width:94vw;pointer-events:none;font:700 12px var(--body,sans-serif);color:#fff}
+#coophud span{background:rgba(12,18,34,.78);border:1px solid rgba(255,255,255,.2);border-radius:99px;padding:2px 9px;white-space:nowrap}
+#coophud .cs{color:#ffd34a}
+#coophud i,#coopwait i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:var(--c)}
+#coopwait{position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;box-sizing:border-box;text-align:center;background:rgba(6,10,22,.86);color:#eef3ff;font-family:var(--body,sans-serif)}
+#coopwait h2{margin:0;font:400 clamp(24px,5vw,40px) var(--disp,sans-serif);color:#5be37a}
+#coopwait p{margin:0;font-size:16px;color:#cdd7ef}
+#coopwait .mem{display:flex;flex-direction:column;gap:5px;min-width:min(80vw,280px);margin:6px 0}
+#coopwait .mem div{display:flex;justify-content:space-between;gap:16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:6px 12px;font-weight:700}
+#coopwait .lv{padding:10px 22px;border-radius:10px;border:0;cursor:pointer;font:700 16px var(--body,sans-serif);color:#eef3ff;background:linear-gradient(#34456e,#233152)}`;
+    document.head.append(s);
+  }
+  function hookAdventure() {   // wrap the game's own Adventure once; every wrapper does nothing unless an online run is going
+    if (hooked) return; hooked = true;
+    const A = Adventure, o = { open: A.open, back: A.back, onOver: A.onOver, again: A.again, menu: A.menu }, us = UI.show.bind(UI);
+    A.open = function () {   // also what the pause menu's Quit calls
+      if (!run) return o.open.apply(this, arguments);
+      if (run.launching) { this.active = true; G.mode = 'menu'; $('over').hidden = true; return; }   // just enter game mode: the stage is started by the run itself
+      leaveRun();
+    };
+    A.back = function () { if (!run) return o.back.apply(this, arguments); leaveRun(); };
+    A.menu = function () { if (!run) return o.menu.apply(this, arguments); leaveRun(); };       // 'Leave room' on the defeat screen
+    A.again = function () { if (!run) return o.again.apply(this, arguments); retryStage(); };     // 'Retry stage' on the defeat screen
+    A.onOver = function () { return run ? runOver.call(this, o.onOver) : o.onOver.apply(this, arguments); };
+    UI.show = function (name) { if (run && !run.ending && name === 'adventure') setTimeout(leaveRun, 0); return us(name); };   // (the map screen has no place in an online run)
+  }
+  function beginRun(r) {
+    if (run || !r.run) return;
+    const mi = maps().findIndex(m => m.id === r.map);
+    if (mi < 0) { C.toast('This phone does not have that adventure map.'); act('leave').then(() => route()); return; }
+    hookAdventure(); runCss();
+    run = { id: r.run.id, mi, diff: r.diff | 0, total: r.run.total, si: r.run.stage, phase: 'fight', st: 'fight', cur: r, ending: false, launching: true, beating: false, again: false };
+    run.hud = h('div', { id: 'coophud' }); document.body.append(run.hud);
+    run.unsub = C.live.subscribe(onRunData);
+    run.tick = setInterval(runBeat, 1500);
+    try { C.launch('gate', () => C.reopenAdv()); } finally { run.launching = false; }   // hides the room, goes landscape; coming back to the title screen returns to the room
+    startStage(r.run.stage);
+  }
+  function startStage(si) {
+    if (!run) return;
+    clearWait(); run.si = si; run.st = 'fight'; run.phase = 'fight';
+    Adventure.diff = run.diff; try { $('over').hidden = true; } catch (e) { }
+    drawRun(); runBeat();
+    Adventure.start(run.mi, si);
+  }
+  function retryStage() {
+    if (!run) return;
+    try { $('over').hidden = true; } catch (e) { }
+    run.st = 'fight'; run.phase = 'fight'; drawRun(); runBeat();
+    Adventure.start(run.mi, run.si);
+  }
+  function runOver(orig) {   // a stage ended (Adventure.onOver): the game's own code gives XP, chips and the loot cards
+    const A = this, win = !!(G.winner && !G.winner.cpu);
+    if (!win) {   // defeat: the normal result screen, with Retry stage / Leave room
+      const out = orig.call(A);
+      run.st = 'dead'; run.phase = 'over';
+      try { $('bAgain').textContent = 'Retry stage'; $('bMenu').textContent = 'Leave room'; } catch (e) { }
+      drawRun(); runBeat(); return out;
+    }
+    const lo = Loot.open;   // victory: the loot board (1 flip, boss stage 2 flips); when it closes we wait for the team instead of the result screen
+    Loot.open = function (a, b, cb) { return lo.call(this, a, b, () => lootDone()); };
+    try { orig.call(A); } finally { Loot.open = lo; }
+    run.phase = 'loot'; drawRun();
+  }
+  function lootDone() {
+    if (!run) return;
+    run.phase = 'wait'; run.st = 'won';
+    const t = (document.getElementById('overT') || {}).textContent || 'STAGE CLEAR!', sm = (document.getElementById('overS') || {}).textContent || '';
+    run.wait = h('div', { id: 'coopwait' }, h('h2', null, t), h('p', null, sm), h('div', { class: 'mem' }), h('p', { class: 'wl' }, ''),
+      h('button', { class: 'lv', onclick: () => { C.beep(); leaveRun(); } }, 'Leave room'));
+    document.body.append(run.wait);
+    drawRun(); runBeat(); evalRun();
+  }
+  function clearWait() { if (run && run.wait) { run.wait.remove(); run.wait = null; } }
+  async function runBeat() {   // tell the server how this stage is going (also the heartbeat)
+    if (!run || run.ending) return;
+    if (run.beating) { run.again = true; return; }
+    run.beating = true;
+    try { await C.live.call('adv/report', { stage: run.si, st: run.st }); } catch (e) { }
+    if (run) { run.beating = false; if (run.again) { run.again = false; runBeat(); } }
+  }
+  function onRunData(j) { if (!run) return; run.cur = j.myAdv || null; evalRun(); drawRun(); }
+  function evalRun() {
+    if (!run || run.ending) return; const r = run.cur;
+    if (!r) return endRun('left');                                              // the room is gone / I was dropped
+    if (r.state === 'room' || !r.run || r.run.id !== run.id) return endRun('done');   // the party finished the last stage
+    if (run.phase === 'wait' && r.run.stage > run.si) startStage(r.run.stage);  // everybody cleared it: next stage, all together
+  }
+  function drawRun() {
+    if (!run) return; const r = run.cur, rm = r && r.run, me_ = C.player ? C.player.id : null;
+    const rows = (r ? r.members : []).map(m => ({ name: m.name, id: m.id, st: (rm && rm.m && rm.m[m.id]) || 'fight' }));
+    run.hud.style.display = run.phase === 'fight' ? 'flex' : 'none';
+    run.hud.replaceChildren(h('span', { class: 'cs' }, 'Stage ' + (run.si + 1) + ' / ' + run.total), ...rows.map(m => h('span', { style: '--c:' + ST[m.st][1] }, h('i'), m.name + (m.id === me_ ? ' (you)' : ''))));
+    if (run.wait) {
+      const mem = run.wait.querySelector('.mem'), left = rows.filter(m => m.st !== 'won').length, last = run.si + 1 >= run.total;
+      mem.replaceChildren(...rows.map(m => h('div', { style: '--c:' + ST[m.st][1] }, h('span', null, m.name + (m.id === me_ ? ' (you)' : '')), h('span', null, h('i'), ST[m.st][0]))));
+      run.wait.querySelector('.wl').textContent = left > 0 ? 'Waiting for your teammates (' + (rows.length - left) + ' / ' + rows.length + ' ready)...' : (last ? 'Adventure complete!' : 'Next stage starts now...');
+    }
+  }
+  async function leaveRun() {
+    if (!run || run.ending) return;
+    try { await C.live.call('adv/leave'); } catch (e) { }
+    endRun('left');
+  }
+  function endRun(kind) {   // back to the room (or the lobby if I left)
+    if (!run || run.ending) return; run.ending = true;
+    clearInterval(run.tick); if (run.unsub) run.unsub(); clearWait(); run.hud.remove();
+    run = null;
+    try { Loot.cb = null; clearInterval(Loot.timer); if (Loot.el) Loot.el.hidden = true; } catch (e) { }
+    try { $('over').hidden = true; $('hud').hidden = true; $('touch').hidden = true; G.mode = 'menu'; Adventure.active = false; } catch (e) { }
+    C.toast(kind === 'done' ? 'Adventure complete! Back to your room.' : 'You left the adventure.');
+    UI.show('title');   // the online page now brings the player back to the room (or the Adventure lobby)
   }
 
   // ===================== open / close =====================
