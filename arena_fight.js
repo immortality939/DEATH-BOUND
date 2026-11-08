@@ -9,8 +9,8 @@
    Needs: arena_maps.js + arena_maps_runs.js (map ground) and the 10 pictures in the app (assets/arena_maps/). Opponent leaves / loses connection = you win. */
 'use strict';
 const ArenaFight = (() => {
-  const POLL_MS = 220;          // how often the phone talks to the server during a fight
-  const LEAD = 8;               // frames of the opponent's buttons we wait for before we start playing them (smooth walking)
+  const POLL_MS = 220, FAST_MS = 90;          // how often the phone talks to the server during a fight
+  const LEAD = 6;               // frames of the opponent's buttons we wait for before we start playing them (smooth walking)
   const STALL_QUIT_MS = 20000;  // opponent silent for this long during his turn = he left
   const SNAP_WAIT_MS = 4000;    // how long we wait for the snapshot at a turn change
   const REAL_RANDOM = Math.random;
@@ -61,7 +61,7 @@ const ArenaFight = (() => {
     try { Math.random = S.rng; newGame(setup); } finally { Math.random = REAL_RANDOM; window.profileBonuses = pb; }
     G.teams.forEach(t => { try { Object.defineProperty(t, 'pow', { get() { return 0; }, set() { }, configurable: true }); } catch (e) { } });
     UI.show('game'); UI.lastSig = '';
-    S.timer = setInterval(pump, POLL_MS);
+    S.timer = setInterval(() => { const n = Date.now(); if (n - S.lastPoll >= (S.waiting ? FAST_MS : POLL_MS) - 5) pump(); }, 40); S.lastPoll = 0;
   }
   function fail(msg) { try { A && A.C.toast(msg); } catch (e) { } G.mode = 'menu'; UI.show('title'); }
 
@@ -93,19 +93,15 @@ const ArenaFight = (() => {
     const S = A;
     if (!S || !S.live || G.mode !== 'play') return _update.apply(this, arguments);
     const now = Date.now();
-    if (S.waitTc && S.waitTc === G.turnCount) {   // turn change: wait (a moment) for the snapshot of the player who just finished
-      const sn = S.snaps[G.turnCount];
-      if (sn) { applySnap(sn); S.waitTc = 0; }
-      else if (now - S.waitSince < SNAP_WAIT_MS) return;
-      else S.waitTc = 0;
-    }
+    const sn0 = S.snaps[G.turnCount];   // the small check-up of the turn: adopt it the moment it arrives (the game never waits for it)
+    if (sn0 && !sn0.done) { sn0.done = true; applySnap(sn0, G.activeWorm); }
     const w = G.activeWorm, t = w && G.teams[w.team], tc = G.turnCount, inAim = G.phase === 'aim' || G.phase === 'retreat';
     const remote = !!w && owner(w) !== S.me && !G.swarm;
     if (w && inAim && remote) {
       const ib = S.inbox[tc], have = ib ? (ib.done ? Infinity : ib.up) : -1;
       if (S.starve) { if (have - G.tf >= LEAD || (ib && ib.done)) S.starve = false; } else if (have < G.tf) S.starve = true;
-      if (S.starve) { if (!S.stallSince) S.stallSince = now; if (now - S.stallSince > STALL_QUIT_MS) { S.stallSince = 0; playerQuit(owner(w)); } return; }
-      S.stallSince = 0;
+      if (S.starve) { if (!S.stallSince) S.stallSince = now; if (now - S.stallSince > STALL_QUIT_MS) { S.stallSince = 0; playerQuit(owner(w)); } G.cam.shake *= .88; try { updateCamera(); } catch (e) { } S.waiting = true; return; }
+      S.stallSince = 0; S.waiting = false;
       while (ib.ptr < ib.ch.length && ib.ch[ib.ptr][0] <= G.tf) ib.cur = ib.ch[ib.ptr++][1];
       while (ib.sp < ib.sl.length && ib.sl[ib.sp][0] <= G.tf) { const s = ib.sl[ib.sp++][1]; if (WEAPONS[s]) t.sel = s; }
       applyMask(AI.input, ib.done && G.tf > ib.up ? 0 : ib.cur);
@@ -135,8 +131,8 @@ const ArenaFight = (() => {
     const w = G.activeWorm, t = G.teams[w.team], tc = G.turnCount;
     t.cpu = owner(w) !== S.me;   // "cpu" simply means: this robot is played by somebody else
     if (t.cpu && G.banner) G.banner.text = String(G.banner.text).replace(' (CPU)', '');
-    S.tcOut = tc; S.out = { ch: [], sl: [], ps: null, done: false }; S.lastMask = 0; S.lastSel = t.sel; S.sendIn = false; S.upTo = -1; S.starve = true; S.stallSince = 0;
-    if (prev != null) { if (prev === S.me) sendSnap(tc); else { S.waitTc = tc; S.waitSince = Date.now(); } }
+    S.waiting = false; S.tcOut = tc; S.out = { ch: [], sl: [], ps: null, done: false }; S.lastMask = 0; S.lastSel = t.sel; S.sendIn = false; S.upTo = -1; S.starve = true; S.stallSince = 0;
+    if (prev != null && prev === S.me) sendSnap(tc);
   }
 
   function flushIn(force) {
@@ -151,16 +147,17 @@ const ArenaFight = (() => {
     const S = A; S.outq.push({ k: 'snap', tc, wd: G.wind, w: G.worms.map(w => [Math.round(w.x * 10) / 10, Math.round(w.y * 10) / 10, Math.round(w.hp * 10) / 10, w.state === 'dead' || w.state === 'drown' ? w.state : 'ok', w.face]) });
     pumpNow();
   }
-  function applySnap(sn) {
+  function applySnap(sn, mover) {
     G.worms.forEach((w, i) => {
       const a = sn.w && sn.w[i]; if (!a) return;
+      if (w === mover && w.state === 'ground' && (G.tf | 0) > 0) { w.hp = a[2]; return; }   // never push the robot that is walking right now
       const dead = w.state === 'dead' || w.state === 'drown';
       if (a[3] === 'dead' || a[3] === 'drown') { if (!dead) { w.hp = 0; w.state = a[3]; w.dt = 99; w.vx = w.vy = 0; } return; }
       if (dead) return;
       w.x = a[0]; w.y = a[1]; w.hp = a[2]; w.face = a[4]; w.vx = w.vy = 0; w.fallPeak = w.y;
       w.state = (typeof onGround === 'function' && onGround(w.x, w.y, w.sc || 1)) ? 'ground' : 'air';
     });
-    if (typeof sn.wd === 'number') G.wind = sn.wd;
+    if (typeof sn.wd === 'number' && !G.firedThisTurn && Math.abs(G.wind - sn.wd) > 1e-6) G.wind = sn.wd;
   }
   function ended(team) {
     _endGame.apply(this, arguments);
@@ -186,9 +183,9 @@ const ArenaFight = (() => {
   }
 
   // ============================================================ talking to the server
-  function pumpNow() { if (A && A.live) setTimeout(pump, 0); }
+  function pumpNow() { if (A && A.live) { A.again = true; setTimeout(pump, 0); } }
   async function pump() {
-    const S = A; if (!S || !S.live || S.busy) return;
+    const S = A; if (!S || !S.live || S.busy) return; S.lastPoll = Date.now();
     if (S.sendIn) flushIn();
     if (!S.outq.length && Date.now() - S.lastSend > 4000) S.outq.push({ k: 'hb' });
     const ev = S.outq.splice(0, 30); S.busy = true;
@@ -203,7 +200,7 @@ const ArenaFight = (() => {
       S.outq = ev.concat(S.outq);
       if (e && e.status === 401) return abort('Please log in again.');
       if (++S.fails * POLL_MS > 25000) abort('Connection lost.');
-    } finally { S.busy = false; }
+    } finally { S.busy = false; if (S.again && S.live) { S.again = false; if (S.outq.length) setTimeout(pump, 0); } }
   }
   function abort(msg) { try { A.C.toast(msg); } catch (e) { } if (G.mode === 'play') { G.mode = 'menu'; } UI.paused = false; UI.show('title'); }
   function ingest(S, list) {
