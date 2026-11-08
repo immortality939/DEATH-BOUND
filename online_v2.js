@@ -86,7 +86,7 @@ const OnlineUI = (() => {
 #onl .chat .log i{color:#8fe0a0;font-style:normal}
 #onl .chat .up,#onl .chat .dn{position:absolute;left:91.6%;width:4.6%;height:8.5%;cursor:pointer}
 #onl .chat .up{top:22.5%}#onl .chat .dn{top:72%}
-#onl .chat input{position:absolute;left:13.5%;width:56%;top:85%;height:11%;background:transparent;border:0;outline:0;color:#fff;font:600 1em var(--body,sans-serif);padding:0 .4em;user-select:text;-webkit-user-select:text}
+#onl .chat input{position:absolute;left:13.5%;width:56%;top:85%;height:11%;background:#17171d;border-radius:.4em;border:0;outline:0;color:#fff;font:600 1em var(--body,sans-serif);padding:0 .4em;user-select:text;-webkit-user-select:text}
 #onl .chat input::placeholder{color:#8c95a8}
 #onl .chat .em{position:absolute;left:72%;top:84.5%;width:6.4%;height:12%;cursor:pointer}
 #onl .chat .send{position:absolute;left:80.6%;top:84.5%;width:16.2%;height:12.5%;cursor:pointer;border-radius:.6em}
@@ -284,9 +284,28 @@ const OnlineUI = (() => {
   }
   function iconPop(ic) { pop(ic.name, ''); }
 
+  // ---- Arena: its code (arena_v2.js + arena_maps.js) is downloaded from GitHub the first time you tap the building ----
+  const extraDone = {};
+  function loadExtra(file) {
+    if (extraDone[file]) return extraDone[file];
+    const base = (typeof ONLINE_CODE_URL === 'string' ? ONLINE_CODE_URL : '').replace(/[^/]*$/, '');
+    return extraDone[file] = fetch(base + file + '?t=' + Date.now(), { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(file + ' ' + r.status); return r.text(); })
+      .then(code => { const s = document.createElement('script'); s.textContent = code + '\n//# sourceURL=' + file; document.head.appendChild(s); }).catch(e => { delete extraDone[file]; throw e; });
+  }
+  function arenaCtx() {
+    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena };
+  }
+  async function openArena() {
+    try {
+      if (typeof ArenaUI === 'undefined') { toastMsg('Loading Arena...'); await loadExtra('arena_maps.js'); await loadExtra('arena_v2.js'); }
+      if (typeof ArenaUI === 'undefined') throw new Error('arena did not start');
+      installReturn(); root.hidden = false; ArenaUI.open(arenaCtx());
+    } catch (e) { toastMsg('Cannot load the Arena. Check your internet.'); }
+  }
+
   // ---- Adventure / Shop / Armory open the game's own screens (same as the offline game) ----
-  let fromTown = false;
-  function backToTown() { fromTown = false; if (session) { root.hidden = false; town(); } else open(); }
+  let fromTown = false, retFn = null;   // retFn = where to come back to (the arena sets it; empty = the town)
+  function backToTown() { fromTown = false; const f = retFn; retFn = null; if (session) { root.hidden = false; if (f) f(); else town(); } else open(); }
   function installReturn() {   // when the game goes back to its title screen, come back to the town instead
     if (installReturn.done || typeof UI === 'undefined') return; installReturn.done = true;
     const orig = UI.show.bind(UI);
@@ -299,9 +318,10 @@ const OnlineUI = (() => {
   function launch(kind) {
     installReturn(); syncRobot(); fromTown = true; root.hidden = true; view = null;
     try { goLandscape(); } catch (e) { } beep();
-    if (kind === 'gate') Adventure.open(); else if (kind === 'armory') Forge.open(null); else if (kind === 'shop') Shop.open();
+    if (kind === 'gate') Adventure.open(); else if (kind === 'armory') Forge.open(null); else if (kind === 'shop') Shop.open(); else if (kind === 'profile') Profile.open();
   }
   function building(b) {
+    if (b.id === 'arena') return openArena();
     if (b.id === 'gate' || b.id === 'armory' || b.id === 'shop') { try { return launch(b.id); } catch (e) { fromTown = false; root.hidden = false; toastMsg('Could not open ' + b.name + '.'); return; } }
     pop(b.name, b.text);
   }
