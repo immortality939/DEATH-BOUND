@@ -7,6 +7,7 @@
      /api/guest  /api/login  /api/me           (already existed)
      /api/servers   /api/enter   /api/character                                                                    (character + servers)
      /api/arena/*  (poll, chat, create, join, leave, config, ready, start, cancel, back, invite)                       (real players: rooms, chat, matchmaking)
+     /api/arena/fight                                                                                               (the live battle: loading barrier, input relay, end of fight)
    ONLINE SAVE: while you are online the game uses a SEPARATE save (profile, chips, stones, adventure...) for the character you created,
    so the Bag / Shop / Armory / Adventure show YOUR ONLINE CHARACTER, never the offline one. Leaving online puts the offline save back. */
 'use strict';
@@ -366,8 +367,22 @@ const OnlineUI = (() => {
       .then(code => { const s = document.createElement('script'); s.textContent = code + '\n//# sourceURL=' + file; document.head.appendChild(s); }).catch(e => { delete extraDone[file]; throw e; });
   }
   function arenaCtx() {
-    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo,
-      load: loadExtra, fight: b => api('/api/arena/fight', Object.assign({ server: curServer }, b), session.token) };   // load = download another file from GitHub; fight = the live battle messages
+    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo, fight: startFight };
+  }
+
+  // ---- Arena FIGHT: the VS screen asks for the battle. arena_fight.js (downloaded from GitHub like arena_v2.js) runs it inside the game's own battle screen ----
+  // It resolves when the fight is over and the player is back (the arena screens are shown again by the caller).
+  async function startFight(match, cb) {
+    await loadExtra('arena_maps.js'); await loadExtra('arena_fight.js');
+    if (typeof ArenaFight === 'undefined') throw new Error('fight code did not start');
+    installReturn(); syncRobot(); try { goLandscape(); } catch (e) { }
+    const post = (path, body) => api('/api/arena/' + path, Object.assign({ server: curServer }, body || {}), session.token);
+    const fc = {
+      get player() { return session.player; }, post, toast: toastMsg, beep, robots, expired,
+      hideOnline: () => { fromTown = false; root.hidden = true; },      // the battle uses the game's own screen
+      showOnline: () => { fromTown = false; root.hidden = false; },     // back to the arena screens
+    };
+    return ArenaFight.run(fc, match, cb || {});
   }
   async function openArena() {
     try {

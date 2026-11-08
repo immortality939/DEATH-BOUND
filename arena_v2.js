@@ -6,7 +6,8 @@
    Pictures: assets/online/ui/*.png (wood + light brown border, 9-slice) - these live in the app.
    RULES kept here: one character per player in every arena fight (not 3 like Adventure) - shown as ONE picture per slot.
    Matchmaking (server): two rooms with the same mode and the same number of players that are both searching become a match -> VS screen on every phone.
-   The fight itself (turn sync between the phones) is NOT built yet: the VS screen is where the battle will start. */
+   THE FIGHT: after the VS screen the battle loads (arena_fight.js) and both phones play the same battle on the map of the match, turn by turn.
+   When it ends both players come back here (room screen). */
 'use strict';
 const ARENA_UI = 'assets/online/ui/';
 
@@ -331,28 +332,26 @@ const ArenaUI = (() => {
     const mineIdx = Math.max(0, m.teams.findIndex(t => t.some(x => x.id === p.id))), mine = m.teams[mineIdx], foe = m.teams[1 - mineIdx] || [];
     const map = (typeof ARENA_MAPS !== 'undefined' && ARENA_MAPS.length) ? ARENA_MAPS[m.mapSeed % ARENA_MAPS.length] : { name: 'Random map' };
     const card = x => h('div', { class: 'vc' }, rimg(x.robot).cloneNode(), h('b', null, x.name), h('small', null, 'Lv ' + x.lv));
+    let ctl = null;
     const st = stage(h('div', { class: 'ttl sm' }, MODES[r.mode].name),
       h('div', { class: 'vsrow' }, h('div', { class: 'vteam' }, mine.map(card)), h('div', { class: 'vs' }, 'VS'), h('div', { class: 'vteam' }, foe.map(card))),
-      h('div', { class: 'abs', style: 'left:0;right:0;top:296px;text-align:center;font:400 26px var(--disp,sans-serif);color:#ffd34a;text-shadow:0 3px 0 #3a1c06' }, 'Map: ' + map.name),
-      map.thumb ? h('img', { class: 'abs', src: map.thumb, style: 'left:396px;top:340px;width:168px;height:60px;border:3px solid #3a1c06;border-radius:6px;object-fit:cover' }) : null,
-      h('div', { id: 'arCount', class: 'abs', style: 'left:0;right:0;top:410px;text-align:center;font:700 20px var(--body,sans-serif);color:#ffe9c4' }, 'Get ready...'),
-      btn('Leave', 380, 456, 200, 52, async () => {
-        clearTimers();
-        try { await C.fight({ match: m.id, since: 0, ev: [{ k: 'quit' }] }); } catch (e) { }
-        await act('back'); if (S.myRoom) room(); else lobby();
-      }, ''));
+      h('div', { class: 'abs', style: 'left:0;right:0;top:300px;text-align:center;font:400 26px var(--disp,sans-serif);color:#ffd34a;text-shadow:0 3px 0 #3a1c06' }, 'Map: ' + map.name),
+      h('div', { class: 'abs', style: 'left:180px;width:600px;top:352px;text-align:center;font:600 16px/1.35 var(--body,sans-serif);color:#ffe9c4' }, h('span', { class: 'spin', style: 'display:inline-block;width:18px;height:18px;border-width:3px;vertical-align:-3px;margin-right:8px' }), h('span', { id: 'arStat' }, 'Loading the battlefield...')),
+      btn('Leave', 380, 430, 200, 58, () => { if (ctl && ctl.abort) ctl.abort(); }, 'sm'));
     mount(st);
-    let n = 4; const myMatch = m.id;
-    const go = async () => {
-      if (S.view !== 'vs' || !S.myRoom || !S.myRoom.match || S.myRoom.match.id !== myMatch) return;
-      try {
-        if (!map.img) throw new Error('no map');
-        if (typeof ArenaFight === 'undefined') await C.load('arena_fight.js');
-        await ArenaFight.start(C, m, map);
-      } catch (e) { C.toast('Could not start the battle. Check your internet.'); const c = document.getElementById('arCount'); if (c) c.textContent = 'Could not start. Press Leave.'; }
-    };
-    const tick = () => { const c = document.getElementById('arCount'); if (c) c.textContent = n > 0 ? 'Battle starts in ' + n : 'Loading the battle...'; if (n-- > 0) later(tick, 1000); else go(); };
-    tick();
+    runFight(r, map, c => { ctl = c; });
+  }
+  async function runFight(r, map, onCtl) {
+    const stat = t => { const e = document.getElementById('arStat'); if (e) e.textContent = t; };
+    let res = null;
+    try { res = await C.fight(r.match, { map, minShowMs: 3200, onStatus: stat, onControl: onCtl }); }
+    catch (e) { C.toast('Could not start the fight' + (e && e.message ? ': ' + e.message : '.')); }
+    // the fight is over (or could not start): tell the server we left the VS / fight screen, then show the room again
+    S.view = null; S.sig = '';
+    if (!el || !el.isConnected) return;
+    C.root.hidden = false;
+    await act('back'); route();
+    if (S.view === null) { if (S.myRoom) room(); else lobby(); }
   }
 
   // ===================== open / close =====================
