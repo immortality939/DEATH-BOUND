@@ -17,6 +17,8 @@ const G = {   // game state
 // ---------------- helpers ----------------
 function wdef(id) { return WEAPONS.find(w => w.id === id); }
 function aliveWorms() { return G.worms.filter(w => w.state !== 'dead' && w.state !== 'drown'); }
+// ARENA (online only): G.squad[teamIdx] = side number. Teams on the same side are allies (never targeted, win together). G.squad is null in every normal match.
+function sameSide(a, b) { if (!a || !b) return false; if (a.team === b.team) return true; const S = G.squad; return !!(S && S[a.team] != null && S[a.team] === S[b.team]); }
 function teamAlive(t) { return G.worms.some(w => w.team === t && w.state !== 'dead' && w.state !== 'drown'); }
 function teamHP(t) { return G.worms.reduce((a, w) => a + (w.team === t && w.hp > 0 ? w.hp : 0), 0); }
 function gripWorld(w) {
@@ -55,7 +57,7 @@ function shake(a) { G.cam.shake = Math.min(26, G.cam.shake + a); }
 function usePotion(ti, k) {   // Heal / Team Heal item box k (0 or 1) of team ti. Returns true when it was used (the turn goes on).
   const t = G.teams[ti], p = t && t.pots && t.pots[k], w = G.activeWorm;
   if (!p || p.left <= 0 || !w || w.team !== ti || (G.potUsed | 0) >= POTION_PER_TURN) return false;
-  const list = p.kind === 'team' ? aliveWorms().filter(x => x.team === ti) : [w]; let tot = 0;
+  const list = p.kind === 'team' ? aliveWorms().filter(x => sameSide(x, w)) : [w]; let tot = 0;
   list.forEach(x => { const h = Math.max(0, Math.min((x.maxHp || 100) - x.hp, Math.round((x.maxHp || 100) * p.pct))); if (h > 0) { x.hp += h; x.healT = 36; tot += h; const s = x.sc || 1; addFx('heal_pulse', x.x, x.y - 57 * s, .95 * s); addPop(x.x, x.y - 95 * s, '+' + h + ' HP', '#8dff9e', 20); } });
   if (!tot) { addPop(w.x, w.y - 95 * (w.sc || 1), 'Full health', '#cfe8ff', 16); return false; }   // nothing to heal: the item is not used up
   p.left--; try { if (typeof Profile !== 'undefined') Profile.addStock(p.id, -1); } catch (e) { }   // gone for good: buy again in the Shop
@@ -230,7 +232,7 @@ function divineBurst(p) {   // everyone inside the blast (the thrower too) share
   const pr = p.p, own = p.owner, R = pr.healR || DIVINE_RADIUS, tb = own ? teamBonus(own.team) : null, total = tb && tb.heal ? tb.heal : pr.heal;
   const az = isAzureHeal(p), pc = az ? '#cdeeff' : '#ffd0f5', hc = az ? '#9fdcff' : '#8dff9e';   // pop colours (Azure = light blue)
   addFx(divFx('divine_burst', p), p.x, p.y, R / 112); shake(2); Snd.play('divine');
-  const hit = aliveWorms().filter(w => { const [cx, cy] = bodyCenter(w); return dist(p.x, p.y, cx, cy) - 22 * (w.sc || 1) < R && (DIVINE_HEALS_ENEMIES || !own || w.team === own.team); });
+  const hit = aliveWorms().filter(w => { const [cx, cy] = bodyCenter(w); return dist(p.x, p.y, cx, cy) - 22 * (w.sc || 1) < R && (DIVINE_HEALS_ENEMIES || !own || sameSide(w,own)); });
   if (!hit.length) { addPop(p.x, p.y - 30, 'No one in range', pc, 16); return; }
   const share = total / hit.length;
   if (hit.length > 1) addPop(p.x, p.y - R * .55, 'Heal ' + Math.round(total) + ' ÷ ' + hit.length, pc, 20);
@@ -250,11 +252,11 @@ function updateProj(p) {
     if (!p.bomblet && (pr.wind !== undefined || pr.wind === undefined)) p.vx += windAcc() * (pr.wind === undefined ? 0 : pr.wind);
     p.vy += pr.g || 0;
     if (pr.homing && p.age > 18) {   // flies a normal arc; only locks on once an enemy is within homeRange, then keeps steering
-      let best = null, bd = p.locked ? 1e9 : (pr.homeRange || 170); for (const w of aliveWorms()) { if (w === p.owner || w.team === p.owner.team) continue; const [cx, cy] = bodyCenter(w), d = dist(p.x, p.y, cx, cy); if (d < bd) { bd = d; best = [cx, cy]; } }
+      let best = null, bd = p.locked ? 1e9 : (pr.homeRange || 170); for (const w of aliveWorms()) { if (w === p.owner || sameSide(w,p.owner)) continue; const [cx, cy] = bodyCenter(w), d = dist(p.x, p.y, cx, cy); if (d < bd) { bd = d; best = [cx, cy]; } }
       if (best) { p.locked = true; const want = Math.atan2(best[1] - p.y, best[0] - p.x), cur = Math.atan2(p.vy, p.vx); let df = want - cur; while (df > Math.PI) df -= 6.283; while (df < -Math.PI) df += 6.283; const na = cur + clamp(df, -.12, .12), sp = Math.max(8, Math.min(12, Math.hypot(p.vx, p.vy) + .2)); p.vx = Math.cos(na) * sp; p.vy = Math.sin(na) * sp; }
     }
     if (pr.meteor && p.age > 10) {   // air-burst when directly above an enemy
-      for (const w of G.worms) { if (w.state === 'dead' || w.state === 'drown' || w.team === p.owner.team) continue; if (Math.abs(p.x - w.x) < 26 && p.y < w.y - 62 && w.y - p.y < 560) { meteorBurst(p); return; } }
+      for (const w of G.worms) { if (w.state === 'dead' || w.state === 'drown' || sameSide(w,p.owner)) continue; if (Math.abs(p.x - w.x) < 26 && p.y < w.y - 62 && w.y - p.y < 560) { meteorBurst(p); return; } }
     }
     if (pr.divine) divineTrail(p);   // Divine Heal: comet trail + sparkles
     if (pr.trailFx && p.age % 2 === 0) { const tf = pr.trailFx[p.owner ? teamWTier(G.teams[p.owner.team]) : 0]; addFx(tf, p.x, p.y, .62, { rot: Math.atan2(p.vy, p.vx) }); }   // Doom Axe: sprite trail per upgrade look
@@ -450,7 +452,7 @@ function newGame(setup) {
   const seed = (Math.random() * 1e9) | 0; G.theme = setup.theme === 'random' ? ['day', 'sunset', 'night'][rint(0, 2)] : setup.theme;
   G.map = setup.map || null; G.terrain = new Terrain(G.theme, seed, G.map); if (setup.clearPath) clearPath(G.terrain);   // boss stages: flatten every hill / pillar / pit so walking bots can reach the players
   G.worms = []; G.projs = []; G.fxs = []; G.parts = []; G.pops = []; G.beams = []; G.crates = []; G.teams = []; G.round = 0; G.minionRound = 0; G.bossW = null; G.swarm = null;
-  G.adv = !!setup.adv; WATER_Y = G.adv ? WORLD_H + 90 : WORLD_H - 78; G.queue = []; G.diff = setup.diff; G.winner = null; G.turnCount = 0; G.frame = 0; G.flyMode = false; G.charge = 0; G.charging = false; G.burst = null; G.volley = null; G.flameT = 0;
+  G.squad = setup.squads || null; G.adv = !!setup.adv; WATER_Y = G.adv ? WORLD_H + 90 : WORLD_H - 78; G.queue = []; G.diff = setup.diff; G.winner = null; G.turnCount = 0; G.frame = 0; G.flyMode = false; G.charge = 0; G.charging = false; G.burst = null; G.volley = null; G.flameT = 0;
   const T = G.terrain, nT = setup.teams.length, per = setup.per;
   setup.teams.forEach((tm, i) => {
     const ammo = {}, robId = (tm.robotObj || Assets.robots.robots[tm.robot]).id; WEAPONS.forEach(w => ammo[w.id] = w.sig ? (w.sig === robId ? Infinity : 0) : w.boss ? (w.boss === robId ? Infinity : 0) : (setup.adv ? 0 : w.ammo));   // signature weapons: only your own robot has it (unlimited). Boss weapons: only that boss. ADVENTURE (setup.adv): every other weapon is locked, so you use only your inventory weapon and every enemy only its own
@@ -486,7 +488,7 @@ function carveSpawn(x, y, sc = 1) { /* make sure spawn has room above */ const h
 function nextAliveTeam(from) { const n = G.teams.length; for (let i = 1; i <= n; i++) { const t = (from + i) % n; if (teamAlive(t)) return t; } return -1; }
 function startTurn() {
   G.winner = null;
-  const alive = G.teams.filter(t => teamAlive(t.idx)); if (alive.length <= 1) { endGame(alive[0]); return; }
+  const alive = G.teams.filter(t => teamAlive(t.idx)); if (alive.length <= 1 || (G.squad && new Set(alive.map(t => G.squad[t.idx])).size <= 1)) { endGame(alive[0]); return; }
   let w, t;
   if (G.adv) {   // ADVENTURE turn order: every robot of every team shoots once per round, highest Agility first (a frozen robot loses its slot, then the next one in the order goes)
     const live = x => x.state !== 'dead' && x.state !== 'drown'; G.queue = (G.queue || []).filter(live);
@@ -540,11 +542,11 @@ function ringFx(x, y, col, delay = 0) { (G.rings = G.rings || []).push({ x, y, a
 // hit every enemy that matches: air = also players in the air; R = reach (Infinity = everyone on the map); cx = centre of the blast
 function specialHit(w, dmg, air, R, cx, anyY) {
   R = R == null ? (air ? ROAR_R : QUAKE_R) : R; cx = cx == null ? w.x : cx;
-  const hit = G.worms.filter(t => !bossAlly(w, t) && t.team !== w.team && t.state !== 'dead' && t.state !== 'drown' && (air || t.state === 'ground') && Math.abs(t.x - cx) < R && (air || anyY || Math.abs(t.y - w.y) < 220));
+  const hit = G.worms.filter(t => !bossAlly(w, t) && !sameSide(t,w) && t.state !== 'dead' && t.state !== 'drown' && (air || t.state === 'ground') && Math.abs(t.x - cx) < R && (air || anyY || Math.abs(t.y - w.y) < 220));
   for (const p of hit) { const dir = p.x >= cx ? 1 : -1; hurt(p, dmg); if (p.state !== 'dead') knockWorm(p, dir * (air ? 3.4 : 2.6), air ? -3 : -5); addFx('spark_hit', p.x, p.y - 40, 1.1); }
   return hit.length;
 }
-function nearestFoe(w) { return G.worms.filter(t => !bossAlly(w, t) && t.team !== w.team && t.state !== 'dead' && t.state !== 'drown').sort((a, b) => Math.abs(a.x - w.x) - Math.abs(b.x - w.x))[0] || null; }
+function nearestFoe(w) { return G.worms.filter(t => !bossAlly(w, t) && !sameSide(t,w) && t.state !== 'dead' && t.state !== 'drown').sort((a, b) => Math.abs(a.x - w.x) - Math.abs(b.x - w.x))[0] || null; }
 // put the boss at x, riding the ground (steps up / down a little); false = no ground there
 function placeOnGround(w, nx) {
   const sc = w.sc || 1; nx = clamp(nx, 80, WORLD_W - 80);
@@ -562,7 +564,7 @@ function updateWaves() {
     if (wv.age % 3 === 0) { debris(wv.x, wv.y - 4, 2, 'dirt'); }
     if (wv.age % 12 === 0) shake(3);
     for (const t of G.worms) {
-      if (wv.hit.includes(t) || t.state === 'dead' || t.state === 'drown' || bossAlly(wv.owner, t) || t.team === wv.owner.team) continue;
+      if (wv.hit.includes(t) || t.state === 'dead' || t.state === 'drown' || bossAlly(wv.owner, t) || sameSide(t,wv.owner)) continue;
       if (Math.abs(t.x - wv.x) < WAVE_HIT_R + 10 * (t.sc || 1) && t.y > wv.y - 70 && t.y < wv.y + 90 && t.state === 'ground') {
         wv.hit.push(t); hurt(t, wv.dmg); if (t.state !== 'dead') knockWorm(t, wv.dir * 2.4, -5); addFx('spark_hit', t.x, t.y - 40, 1.2); addFx('explosion_small', t.x, t.y - 10, .8); Snd.play('boom', .7); shake(10);
       }
@@ -630,8 +632,8 @@ function flyShot(m, tg, spread = 0) {
 // Damage = STOMP_PCT of the player's MAX health (so it is almost a one-hit kill on every map, whatever your gear), never less than STOMP_DMG. Defense / armor do not reduce it.
 const STOMP_R = 230, STOMP_DMG = 100, STOMP_PCT = .9, STOMP_WIND = 40;
 function isBoss(w) { return !!(w && w.rob && String(w.rob.id).indexOf('boss_') === 0); }
-function bossAlly(a, b) { return !!(G.adv && G.bossW && a && b && a.team === b.team && a.team === G.bossW.team); }   // boss stage: both robots belong to the boss's team (boss + its melee minions) -> no friendly fire
-function bossStompTargets(w) { return G.worms.filter(t => t.team !== w.team && t.state !== 'dead' && t.state !== 'drown' && Math.abs(t.x - w.x) < STOMP_R && Math.abs(t.y - w.y) < 140); }
+function bossAlly(a, b) { return !!(G.adv && G.bossW && a && b && sameSide(a,b) && a.team === G.bossW.team); }   // boss stage: both robots belong to the boss's team (boss + its melee minions) -> no friendly fire
+function bossStompTargets(w) { return G.worms.filter(t => !sameSide(t,w) && t.state !== 'dead' && t.state !== 'drown' && Math.abs(t.x - w.x) < STOMP_R && Math.abs(t.y - w.y) < 140); }
 function bossStompStep(w) {   // called every frame while the boss stomps; returns true when finished
   w.stompT = (w.stompT || 0) + 1; const t = w.stompT, T = G.terrain, sc = w.sc || 1;
   if (t < STOMP_WIND) { w.hop = Math.sin(Math.PI * Math.min(1, t / (STOMP_WIND * .8))) * 34 * sc; if (t % 8 === 0) shake(2); return false; }
@@ -673,7 +675,7 @@ const SWARM_TIME = 12;   // seconds at most for the whole group (they end the tu
 function swarmControl() {
   const live = G.swarm.filter(m => m.state !== 'dead' && m.state !== 'drown');
   if (!live.length) { G.swarm = null; G.phase = 'settle'; G.settleT = 0; return; }
-  const foes = aliveWorms().filter(e => e.team !== live[0].team), f0 = foes[0];
+  const foes = aliveWorms().filter(e => !sameSide(e,live[0])), f0 = foes[0];
   G.activeWorm = f0 ? live.slice().sort((a, b) => Math.abs(a.x - f0.x) - Math.abs(b.x - f0.x))[0] : live[0];   // camera follows the bot closest to you
   if (G.phase !== 'aim') return;
   for (const m of live) { if (!m.done) AI.swarmStep(m); }

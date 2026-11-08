@@ -198,7 +198,7 @@ const ADV_MAPS = [
   },
 ];
 const BOSS_GLOW = { rustjaw: '#ff5a3a', frostking: '#6fe6ff', stormlord: '#ffe94a', magma: '#ff9a2a', verdant: '#8dff58', pharaoh: '#4ff0e6', aero: '#6fcbff', plague: '#b4ff3a', prism: '#d38bff', void: '#c86bff', gutrot: '#9dd63a', frostwyrm: '#8ff2ff', stormbone: '#ffe45a', cinderdrake: '#ff7a2a', templemino: '#ff7a3a', tombking: '#4ff0e6', zenithmino: '#5fd8ff', voiddrake: '#e07bff' };   // aura colour behind each boss portrait
-const ADV_YOU = 3;   // robots in your squad
+const ADV_YOU = 1;   // robots in your squad
 
 // ===== SECOND BOSS (HARD + HEROIC only) =====
 // After the robot boss is beaten, HARD and HEROIC add ONE more stage on the same arena: a creature boss (not a robot) with its own 3D sprites and its own attack.
