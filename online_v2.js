@@ -5,7 +5,10 @@
    The server (Render + Supabase) owns the account and the character; this file only shows screens and asks the server.
    Server calls used (see SERVER_API.md for the exact JSON and the SQL):
      /api/guest  /api/login  /api/me           (already existed)
-     /api/servers   /api/enter   /api/character (new)                                                              */
+     /api/servers   /api/enter   /api/character                                                                    (character + servers)
+     /api/arena/*  (poll, chat, create, join, leave, config, ready, start, cancel, back, invite)                       (real players: rooms, chat, matchmaking)
+   ONLINE SAVE: while you are online the game uses a SEPARATE save (profile, chips, stones, adventure...) for the character you created,
+   so the Bag / Shop / Armory / Adventure show YOUR ONLINE CHARACTER, never the offline one. Leaving online puts the offline save back. */
 'use strict';
 const ONLINE_API = 'https://death-bound-server.onrender.com';   // <- address of your Render web service (no slash at the end)
 const ONLINE_SERVERS = 5;                                        // Server 1 .. Server 5
@@ -112,6 +115,65 @@ const OnlineUI = (() => {
   const robotOf = i => robots()[i] || robots()[0];
   const robotImg = (r, cls) => h('img', { src: 'assets/robots/front/' + r.id + '.webp', alt: '', class: cls || null });
 
+  // ---------- separate ONLINE save (keys are prefixed while you are online) ----------
+  const GAME_KEYS = ['profile', 'chips', 'stones', 'amu', 'adv', 'wins', 'sup1', 'setup'];
+  let ns = null, setupBackup = null, storePatched = false;
+  function patchStore() {
+    if (storePatched) return; storePatched = true;
+    const g = store.get.bind(store), st = store.set.bind(store);
+    store.get = (k, d) => g(ns && GAME_KEYS.includes(k) ? ns + k : k, d);
+    store.set = (k, v) => st(ns && GAME_KEYS.includes(k) ? ns + k : k, v);
+    const R = Profile.render;   // the Bag shows the NAME you gave your online character
+    Profile.render = function () {
+      const r = R.apply(this, arguments);
+      if (ns && session) try { const e = document.querySelector('.pf-name'); if (e && e.firstChild && e.firstChild.nodeType === 3) e.firstChild.nodeValue = session.player.name; } catch (e) { }
+      return r;
+    };
+  }
+  function activateChar() {
+    try {
+      patchStore(); if (!ns) setupBackup = JSON.stringify(UI.setup);
+      ns = 'on_' + String(session.player.id || 'x').replace(/[^a-z0-9]/gi, '').slice(0, 10) + '_s' + (session.player.server || curServer) + '_';
+      Profile.data = null; Profile.load();
+      const idx = Math.max(0, Math.min(session.player.robot | 0, robots().length - 1));
+      if (Profile.data.char !== idx || !Profile.data.picked) { Profile.data.char = idx; Profile.data.picked = true; Profile.ensureWeapon(); Profile.save(); }
+      UI.setup = store.get('setup', null) || JSON.parse(setupBackup); UI.setup.teams[0].robot = idx; store.set('setup', UI.setup);
+    } catch (e) { }
+  }
+  function deactivateChar() {   // back to the OFFLINE save
+    if (!ns) return; ns = null;
+    try { Profile.data = null; Profile.load(); if (setupBackup) UI.setup = JSON.parse(setupBackup); } catch (e) { } setupBackup = null;
+  }
+  function myInfo() {   // level + weapon, shown to other players
+    try {
+      if (!Profile.data) Profile.load(); const r = robotOf(session.player.robot), eq = Profile.eqOf(r.id);
+      const w = (eq.weapon && itemById(eq.weapon)) || weaponItemFor(r.id);
+      return { lv: Profile.level(), weapon: w ? { name: w.name, img: Profile.imgOf(w) } : undefined };
+    } catch (e) { return {}; }
+  }
+
+  // ---------- LIVE: one poll every ~1.5 s while you are in the town / arena (heartbeat + online list + rooms + chat) ----------
+  const chatLog = [], chatDraws = [];
+  const Live = (() => {
+    let on = false, srv = 0, since = 0, last = null, timer = null, inflight = false;
+    const subs = new Set();
+    const apply = j => {
+      last = j; if (j.seq < since) since = 0; else since = j.seq;
+      if (j.chat && j.chat.length) { for (const m of j.chat) chatLog.push({ who: m.who, text: m.text }); while (chatLog.length > 80) chatLog.shift(); for (let i = chatDraws.length - 1; i >= 0; i--) { if (!chatDraws[i].ok()) chatDraws.splice(i, 1); else chatDraws[i].draw(); } }
+      subs.forEach(f => { try { f(j); } catch (e) { } });
+    };
+    const call = async (path, body) => {
+      const j = await api('/api/arena/' + path, Object.assign({ server: srv, since }, myInfo(), body || {}), session.token); apply(j); return j;
+    };
+    const tick = async () => {
+      if (!on) return; if (!inflight) { inflight = true; try { await call('poll'); } catch (e) { if (e.status === 401) { stop(); return expired(); } } inflight = false; }
+      if (on) timer = setTimeout(tick, root && root.hidden ? 4000 : 1500);
+    };
+    const start = server => { stop(); on = true; srv = server; since = 0; last = null; chatLog.length = 0; timer = setTimeout(tick, 0); };
+    const stop = () => { on = false; clearTimeout(timer); inflight = false; subs.clear(); };
+    return { start, stop, call, subscribe: f => { subs.add(f); if (last) f(last); return () => subs.delete(f); }, get last() { return last; }, get running() { return on; }, nudge: () => { if (on) { clearTimeout(timer); timer = setTimeout(tick, 0); } } };
+  })();
+
   // ---------- server calls ----------
   async function api(path, body, token) {
     if (/YOUR-SERVER/.test(ONLINE_API)) throw new Error('The online server address is not set yet.');
@@ -162,7 +224,7 @@ const OnlineUI = (() => {
   // The server answers {servers:[{id,players,mine:{name,robot}|null}]}. If the server does not have /api/servers yet, 5 plain servers are shown.
   const localChars = () => store.get('ochars', {});
   async function serverList(err) {
-    view = 'servers'; busy('Loading servers...');
+    view = 'servers'; Live.stop(); deactivateChar(); busy('Loading servers...');
     let list = null;
     try { const j = await api('/api/servers', {}, session.token); list = j.servers; }
     catch (e) { if (e.status === 401) return expired(); }
@@ -182,8 +244,8 @@ const OnlineUI = (() => {
     curServer = s.id;
     if (s.mine) {   // you already made a character on this server: go straight in
       busy('Entering Server ' + s.id + '...');
-      try { const j = await api('/api/enter', { server: s.id }, session.token); session.player = j.player; return town(); }
-      catch (e) { if (e.status === 401) return expired(); if (e.status === 404) { session.player = Object.assign({}, session.player, { server: s.id, name: s.mine.name, robot: s.mine.robot, power: (session.player && session.player.power) || 0 }); return town(); } return serverList(e.message); }
+      try { const j = await api('/api/enter', { server: s.id }, session.token); return play(j.player); }
+      catch (e) { if (e.status === 401) return expired(); if (e.status === 404) { return play(Object.assign({}, session.player, { server: s.id, name: s.mine.name, robot: s.mine.robot, power: (session.player && session.player.power) || 0 })); } return serverList(e.message); }
     }
     pickedRobot = 0; chooseRobot();
   }
@@ -212,7 +274,7 @@ const OnlineUI = (() => {
           const lc = localChars(); lc[curServer] = { name, robot: pickedRobot }; store.set('ochars', lc);
           j = { player: Object.assign({}, session.player, { server: curServer, name, robot: pickedRobot }) };
         }
-        session.player = j.player; town();
+        play(j.player);
       } catch (e) { if (e.status === 401) return expired(); nameStep(e.message, name); }
     };
     inp.onkeydown = e => { if (e.key === 'Enter') go(); };
@@ -221,6 +283,13 @@ const OnlineUI = (() => {
       h('p', null, 'Other players will see this name.'), inp, er,
       h('div', { class: 'row' }, btn('Enter world', go), btn('Back', chooseRobot, 'alt')))));
     setTimeout(() => { try { inp.focus(); inp.select(); } catch (e) { } }, 50);
+  }
+
+  // the character is chosen: switch to its own save, start the live connection, show the town
+  function play(player) {
+    session.player = Object.assign({}, session.player, player, { id: player.id || (session.player && session.player.id) });
+    curServer = session.player.server || curServer; session.player.server = curServer;
+    activateChar(); Live.start(curServer); town();
   }
 
   // ---------- 5. TOWN ----------
@@ -237,7 +306,6 @@ const OnlineUI = (() => {
     { id: 'bag', name: 'Bag' }, { id: 'scroll', name: 'Quests' }, { id: 'trophy', name: 'Rankings' },
     { id: 'friends', name: 'Friends' }, { id: 'mail', name: 'Mail' }, { id: 'gear', name: 'Settings' },
   ];
-  const chatLog = [];   // kept while the app is open
   function town() {
     view = 'town';
     const p = session.player, r = robotOf(p.robot);
@@ -263,9 +331,14 @@ const OnlineUI = (() => {
   function chatBox(p) {
     const log = h('div', { class: 'log' });
     const draw = () => { log.replaceChildren(...chatLog.map(m => h('div', null, m.sys ? h('i', null, m.text) : [h('b', null, m.who + ': '), m.text]))); log.scrollTop = log.scrollHeight; };
+    chatDraws.push({ ok: () => log.isConnected, draw });
     if (!chatLog.length) chatLog.push({ sys: 1, text: 'Welcome to Server ' + (p.server || curServer) + ', ' + p.name + '!' });
     const inp = h('input', { maxlength: '120', placeholder: 'Type message...', autocomplete: 'off', spellcheck: 'false' });
-    const send = () => { const t = inp.value.trim(); if (!t) return; inp.value = ''; chatLog.push({ who: p.name, text: t }); if (chatLog.length > 80) chatLog.shift(); draw(); };
+    const send = async () => {
+      const t = inp.value.trim(); if (!t) return; inp.value = '';
+      if (!Live.running) { chatLog.push({ who: p.name, text: t }); return draw(); }
+      try { await Live.call('chat', { text: t }); } catch (e) { if (e.status === 401) return expired(); toastMsg(e.status === 429 ? 'Slow down a little.' : 'Message not sent.'); }
+    };
     inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') send(); };
     inp.onkeyup = inp.onkeypress = e => e.stopPropagation();
     const box = h('div', { class: 'chat' },
@@ -293,7 +366,7 @@ const OnlineUI = (() => {
       .then(code => { const s = document.createElement('script'); s.textContent = code + '\n//# sourceURL=' + file; document.head.appendChild(s); }).catch(e => { delete extraDone[file]; throw e; });
   }
   function arenaCtx() {
-    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena };
+    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo };
   }
   async function openArena() {
     try {
@@ -313,14 +386,7 @@ const OnlineUI = (() => {
   }
   // While you are online, Profile / Shop / Armory / Adventure use YOUR ONLINE character (the robot you picked on this server).
   // Your offline character is saved first and put back when you leave online mode.
-  function syncRobot() {
-    try {
-      Profile.load(); const idx = (session.player.robot | 0);
-      if (store.get('offchar_backup', -1) < 0) store.set('offchar_backup', Profile.data.char | 0);
-      if (Profile.data.char !== idx) { Profile.data.char = idx; Profile.ensureWeapon(); Profile.save(); }
-      UI.setup.teams[0].robot = idx; store.set('setup', UI.setup);
-    } catch (e) { }
-  }
+  function syncRobot() { if (!ns) activateChar(); }   // safety: Profile / Shop / Armory / Adventure always run on the ONLINE save
   function restoreOfflineChar() {
     try {
       const b = store.get('offchar_backup', -1); if (b < 0) return;
@@ -338,8 +404,8 @@ const OnlineUI = (() => {
     if (b.id === 'gate' || b.id === 'armory' || b.id === 'shop') { try { return launch(b.id); } catch (e) { fromTown = false; root.hidden = false; toastMsg('Could not open ' + b.name + '.'); return; } }
     pop(b.name, b.text);
   }
-  function expired() { session = null; store.set('otoken', ''); welcome('Your session ended. Log in with your code.'); }
-  function close() { root.hidden = true; view = null; restoreOfflineChar(); }
+  function expired() { Live.stop(); deactivateChar(); session = null; store.set('otoken', ''); welcome('Your session ended. Log in with your code.'); }
+  function close() { root.hidden = true; view = null; Live.stop(); deactivateChar(); restoreOfflineChar(); }
   function leave() { close(); }   // this code runs inside the app's own page, so closing shows the app's menu again
 
   async function open() {
