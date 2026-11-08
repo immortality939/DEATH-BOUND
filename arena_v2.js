@@ -222,7 +222,7 @@ const ArenaUI = (() => {
     mount(st); S.sig = sigOf();
   }
   async function teamUp() { if (await act('create', { slots: 2, mode: S.mode })) room(); }
-  async function quickStart() { if (!(await act('create', { slots: 1, mode: S.mode }))) return; if (await act('start')) search(); else room(); }
+  async function quickStart() { if (!(await act('create', { slots: 1, mode: S.mode }))) return; if (await act('start')) route(); else room(); }   // route(): the server may have matched us at once (then it is the VS screen, not the search)
   async function joinRoom(r) {
     if (r.state !== 'room') return C.toast('That room is already fighting.');
     if (r.members.length >= r.slots) return C.toast('That room is full.');
@@ -288,7 +288,7 @@ const ArenaUI = (() => {
     if (host) st.append(btn('START', 836, 316, 118, 62, async () => {
       if (busyRoom) return C.toast('Wait until the other players leave the VS screen.');
       if (mm.some(m => !m.host && !m.ready)) return C.toast('Everyone must press Ready first.');
-      if (await act('start')) search();
+      if (await act('start')) route();   // searching -> search screen, already matched -> VS screen
     }, busyRoom ? 'go off' : 'go'));
     else st.append(btn(mine && mine.ready ? 'CANCEL' : 'READY', 836, 316, 118, 62, () => { if (busyRoom) return C.toast('Wait until the other players leave the VS screen.'); act('ready', { ready: !(mine && mine.ready) }); }, mine && mine.ready ? '' : 'rd'));
     st.append(iconBar(716, 392, ['bag', 'friends', 'scroll', 'gear']));
@@ -318,7 +318,7 @@ const ArenaUI = (() => {
 
   // ===================== SEARCHING -> VS =====================
   function search() {
-    const r = S.myRoom; if (!r) return lobby(); S.view = 'search'; const n = r.members.length, host = amHost();
+    const r = S.myRoom; if (!r) return lobby(); if (r.state !== 'searching') return route(); S.view = 'search'; const n = r.members.length, host = amHost();
     const t0 = Date.now(); clearTimers();
     const cover = h('div', { class: 'cover' }, h('div', { class: 'spin' }), h('div', null, 'Searching for an opponent'), h('small', { id: 'arSec' }, n + ' vs ' + n + '  |  ' + MODES[r.mode].name + '  |  0s'),
       btn(host ? 'Cancel' : 'Leave room', 0, 0, 150, 46, async () => { if (host) { if (await act('cancel')) { clearTimers(); room(); } } else { await act('leave'); lobby(); } }, ''));
