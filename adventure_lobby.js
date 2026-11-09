@@ -500,7 +500,7 @@ const AdvLobbyUI = (() => {
   function onRunData(j) {
     if (!run) return; run.cur = j.myAdv || null;
     if (run.cur && run.hostId && run.cur.hostId !== run.hostId) { C.toast('The host left the room.'); return void leaveRun(); }   // the host phone is the clock of the fight
-    if (run.cur) { const ids = new Set(run.cur.members.map(m => m.id)); const st = Coop.state; if (st) for (const m of st.members) if (!ids.has(m.id)) Coop.dropMember(m.id); }
+    if (run.cur) { const ids = new Set(run.cur.members.map(m => m.id)); const st = typeof Coop !== 'undefined' ? Coop.state : null; if (st) for (const m of st.members) if (!ids.has(m.id)) Coop.dropMember(m.id); }
     evalRun(); drawRun();
   }
   function evalRun() {
