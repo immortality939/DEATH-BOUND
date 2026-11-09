@@ -22,6 +22,7 @@
 const COOP_ENEMY_HP_PER_PLAYER = 1 / 3;   // offline you bring 3 robots, online each player brings 1. Enemy HP is scaled by (players x this), so 3 players = same as offline. Set to 0 to keep the offline HP.
 const COOP_COLORS = ['#4da3ff', '#5be37a', '#ffd24a', '#d38bff'];
 const COOP_STEP_MS = 1000 / 60;
+const COOP_GRACE = 36;   // frames at the start of every turn where the player cannot act yet (same on every phone): the phone that just finished its shot can keep going instead of waiting for the next player's phone
 
 const Coop = (() => {
   const REAL_RANDOM = Math.random;
@@ -83,14 +84,14 @@ const Coop = (() => {
   function begin(opts) {
     if (!net) throw new Error('no connection');
     install(); endStage();
-    S = { sk: opts.sk, mi: opts.mi, si: opts.si, diff: opts.diff, members: opts.members.slice(), host: amHost(), init: null, sim: false, f: 0, limit: 0, q: [], simIn: {}, hashes: {}, myTeam: -1, rng: null, lastHb: 0, over: false, t0: performance.now(), applying: false, stepping: false, lastSent: null, bad: false, pre: [], uiq: [] };
+    S = { sk: opts.sk, mi: opts.mi, si: opts.si, diff: opts.diff, members: opts.members.slice(), host: amHost(), init: null, sim: false, f: 0, limit: 0, q: [], simIn: {}, hashes: {}, myTeam: -1, rng: null, lastHb: 0, over: false, t0: performance.now(), turnF: 0, applying: false, stepping: false, lastSent: null, bad: false, pre: [], uiq: [] };
     const mine = { robot: opts.members.find(m => m.id === net.myId).robot, bonus: JSON.parse(JSON.stringify(profileBonuses(opts.members.find(m => m.id === net.myId).robot))) };
     S.mine = mine;
     toast(S.host ? 'Waiting for the other players...' : 'Waiting for the host to start...');
-    if (S.host) { (loads[S.sk] = loads[S.sk] || {})[net.myId] = mine; S.timer = setTimeout(() => { if (S && !S.init) tryInit(true); }, 12000); tryInit(); }
+    if (S.host) { (loads[S.sk] = loads[S.sk] || {})[net.myId] = mine; S.timer = setTimeout(() => { if (S && !S.init) tryInit(true); }, 45000); tryInit(); }
     else {
       tx('h', { k: 'load', sk: S.sk, load: mine });
-      S.timer = setTimeout(() => { if (S && !S.init) { toast('The host did not start the stage'); if (hooks.onLost) hooks.onLost(); } }, 40000);
+      S.timer = setTimeout(() => { if (S && !S.init) { toast('The host did not start the stage'); if (hooks.onLost) hooks.onLost(); } }, 60000);
     }
     const q = pend[S.sk]; if (q) { delete pend[S.sk]; for (const d of q) handle(d); }
   }
@@ -115,6 +116,7 @@ const Coop = (() => {
     if (!S || S.init) return; clearTimeout(S.timer);
     toast('Building the shared map...');
     S.init = init; S.members = init.mem; S.myTeam = init.mem.findIndex(m => m.id === net.myId); S.rng = mulberry(init.seed);
+    if (S.myTeam < 0) { toast('The stage started without you (loading took too long)'); if (hooks.onLost) hooks.onLost(); return; }
     const my = S, o = { newGame: window.newGame, pr: Adventure.playerRobot };
     const wrap = function (setup) { window.newGame = o.newGame; return coopNewGame(setup, my, o.newGame); };   // Adventure.start calls newGame once: we reshape what it asks for
     window.newGame = wrap;
@@ -178,7 +180,12 @@ const Coop = (() => {
     } finally { S.applying = false; }
     UI.lastSig = '';
   }
-  function myTurn() { return !!(S && S.sim && S.myTeam >= 0 && G.mode === 'play' && G.activeWorm && G.activeWorm.team === S.myTeam && !G.swarm && !S.over); }
+  function myTurn() { return !!(S && S.sim && S.myTeam >= 0 && G.mode === 'play' && G.activeWorm && G.activeWorm.team === S.myTeam && !G.swarm && !S.over && S.f >= S.turnF + COOP_GRACE); }
+  function freeRun() {   // a phone may run on without the clock when nobody can send input: enemy turns and the first frames of a turn
+    if (!S || (S.gone && Object.keys(S.gone).length) || G.mode !== 'play' || !G.activeWorm) return false;
+    const t = G.teams[G.activeWorm.team]; if (G.swarm || (t && t.cpu)) return true;
+    return S.f < S.turnF + COOP_GRACE;
+  }
   function submit(payload) {   // my buttons / actions -> the host (or straight to the stamp if I am the host)
     if (!S || !S.sim) return;
     stamp(S.myTeam, payload.s, payload.ev);
@@ -240,13 +247,13 @@ const Coop = (() => {
       if (S.gone) for (const k in S.gone) if (S.gone[k] === 1 && S.f >= S.limit) { S.gone[k] = 2; const rec = { k: 'in', sk: S.sk, f: S.f, tm: -1, drop: +k }; tx('*', rec); S.pre.push(rec); }
       return;
     }
-    let n = 1, behind = S.limit - S.f; if (behind > 120) n = 12; else if (behind > 24) n = 4; else if (behind > 10) n = 2;
+    let n = 1, behind = S.limit - S.f; if (behind > 120) n = 12; else if (behind > 24) n = 4; else if (behind > 3) n = 2;
     const t0 = performance.now();
     for (let i = 0; i < n; i++) {
-      if (S.f >= S.limit) break;
+      if (S.f >= S.limit && !freeRun()) break;
       const c = clockId() === net.myId; step(orig_, c); if (G.mode !== 'play') break; if (c) break; if (performance.now() - t0 > 12) break;
     }
-    if (S.f >= S.limit) {
+    if (S.f >= S.limit && !freeRun()) {
       if (G.cam && G.cam.shake > 0.05) G.cam.shake *= 0.8;   // the shake only fades while the fight runs: fade it by hand while we wait
       const now = performance.now(); if (!S.stall) S.stall = now;
       else {
@@ -266,7 +273,7 @@ const Coop = (() => {
     const st = window.startTurn;
     window.startTurn = function () {
       if (on()) {
-        S.simIn = {};   // a new turn: nobody is holding anything
+        S.simIn = {}; S.turnF = S.f;   // a new turn: nobody is holding anything
         if (G.mode === 'play') {
           const hum = G.teams.filter(t => !t.cpu && teamAlive(t.idx)), en = G.teams.filter(t => t.cpu && teamAlive(t.idx));
           if (!en.length) { endGame(hum[0] || null); return; }
