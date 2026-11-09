@@ -1,5 +1,5 @@
 /* ONLINE VERSION of ai.js - upload this file to GitHub (online game only).
-   The offline app keeps using ai.js. Edit the two files separately on purpose. */
+   The offline app keeps using ai.js. Edit the two files separately on purpose. */ 
 'use strict';
 const AI = {
   input: { left: false, right: false, up: false, down: false, fire: false, firePressed: false, jump: false, flip: false, fast: true },
