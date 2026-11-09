@@ -19,6 +19,7 @@ const ArenaFight = (() => {
   const STATE_CODE = { ground: 0, air: 1, dead: 2, drown: 3 };
   const BUF = 6;                  // frames of input the watcher keeps in hand before it (re)starts after a wait (smooth play on slow phones)
   const POLL_MS = 100, POLL_FAST_MS = 50;
+  const GRACE = 36;               // frames at the start of every turn where nobody can act (same on every phone): hides the network delay of the hand-over, so nobody freezes after a shot
   const SNAP_WAIT_MS = 1500, STALL_GIVEUP_MS = 45000, LOST_MS = 30000;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   let F = null;                   // the running fight (null = none)
@@ -36,43 +37,68 @@ const ArenaFight = (() => {
   const push = ev => { ev.n = ++F.n; F.out.push(ev); };
 
   // ---------- the engine step ----------
+  const calm = () => { if (G.cam && G.cam.shake > 0.05) G.cam.shake *= 0.8; };   // the camera shake only fades while the battle runs: when we wait, fade it by hand (it was shaking like crazy)
+  const inGrace = () => !!F && G.frame < F.graceEnd;
+  const canAct = () => myTurn() && !inGrace();
+  function leadFrames() { const f = F; let m = -1; for (const id in f.rem) if (f.rem[id].thr > m) m = f.rem[id].thr; return m - G.frame; }
+  function wantCatchUp() {   // a watcher that is behind the player who steers runs extra steps while no input is needed (flight, explosions, settling)
+    const f = F; if (!f || !f.live || f.ended || G.mode !== 'play' || f.snapWait) return false;
+    if (ownerOf(G.activeWorm) === f.me) return false;
+    if (inputPhase() && !inGrace()) return false;
+    return leadFrames() > 3;
+  }
   function stepOnline() {
     const f = F, ug = H && H.ug;
     if (!f || !f.live || f.ended || G.mode !== 'play') return ug.apply(this, arguments);
+    if (!stepOnce.call(this, f, ug, arguments)) return;
+    if (!wantCatchUp()) return;
+    const t0 = performance.now(), lead = leadFrames(), max = lead > 60 ? 6 : lead > 20 ? 3 : 2;
+    for (let i = 0; i < max && F === f && wantCatchUp() && performance.now() - t0 < 10; i++) if (!stepOnce.call(this, f, ug, arguments)) break;
+  }
+  function stepOnce(f, ug, args) {   // one engine step. true = the battle advanced, false = we are waiting
     trySnaps();
     const w = G.activeWorm, owner = ownerOf(w), inp = inputPhase(), mine = owner === f.me;
     // the new player waits for the snapshot of the player whose turn just ended
     if (f.snapWait && mine) {
       const sn = f.snaps.find(x => x.d[0] === f.snapWait.tc && x.f === G.frame);
       if (sn) { applySnap(sn); f.snaps.splice(f.snaps.indexOf(sn), 1); f.snapWait = null; }
-      else if (Date.now() < f.snapWait.until) { markStall(null, 'sync'); return; }
+      else if (Date.now() < f.snapWait.until) { markStall(null, 'sync'); calm(); return false; }
       else f.snapWait = null;
     }
-    let steer = null;
+    let steer = null, held = null;
     if (w && inp && owner && !mine && !f.gone.has(owner)) {          // somebody else steers this turn
       const R = f.rem[owner]; steer = owner;
-      if (R.wait) { if (R.thr - G.frame < BUF) { markStall(owner); return; } R.wait = false; }
-      if (G.frame >= R.thr) { R.wait = true; markStall(owner); return; }
+      if (G.frame < f.graceEnd) {                                     // start of the turn: he cannot act yet, so there is nothing to wait for
+        if (!sigEq(sigNow(), f.post)) sigSet(f.post);
+        for (const k of IN_KEYS) In[k] = false; In.firePressed = In.jump = In.flip = false; In.weaponMenu = false;
+      } else {
+      if (R.wait) { if (R.thr - G.frame < BUF) { markStall(owner); calm(); return false; } R.wait = false; }
+      if (G.frame >= R.thr) { R.wait = true; markStall(owner); calm(); return false; }
       if (!sigEq(sigNow(), f.post)) sigSet(f.post);                   // anything this phone changed on his behalf (keyboard P ...) is undone
       while (R.q.length && R.q[0].f <= G.frame) applyEv(R, R.q.shift());
       f.post = sigNow();
       for (let i = 0; i < IN_KEYS.length; i++) In[IN_KEYS[i]] = !!(R.bits & (1 << i));
       In.firePressed = !!(R.pulse & 1); if (R.pulse & 2) R.pj = true; if (R.pulse & 4) R.pfl = true; R.pulse = 0;
       In.jump = !!R.pj; In.flip = !!R.pfl; In.weaponMenu = false;
+      }
     } else if (w && inp && owner && mine) {                           // my turn: my keys become events
-      steer = owner; sample();
+      steer = owner;
+      if (G.frame < f.graceEnd) { held = IN_KEYS.map(k => In[k]); for (const k of IN_KEYS) In[k] = false; In.firePressed = In.jump = In.flip = false; }
+      else sample();
     } else if (w && inp && owner && f.gone.has(owner)) {              // his phone is gone: nobody steers, the turn timer runs out
       for (const k of IN_KEYS) In[k] = false; In.firePressed = In.jump = In.flip = false;
     }
     if (f.stallSince) { const d = Date.now() - f.stallSince; f.lastStall = d; if (d > f.maxStall) f.maxStall = d; f.stallSince = 0; }
     f.steps++;
-    { const self = this, args = arguments; seeded(() => ug.apply(self, args)); }   // the engine runs on the shared random numbers
+    { const self = this; seeded(() => ug.apply(self, args)); }   // the engine runs on the shared random numbers
+    if (held) IN_KEYS.forEach((k, i) => { In[k] = held[i]; });          // my fingers are still down after the grace frames
     f.thr = G.frame;
     if (steer === f.me) { f.pj = !!In.jump; f.pfl = !!In.flip; } else if (steer && f.rem[steer]) { f.rem[steer].pj = !!In.jump; f.rem[steer].pfl = !!In.flip; }
     f.post = sigNow();
     if (G.turnCount !== f.tc) {                                       // a new turn started inside this step
       const ended = f.tcOwner; f.tc = G.turnCount; f.tcOwner = ownerOf(G.activeWorm); newTurn(ended);
     }
+    return true;
   }
   function sample() {                                                 // my keys -> events (only when something changed)
     const f = F; let bits = 0; for (let i = 0; i < IN_KEYS.length; i++) if (In[IN_KEYS[i]]) bits |= 1 << i;
@@ -99,7 +125,7 @@ const ArenaFight = (() => {
     const f = F;
     f.bits = 0; f.pj = f.pfl = false; In.jump = In.flip = In.firePressed = false;
     for (const id in f.rem) { const R = f.rem[id]; R.bits = 0; R.pulse = 0; R.pj = R.pfl = false; }
-    f.post = sigNow();
+    f.post = sigNow(); f.graceEnd = G.frame + GRACE;
     if (ended === f.me) pushSnap();
     f.snapWait = null;   // nobody waits at a turn change any more (a wait = one full network round trip = a visible freeze after every shot); the snapshot is only a safety net
   }
@@ -187,7 +213,7 @@ const ArenaFight = (() => {
     members.forEach((t, i) => t.forEach(id => { teamOf[id] = i; }));
     if (teamOf[me] == null) return Promise.reject(new Error('You are not in this match.'));
     const f = F = { C, cb: cb || {}, match, id: match.id, me, myTeam: teamOf[me], members, teamOf, names: {}, rem: {}, out: [], seen: 0, n: 0, thr: 0, snaps: [], gone: new Set(), post: [0, -1, 0, 0], bits: 0, pj: false, pfl: false,
-      live: false, ended: false, stop: false, finished: false, lastData: Date.now(), stallSince: 0, tc: 0, tcOwner: null, snapWait: null, loads: null, ready: false, loadout: null, report: null, over: null, replay: false, t0: Date.now(), steps: 0, frames: 0, lastStall: 0, maxStall: 0, rtt: 0 };
+      graceEnd: 0, live: false, ended: false, stop: false, finished: false, lastData: Date.now(), stallSince: 0, tc: 0, tcOwner: null, snapWait: null, loads: null, ready: false, loadout: null, report: null, over: null, replay: false, t0: Date.now(), steps: 0, frames: 0, lastStall: 0, maxStall: 0, rtt: 0 };
     match.teams.forEach(t => t.forEach(x => { f.names[x.id] = x.name; }));
     for (const id of members.flat()) if (id !== me) f.rem[id] = { q: [], thr: -1, bits: 0, pulse: 0, pj: false, pfl: false, wait: false };
     f.goP = new Promise(res => { f.goRes = res; });
@@ -237,7 +263,7 @@ const ArenaFight = (() => {
     In.left = In.right = In.up = In.down = In.fire = In.firePressed = In.jump = In.flip = false;
     UI.paused = false; try { Snd.init(); } catch (e) { }
     UI.show('game'); UI.lastSig = ''; f.C.hideOnline();
-    f.tc = G.turnCount; f.tcOwner = ownerOf(G.activeWorm); f.post = sigNow(); f.lastData = Date.now();
+    f.tc = G.turnCount; f.tcOwner = ownerOf(G.activeWorm); f.post = sigNow(); f.graceEnd = G.frame + GRACE; f.lastData = Date.now();
     f.msgTimer = setInterval(() => { updateMsg(); updateDbg(); }, 250);
     const raf = () => { if (F === f && !f.finished) { f.frames++; requestAnimationFrame(raf); } }; requestAnimationFrame(raf);
     f.live = true;
@@ -251,23 +277,23 @@ const ArenaFight = (() => {
     Snd.play = function (n, a) { const r = Math.random; if (F && r === F.rng) { Math.random = _rand; try { return H.sp.call(this, n, a); } finally { Math.random = r; } } return H.sp.call(this, n, a); };   // sounds must not eat the shared random numbers
     usePotion = function (ti, k) {
       if (!F || !F.live || F.ended || F.replay) return H.up.apply(this, arguments);
-      if (!myTurn() || ti !== G.activeWorm.team) return false;
+      if (!canAct() || ti !== G.activeWorm.team) return false;
       const ok = seeded(() => H.up.call(this, ti, k)); if (ok) push({ k: 'u', f: G.frame, a: ti, b: k }); return ok;
     };
     doTeleport = function (x, y) {
       if (!F || !F.live || F.ended || F.replay) return H.dt.apply(this, arguments);
-      if (!myTurn()) return false;
+      if (!canAct()) return false;
       x = Math.round(x); y = Math.round(y);
       const ok = seeded(() => H.dt.call(this, x, y)); if (ok) push({ k: 't', f: G.frame, x, y }); return ok;
     };
-    UI.canPick = function () { return H.cp.call(this) && myTurn(); };
+    UI.canPick = function () { return H.cp.call(this) && canAct(); };
     UI.togglePause = function (v) { const p = $('pauseScr'); if (!p) return; const on = v === undefined ? p.hidden : !!v; p.hidden = !on; UI.paused = false; };   // the battle never freezes for one player
     UI.showOver = function () { if (!F) return H.so.apply(this, arguments); F.ended = true; F.simOver = true; F.overTimer = setTimeout(() => { const w = G.winner; showResult(w ? { win: w.idx === F.myTeam, draw: false } : { win: false, draw: true }); }, 1600); };
-    $('bPass').onclick = () => { if (F && !F.ended && G.mode === 'play' && G.phase === 'aim' && !G.swarm && myTurn()) { Snd.play('beep'); G.charging = false; G.charge = 0; endTurnNow(); push({ k: 'x', f: G.frame }); } };
+    $('bPass').onclick = () => { if (F && !F.ended && G.mode === 'play' && G.phase === 'aim' && !G.swarm && canAct()) { Snd.play('beep'); G.charging = false; G.charge = 0; endTurnNow(); push({ k: 'x', f: G.frame }); } };
     $('bQuit').onclick = () => askLeave();
-    $('wbtn').onclick = e => { if (myTurn()) return H.wbtn.call($('wbtn'), e); };
-    $('fbtn').onclick = e => { if (myTurn()) return H.fbtn.call($('fbtn'), e); };
-    const pb = $('powbtn'); if (pb) { H.pow = e => { if (!myTurn()) { e.stopImmediatePropagation(); e.preventDefault(); } }; pb.addEventListener('click', H.pow, true); }
+    $('wbtn').onclick = e => { if (canAct()) return H.wbtn.call($('wbtn'), e); };
+    $('fbtn').onclick = e => { if (canAct()) return H.fbtn.call($('fbtn'), e); };
+    const pb = $('powbtn'); if (pb) { H.pow = e => { if (!canAct()) { e.stopImmediatePropagation(); e.preventDefault(); } }; pb.addEventListener('click', H.pow, true); }
   }
   function unhook() {
     if (!H) return;

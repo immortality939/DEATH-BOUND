@@ -413,7 +413,10 @@ const AdvLobbyUI = (() => {
 #coopwait p{margin:0;font-size:16px;color:#cdd7ef}
 #coopwait .mem{display:flex;flex-direction:column;gap:5px;min-width:min(80vw,280px);margin:6px 0}
 #coopwait .mem div{display:flex;justify-content:space-between;gap:16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:6px 12px;font-weight:700}
-#coopwait .lv{padding:10px 22px;border-radius:10px;border:0;cursor:pointer;font:700 16px var(--body,sans-serif);color:#eef3ff;background:linear-gradient(#34456e,#233152)}`;
+#coopdef{position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;box-sizing:border-box;text-align:center;background:rgba(6,10,22,.9);color:#eef3ff;font-family:var(--body,sans-serif)}
+#coopdef h2{margin:0;font:400 clamp(28px,6vw,48px) var(--disp,sans-serif);color:#ff6d5e}
+#coopdef p{margin:0;font-size:16px;color:#cdd7ef}
+#coopwait .lv,#coopdef .lv{padding:10px 22px;border-radius:10px;border:0;cursor:pointer;font:700 16px var(--body,sans-serif);color:#eef3ff;background:linear-gradient(#34456e,#233152)}`;
     document.head.append(s);
   }
   function hookAdventure() {   // wrap the game's own Adventure once; every wrapper does nothing unless an online run is going
@@ -422,13 +425,13 @@ const AdvLobbyUI = (() => {
     A.open = function () {   // also what the pause menu's Quit calls
       if (!run) return o.open.apply(this, arguments);
       if (run.launching) { this.active = true; G.mode = 'menu'; $('over').hidden = true; return; }   // just enter game mode: the stage is started by the run itself
-      leaveRun();
+      leaveRun('You left the adventure.');
     };
-    A.back = function () { if (!run) return o.back.apply(this, arguments); leaveRun(); };
-    A.menu = function () { if (!run) return o.menu.apply(this, arguments); leaveRun(); };       // 'Leave room' on the defeat screen
+    A.back = function () { if (!run) return o.back.apply(this, arguments); leaveRun('You left the adventure.'); };
+    A.menu = function () { if (!run) return o.menu.apply(this, arguments); leaveRun(null); };       // 'Leave room' on the defeat screen
     A.again = function () { if (!run) return o.again.apply(this, arguments); retryStage(); };     // 'Retry stage' on the defeat screen
     A.onOver = function () { return run ? runOver.call(this, o.onOver) : o.onOver.apply(this, arguments); };
-    UI.show = function (name) { if (run && !run.ending && name === 'adventure') setTimeout(leaveRun, 0); return us(name); };   // (the map screen has no place in an online run)
+    UI.show = function (name) { if (run && !run.ending && name === 'adventure') setTimeout(() => leaveRun('You left the adventure.'), 0); return us(name); };   // (the map screen has no place in an online run)
   }
   function beginRun(r) {
     if (run || !r.run) return;
@@ -441,7 +444,7 @@ const AdvLobbyUI = (() => {
     run.tick = setInterval(runBeat, 1500);
     try { C.launch('gate', () => C.reopenAdv()); } finally { run.launching = false; }   // hides the room, goes landscape; coming back to the title screen returns to the room
     C.toast('Connecting to the room...');
-    connectCoop(r).then(() => { if (run) startStage(r.run.stage); }).catch(e => { console.error('coop connect', e); C.toast('Cannot start the shared map: ' + ((e && e.message) || 'check your internet') + '. (Is the server updated?)'); leaveRun(); });
+    connectCoop(r).then(() => { if (run) startStage(r.run.stage); }).catch(e => { console.error('coop connect', e); C.toast('Cannot start the shared map: ' + ((e && e.message) || 'check your internet') + '. (Is the server updated?)'); leaveRun(null); });
   }
   // ONE shared stage for the whole room (coop_server.js): same map, same enemies, one robot per player. The host phone is the clock.
   async function connectCoop(r) {
@@ -449,7 +452,7 @@ const AdvLobbyUI = (() => {
     if (typeof Coop === 'undefined') throw new Error('coop missing');
     const ss = C.session(), base = String(ONLINE_API).replace(/^http/, 'ws');
     await Coop.connect(base + '/ws?t=' + ss.token + '&sv=' + (ss.player.server | 0), ss.player.id, r.hostId,
-      { toast: m => C.toast(m), onLost: () => { C.toast('Connection to the room was lost.'); leaveRun(); }, onAgain: (si, att) => { if (run) startStage(si, att); } });
+      { toast: m => C.toast(m), onLost: () => { leaveRun('You lost your connection to the room.'); }, onAgain: (si, att) => { if (run) startStage(si, att); } });
     run.hostId = r.hostId;
   }
   function startStage(si, att) {
@@ -459,7 +462,7 @@ const AdvLobbyUI = (() => {
     drawRun(); runBeat();
     const members = ((run.cur && run.cur.members) || []).map(m => ({ id: m.id, name: m.name, robot: m.robot | 0 }));
     try { Coop.begin({ sk: run.id + ':' + si + ':' + (att | 0), mi: run.mi, si, diff: run.diff, members }); }
-    catch (e) { console.error('coop begin', e); C.toast('Co-op could not start: ' + ((e && e.message) || e)); leaveRun(); }   // every phone builds the same stage (see coop_server.js)
+    catch (e) { console.error('coop begin', e); C.toast('Co-op could not start: ' + ((e && e.message) || e)); leaveRun(null); }   // every phone builds the same stage (see coop_server.js)
   }
   function retryStage() {   // defeat screen -> Retry: the host restarts the stage for the whole room
     if (!run) return;
@@ -485,7 +488,7 @@ const AdvLobbyUI = (() => {
     run.phase = 'wait'; run.st = 'won';
     const t = (document.getElementById('overT') || {}).textContent || 'STAGE CLEAR!', sm = (document.getElementById('overS') || {}).textContent || '';
     run.wait = h('div', { id: 'coopwait' }, h('h2', null, t), h('p', null, sm), h('div', { class: 'mem' }), h('p', { class: 'wl' }, ''),
-      h('button', { class: 'lv', onclick: () => { C.beep(); leaveRun(); } }, 'Leave room'));
+      h('button', { class: 'lv', onclick: () => { C.beep(); leaveRun(null); } }, 'Leave room'));
     document.body.append(run.wait);
     drawRun(); runBeat(); evalRun();
   }
@@ -499,13 +502,13 @@ const AdvLobbyUI = (() => {
   }
   function onRunData(j) {
     if (!run) return; run.cur = j.myAdv || null;
-    if (run.cur && run.hostId && run.cur.hostId !== run.hostId) { C.toast('The host left the room.'); return void leaveRun(); }   // the host phone is the clock of the fight
+    if (run.cur && run.hostId && run.cur.hostId !== run.hostId) { run.hostId = run.cur.hostId; try { Coop.setHost(run.hostId); } catch (e) { } C.toast('The host left. The adventure goes on.'); }   // the server picked a new host: he becomes the clock of the enemy turns
     if (run.cur) { const ids = new Set(run.cur.members.map(m => m.id)); const st = typeof Coop !== 'undefined' ? Coop.state : null; if (st) for (const m of st.members) if (!ids.has(m.id)) Coop.dropMember(m.id); }
     evalRun(); drawRun();
   }
   function evalRun() {
     if (!run || run.ending) return; const r = run.cur;
-    if (!r) return endRun('left');                                              // the room is gone / I was dropped
+    if (!r) return endRun('left', 'You were disconnected from the adventure.');   // I was dropped (no way back into a running adventure)
     if (r.state === 'room' || !r.run || r.run.id !== run.id) return endRun('done');   // the party finished the last stage
     if (run.phase === 'wait' && r.run.stage > run.si) startStage(r.run.stage);  // everybody cleared it: next stage, all together
   }
@@ -520,20 +523,27 @@ const AdvLobbyUI = (() => {
       run.wait.querySelector('.wl').textContent = left > 0 ? 'Waiting for your teammates (' + (rows.length - left) + ' / ' + rows.length + ' ready)...' : (last ? 'Adventure complete!' : 'Next stage starts now...');
     }
   }
-  async function leaveRun() {
+  async function leaveRun(why) {   // why = text for the DEFEATED screen (null = no defeat screen, e.g. 'Leave room' on a result screen)
     if (!run || run.ending) return;
-    try { await C.live.call('adv/leave'); } catch (e) { }
-    endRun('left');
+    run.leaving = true; try { await C.live.call('adv/leave'); } catch (e) { }
+    endRun('left', why);
   }
-  function endRun(kind) {   // back to the room (or the lobby if I left)
+  function showDefeat(msg, cb) {
+    const old = document.getElementById('coopdef'); if (old) old.remove();
+    const d = h('div', { id: 'coopdef' }, h('h2', null, 'DEFEATED'), h('p', null, msg), h('p', null, 'You cannot come back to this adventure.'),
+      h('button', { class: 'lv', onclick: () => { C.beep(); d.remove(); cb(); } }, 'Back to room'));
+    document.body.append(d);
+  }
+  function endRun(kind, why) {   // back to the room (or the lobby if I left)
     if (!run || run.ending) return; run.ending = true;
     clearInterval(run.tick); if (run.unsub) run.unsub(); clearWait(); run.hud.remove();
     try { Coop.close(); } catch (e) { }
     run = null;
     try { Loot.cb = null; clearInterval(Loot.timer); if (Loot.el) Loot.el.hidden = true; } catch (e) { }
     try { $('over').hidden = true; $('hud').hidden = true; $('touch').hidden = true; G.mode = 'menu'; Adventure.active = false; } catch (e) { }
-    C.toast(kind === 'done' ? 'Adventure complete! Back to your room.' : 'You left the adventure.');
-    UI.show('title');   // the online page now brings the player back to the room (or the Adventure lobby)
+    if (kind === 'done') { C.toast('Adventure complete! Back to your room.'); UI.show('title'); return; }
+    if (why === null) { UI.show('title'); return; }
+    showDefeat(why || 'You left the adventure.', () => UI.show('title'));   // 'Back to room' brings the player back to the room (or the Adventure lobby)
   }
 
   // ===================== open / close =====================

@@ -85,6 +85,7 @@ const Coop = (() => {
     install(); endStage();
     S = { sk: opts.sk, mi: opts.mi, si: opts.si, diff: opts.diff, members: opts.members.slice(), host: amHost(), init: null, sim: false, f: 0, limit: 0, q: [], simIn: {}, hashes: {}, myTeam: -1, rng: null, lastHb: 0, over: false, t0: performance.now(), applying: false, stepping: false, lastSent: null, bad: false, pre: [], uiq: [] };
     const mine = { robot: opts.members.find(m => m.id === net.myId).robot, bonus: JSON.parse(JSON.stringify(profileBonuses(opts.members.find(m => m.id === net.myId).robot))) };
+    S.mine = mine;
     toast(S.host ? 'Waiting for the other players...' : 'Waiting for the host to start...');
     if (S.host) { (loads[S.sk] = loads[S.sk] || {})[net.myId] = mine; S.timer = setTimeout(() => { if (S && !S.init) tryInit(true); }, 12000); tryInit(); }
     else {
@@ -236,7 +237,7 @@ const Coop = (() => {
       if (clockId() !== net.myId) { S.limit = S.f; S.lastHb = 0; }   // the turn went to somebody else: I wait for him at this frame
       const now = performance.now();
       if (now - S.lastHb >= 40 || S.f % 60 === 0) { S.lastHb = now; tx('*', { k: 'hb', sk: S.sk, f: S.f, h: S.f % 60 === 0 ? S.myHash : undefined }); }
-      if (S.gone) for (const k in S.gone) if (S.gone[k] === 1) { S.gone[k] = 2; const rec = { k: 'in', sk: S.sk, f: S.f, tm: -1, drop: +k }; tx('*', rec); S.pre.push(rec); }
+      if (S.gone) for (const k in S.gone) if (S.gone[k] === 1 && S.f >= S.limit) { S.gone[k] = 2; const rec = { k: 'in', sk: S.sk, f: S.f, tm: -1, drop: +k }; tx('*', rec); S.pre.push(rec); }
       return;
     }
     let n = 1, behind = S.limit - S.f; if (behind > 120) n = 12; else if (behind > 24) n = 4; else if (behind > 10) n = 2;
@@ -245,7 +246,16 @@ const Coop = (() => {
       if (S.f >= S.limit) break;
       const c = clockId() === net.myId; step(orig_, c); if (G.mode !== 'play') break; if (c) break; if (performance.now() - t0 > 12) break;
     }
-    if (S.f >= S.limit) { const now = performance.now(); if (!S.stall) S.stall = now; else if (now - S.stall > 15000 && !S.bad) { S.bad = true; toast('A player lost connection'); if (hooks.onLost) hooks.onLost(); } } else S.stall = 0;
+    if (S.f >= S.limit) {
+      if (G.cam && G.cam.shake > 0.05) G.cam.shake *= 0.8;   // the shake only fades while the fight runs: fade it by hand while we wait
+      const now = performance.now(); if (!S.stall) S.stall = now;
+      else {
+        const mineDead = !net.ws || net.ws.readyState > 1;
+        if (now - S.stall > 3000 && !S.stallMsg) { S.stallMsg = true; toast('A player lost connection... waiting a moment'); }
+        // the server removes a silent player after a few seconds and then his robot goes down: the others just carry on. We only give up if OUR connection is dead (or after a very long silence).
+        if ((mineDead && now - S.stall > 6000 || now - S.stall > 60000) && !S.bad) { S.bad = true; toast('Connection lost'); if (hooks.onLost) hooks.onLost(); }
+      }
+    } else { S.stall = 0; S.stallMsg = false; }
   }
 
   // ---------------- hooks into the game (installed once, they do nothing unless a co-op stage is on) ----------------
@@ -304,5 +314,13 @@ const Coop = (() => {
   function dropMember(id) {   // a player left the room: whoever numbers the frames takes his robot out, on the same frame everywhere
     if (!on() || S.over) return; const k = S.members.findIndex(m => m.id === id); if (k < 0) return; S.gone = S.gone || {}; if (!S.gone[k]) S.gone[k] = 1;
   }
-  return { connect, close, begin, retry, endStage, dropMember, get active() { return on(); }, get host() { return amHost(); }, get desync() { return !!(S && S.bad); }, get frame() { return S ? S.f : 0; }, get state() { return S; } };
+  function setHost(id) {   // the old host left: the server made somebody else host. He now numbers the frames during enemy turns.
+    if (!net || net.hostId === id) return; net.hostId = id;
+    if (!S) return; S.host = amHost();
+    if (!S.init && S.mine) {   // the stage had not even started: send my gear to the new host
+      if (S.host) { (loads[S.sk] = loads[S.sk] || {})[net.myId] = S.mine; clearTimeout(S.timer); S.timer = setTimeout(() => { if (S && !S.init) tryInit(true); }, 6000); tryInit(); }
+      else tx('h', { k: 'load', sk: S.sk, load: S.mine });
+    }
+  }
+  return { connect, close, begin, retry, endStage, dropMember, setHost, get active() { return on(); }, get host() { return amHost(); }, get desync() { return !!(S && S.bad); }, get frame() { return S ? S.f : 0; }, get state() { return S; } };
 })();
