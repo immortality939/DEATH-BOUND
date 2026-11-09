@@ -7,7 +7,7 @@
    RULES kept here: one character per player in every arena fight (not 3 like Adventure) - shown as ONE picture per slot.
    Matchmaking (server): two rooms with the same mode and the same number of players that are both searching become a match -> VS screen on every phone.
    THE FIGHT: after the VS screen the battle loads (arena_fight.js) and both phones play the same battle on the map of the match, turn by turn.
-   When it ends both players come back here (room screen). */
+   When it ends both players come back here (room screen). */ 
 'use strict';
 const ARENA_UI = 'assets/online/ui/';
 
