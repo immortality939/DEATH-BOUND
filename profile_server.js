@@ -364,7 +364,7 @@ const Profile = {
   sellValue(it) { return it && !it.potion && it.type !== 'mat' ? Math.floor(itemPrice(it) * 0.25) : 0; },   // you get 25% of the Shop price
   sellItem(id) {   // sells THIS copy; returns the chips you got (0 = could not sell)
     const D = this.data || this.load(), it = itemById(id), v = this.sellValue(it); if (!it || v <= 0 || !D.owned.includes(id)) return 0;
-    if (it.sig && this.copies(id) <= 1) return 0;   // your own signature weapon is never sold (its last copy)
+    const D2 = D; if (it.sig && this.copies(id) <= 1) { D2.sigSold = D2.sigSold || {}; if (D2.sigSold[baseId(id)]) return 0; D2.sigSold[baseId(id)] = 1; }   // your signature weapon CAN be sold, even the last copy: the game gives you a free replacement, but only ONCE (no chip farming)
     D.owned = D.owned.filter(x => x !== id); if (D.up) delete D.up[id];
     for (const rid in D.eq) for (const k in D.eq[rid]) if (D.eq[rid][k] === id) delete D.eq[rid][k];
     Wallet.add(v); this.ensureWeapon(); this.save(); return v;
@@ -372,7 +372,7 @@ const Profile = {
   sellAsk: null,
   sellBtn(it) {
     const v = this.sellValue(it); if (this.sellAsk && this.sellAsk !== it.id) this.sellAsk = null;
-    const last = this.copies(it.id) <= 1; if (v <= 0 || (last && it.sig)) return '';
+    const last = this.copies(it.id) <= 1; if (v <= 0 || (last && it.sig && this.data.sigSold && this.data.sigSold[baseId(it.id)])) return '';
     const ask = this.sellAsk === it.id;
     return `<button class="btn sm ${ask ? '' : 'alt'}" data-act="sell">${ask ? 'Tap again: sell for ' : 'Sell for '}${v.toLocaleString()} chips${last ? ' (last copy)' : ''}</button>`;
   },
@@ -619,7 +619,7 @@ ITEM_PRICE['pot_heal'] = 300; ITEM_PRICE['pot_team'] = 600;   // Heal / Team Hea
     L.forEach((it, k) => { const t = hi > lo ? (sc[k] - lo) / (hi - lo) : 0; ITEM_PRICE[it.id] = Math.round((a + (b - a) * t) * 1.5 / 10) * 10; });
   }
 })();
-const itemPrice = it => ITEM_PRICE[it.id] || 0;
+const itemPrice = it => ITEM_PRICE[it.base || it.id] || 0;   // extra copies have ids like "r_ring#2": price them by their base item so they can be sold too
 const Wallet = {
   get() { return store.get('chips', 0) | 0; },
   add(n) { store.set('chips', Math.max(0, this.get() + (n | 0))); this.refresh(); },
