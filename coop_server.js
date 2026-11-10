@@ -246,7 +246,13 @@ const Coop = (() => {
     }
     S.f++;
     if (S.f % 60 === 0) { const h = hash(); if (iAmClock) S.myHash = h; else { const hh = S.hashes[S.f]; if (hh != null) { delete S.hashes[S.f]; S.checks = (S.checks || 0) + 1; if (hh !== h && !S.bad) { S.bad = true; console.warn('COOP out of sync at frame', S.f); toast('Out of sync with the host (leave and join again)'); if (hooks.onDesync) hooks.onDesync(S.f); } } } }
-    if (G.mode !== 'play') S.over = true;
+    if (G.mode !== 'play') {
+      S.over = true;
+      if (iAmClock) {   // the stage ended on THIS frame: tell everybody the final frame number right now (the normal 40 ms heartbeat stops here, so the other phones waited for frames that never came and showed "Connection lost"). Sent 3 times so one lost message cannot freeze anybody.
+        const sk = S.sk, f = S.f, send = () => tx('*', { k: 'hb', sk, f });
+        send(); setTimeout(send, 200); setTimeout(send, 700);
+      }
+    }
   }
 
   function coopUpdate(orig_) {   // replaces the game's updateGame while a co-op stage is on
