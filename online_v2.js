@@ -189,6 +189,8 @@ const OnlineUI = (() => {
 #onl .ibar button{border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;height:clamp(40px,12vh,74px);transition:transform .12s,filter .12s}
 #onl .ibar button img{height:100%;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.55));pointer-events:none}
 #onl .ibar button:hover,#onl .ibar button:active{transform:translateY(-3px) scale(1.07);filter:brightness(1.15)}
+#onl .ibar button,#onl .lgib button{position:relative}
+#onl .mbadge{position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:9px;background:#e8402f;border:2px solid #fff2da;color:#fff;font:700 11px/14px var(--body,sans-serif);font-style:normal;text-align:center;pointer-events:none}
 @media (orientation:landscape) and (max-height:520px){#onl .box{padding:12px 14px}#onl h2{font-size:20px}#onl .center{gap:8px;padding:8px}}
 `;
 
@@ -223,7 +225,7 @@ const OnlineUI = (() => {
   }
   function activateChar() {
     try {
-      patchStore(); if (!ns) setupBackup = JSON.stringify(UI.setup);
+      patchStore(); patchShop(); if (!ns) setupBackup = JSON.stringify(UI.setup);
       ns = 'on_' + String(session.player.id || 'x').replace(/[^a-z0-9]/gi, '').slice(0, 10) + '_s' + (session.player.server || curServer) + '_';
       Profile.data = null; Profile.load();
       const idx = Math.max(0, Math.min(session.player.robot | 0, robots().length - 1));
@@ -232,7 +234,7 @@ const OnlineUI = (() => {
     } catch (e) { }
   }
   function deactivateChar() {   // back to the OFFLINE save
-    if (!ns) return; ns = null;
+    if (!ns) return; ns = null; unpatchShop();
     try { Profile.data = null; Profile.load(); if (setupBackup) UI.setup = JSON.parse(setupBackup); } catch (e) { } setupBackup = null;
   }
   function myInfo() {   // level + weapon + equipment, shown to other players
@@ -319,6 +321,8 @@ const OnlineUI = (() => {
   })();
   function globalAlerts(j) {   // called for every answer of the live poll, wherever the player is (town, Bag, Shop, Armory, other lobby)
     if (!session || !root) return;
+    if (j.mail != null) { if (j.mail > mailN) toastMsg(j.mail === 1 ? 'You have new mail in your envelope!' : 'You have ' + j.mail + ' items in your envelope!'); mailN = j.mail | 0; }
+    paintMailBadge();
     const fighting = (j.myRoom && (j.myRoom.state === 'vs' || j.myRoom.state === 'searching')) || (j.myAdv && (j.myAdv.state === 'starting' || j.myAdv.state === 'running'));
     if (fighting) return;   // not in the middle of a fight / run: it shows after (the invitation lives 60 s)
     const onScreen = c => !root.hidden && !!root.querySelector('.' + c);   // the Arena / Adventure screens show their own banner
@@ -443,7 +447,7 @@ const OnlineUI = (() => {
   function play(player) {
     session.player = Object.assign({}, session.player, player, { id: player.id || (session.player && session.player.id) });
     curServer = session.player.server || curServer; session.player.server = curServer;
-    activateChar(); Live.start(curServer); refreshFriends(); town();
+    activateChar(); mailN = 0; Live.start(curServer); refreshFriends(); town();
   }
 
   // ---------- 5. TOWN ----------
@@ -453,7 +457,7 @@ const OnlineUI = (() => {
     { id: 'gate',      name: 'Adventure',    img: 'b_adventure', x: 836,  by: 315, w: 255 },
     { id: 'armory',    name: 'Armory',       img: 'b_armory',    x: 1290, by: 360, w: 250 },
     { id: 'arena',     name: 'Arena',        img: 'b_arena',     x: 836,  by: 610, w: 305, text: 'Fights against other players: 1 vs 1 up to 4 vs 4.', plank: true },   // Arena in the middle of the town
-    { id: 'auction',   name: 'Auction House', img: 'b_auction',  x: 245,  by: 545, w: 300, text: 'Buy and sell items with other players. Coming soon.' },
+    { id: 'auction',   name: 'Auction House', img: 'b_auction',  x: 245,  by: 545, w: 300, text: 'Buy and sell items with other players.' },
     { id: 'league',    name: 'League',       img: 'b_league',    x: 836,  by: 860, w: 255, text: 'Join a league, or create your own. League vs league fights.', plaque: [50.5, 35.8] },
     { id: 'shop',      name: 'Shop',         img: 'b_shop',      x: 1385, by: 665, w: 240 },
   ];
@@ -799,6 +803,7 @@ const OnlineUI = (() => {
   function iconPop(ic) {
     if (ic.id === 'bag') { try { return launch('profile'); } catch (e) { fromTown = false; root.hidden = false; toastMsg('Could not open the Bag.'); return; } }   // the Bag = Profile of YOUR online character, same as in the Arena and the Adventure
     if (ic.id === 'friends') return friendsPop();
+    if (ic.id === 'mail') return openMail();   // the envelope: bought items / sale money wait here until you tap Claim
     if (ic.id === 'trophy') return hallPop();   // the trophy is the Hall of Fame (town, arena, adventure, league house)
     pop(ic.name, '');
   }
@@ -840,6 +845,53 @@ const OnlineUI = (() => {
     } catch (e) { toastMsg('Cannot load the Arena. Check your internet.'); }
   }
 
+  // ---- Auction House + Envelope (auction.js is downloaded from GitHub the first time, like the Arena) ----
+  let mailN = 0, shopBuyOrig = null;   // mailN = items waiting in the envelope (the server sends it with every live poll)
+  function paintMailBadge() {   // the red number on the envelope icon (town + league house icon bars)
+    if (!root) return;
+    root.querySelectorAll('.ibar button[aria-label="Mail"],.lgib button[aria-label="Mail"]').forEach(b => {
+      let i = b.querySelector('.mbadge');
+      if (!mailN) { if (i) i.remove(); return; }
+      if (!i) { i = h('i', { class: 'mbadge' }); b.append(i); }
+      i.textContent = mailN > 99 ? '99+' : String(mailN);
+    });
+  }
+  function auctionCtx() {
+    return { h, beep, toast: toastMsg, expired, parent: () => root.firstChild, player: () => session.player,
+      badge: n => { mailN = n | 0; paintMailBadge(); },
+      api: (p, b) => api('/api/' + p, Object.assign({ server: session.player.server || curServer }, myInfo(), b || {}), session.token) };
+  }
+  async function openAuction() {
+    try {
+      if (typeof AuctionUI === 'undefined') { toastMsg('Loading Auction House...'); await loadExtra('auction.js'); }
+      if (typeof AuctionUI === 'undefined') throw new Error('auction did not start');
+      syncRobot(); AuctionUI.open(auctionCtx());
+    } catch (e) { toastMsg('Cannot load the Auction House. Check your internet.'); }
+  }
+  async function openMail() {
+    try {
+      if (typeof MailUI === 'undefined') { toastMsg('Opening envelope...'); await loadExtra('auction.js'); }
+      if (typeof MailUI === 'undefined') throw new Error('mail did not start');
+      syncRobot(); MailUI.open(auctionCtx());
+    } catch (e) { toastMsg('Cannot open the envelope. Check your internet.'); }
+  }
+  // While you are ONLINE, what you buy in the Shop goes to the envelope (not straight into the Bag). Offline the Shop is untouched: this is removed when you leave online.
+  function patchShop() {
+    if (shopBuyOrig || typeof Shop === 'undefined') return; shopBuyOrig = Shop.buy;
+    Shop.buy = function (n = 1) {
+      if (!ns || !session) return shopBuyOrig.apply(this, arguments);
+      const it = itemById(this.sel); if (!it) return;
+      const qty = it.type === 'mat' ? Math.max(1, n | 0) : 1, price = itemPrice(it) * qty, self = this;
+      if (it.potion && Profile.stockOf(it.id) >= POTION_MAX) { Snd.play('dud'); this.msg = 'You already carry ' + POTION_MAX + ' ' + it.name + '.'; this.render(); return; }
+      if (!Wallet.spend(price)) { Snd.play('dud'); return; }
+      this.msg = 'Sending ' + it.name + ' to your envelope...'; this.render();
+      api('/api/mail/shop', { server: session.player.server || curServer, item: it.id, qty }, session.token)
+        .then(() => { Snd.play('win'); self.msg = 'Bought ' + it.name + (qty > 1 ? ' ×' + qty : '') + '! It is waiting in your envelope (Mail icon in the town).'; self.render(); Live.nudge(); })
+        .catch(e => { Wallet.add(price); Snd.play('dud'); self.msg = (e && e.message) || 'Could not send it. Your chips are back.'; self.render(); });
+    };
+  }
+  function unpatchShop() { if (shopBuyOrig) { Shop.buy = shopBuyOrig; shopBuyOrig = null; } }
+
   // ---- Adventure / Shop / Armory open the game's own screens (same as the offline game) ----
   let fromTown = false, retFn = null;   // retFn = where to come back to (the arena sets it; empty = the town)
   function backToTown() { fromTown = false; const f = retFn; retFn = null; if (session) { root.hidden = false; if (f) f(); else town(); } else open(); }
@@ -867,6 +919,7 @@ const OnlineUI = (() => {
     if (b.id === 'hall') return hallPop();
     if (b.id === 'league') return leaguePop();
     if (b.id === 'arena') return openArena();
+    if (b.id === 'auction') return openAuction();
     if (b.id === 'gate') return openAdventure();
     if (b.id === 'gate' || b.id === 'armory' || b.id === 'shop') { try { return launch(b.id); } catch (e) { fromTown = false; root.hidden = false; toastMsg('Could not open ' + b.name + '.'); return; } }
     pop(b.name, b.text);
