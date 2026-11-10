@@ -42,31 +42,35 @@ const AuctionUI = (() => {
     if (kindOf(it) === 'potion' && Profile.stockOf(it.id) + qty > POTION_MAX) return 'You already carry ' + POTION_MAX + ' ' + it.name + '. Use one first, then claim.';
     return '';
   }
-  function addToBag(it, qty) {
+  function addToBag(it, qty, lvl) {   // lvl = the upgrade the item had when it was posted (+8 stays +8)
     const k = kindOf(it);
     if (k === 'mat') Mats.add(it, qty); else if (k === 'potion') Profile.addStock(it.id, qty);
-    else { Profile.data || Profile.load(); for (let i = 0; i < qty; i++) Profile.addCopy(it.id); Profile.save(); }
+    else {
+      const D = Profile.data || Profile.load();
+      for (let i = 0; i < qty; i++) { Profile.addCopy(it.id); const nid = D.owned[D.owned.length - 1]; if ((lvl | 0) > 0 && !it.noUp) { D.up = D.up || {}; D.up[nid] = Math.min(UP_MAX, lvl | 0); } }
+      Profile.save();
+    }
   }
 
   // ---------- pictures ----------
-  function statHtml(it) {
+  function statHtml(it, lvl) {
     try {
       if (it.type === 'necklace') return '<span class="pos">+' + ((it.stats && it.stats.nhp) || 0) + '% of total Health</span>';
       if (it.potion || it.type === 'mat') return '';
-      return Profile.statText(statsAt(it, 0));
+      return Profile.statText(statsAt(it, lvl | 0));
     } catch (e) { return ''; }
   }
-  function detail(it, qty, kids) {   // picture + name + rarity + stats + description (the same look as the League Shop)
-    const st = h('div', { class: 'st' }); st.innerHTML = statHtml(it);
+  function detail(it, qty, kids, lvl) {   // picture + name + rarity + stats + description (the same look as the League Shop); lvl = upgrade level shown as +N
+    const st = h('div', { class: 'st' }); st.innerHTML = statHtml(it, lvl);
     return h('div', { class: 'idet', style: '--rc:' + RARITY[it.rar].color },
       it.img ? h('img', { src: it.img, alt: '', draggable: 'false' }) : null,
-      h('div', { class: 'in' }, it.name + (qty > 1 ? ' ×' + fmt(qty) : '')),
+      h('div', { class: 'in' }, it.name + ((lvl | 0) > 0 ? ' +' + (lvl | 0) : '') + (qty > 1 ? ' ×' + fmt(qty) : '')),
       h('small', null, (it.potion || it.type === 'mat' ? 'Item' : RARITY[it.rar].name + ' ' + it.type)),
       st, h('p', null, it.desc || ''), kids || null);
   }
-  function cell(it, qty, bottom, onclick) {
+  function cell(it, qty, bottom, onclick, lvl) {
     return h('div', { class: 'cslot has tap lgn', style: '--rc:' + RARITY[it.rar].color, onclick },
-      it.img ? h('img', { src: it.img, alt: '', draggable: 'false' }) : null, h('b', null, it.name), qty > 1 ? h('u', null, '×' + fmt(qty)) : null, bottom);
+      it.img ? h('img', { src: it.img, alt: '', draggable: 'false' }) : null, h('b', null, it.name), qty > 1 ? h('u', null, '×' + fmt(qty)) : (lvl | 0) > 0 ? h('u', null, '+' + (lvl | 0)) : null, bottom);
   }
   const money = n => h('span', { class: 'cost' }, fmt(n) + ' chips');
   const css = `
@@ -120,7 +124,7 @@ const AuctionUI = (() => {
         ...(view === 'buy' ? GROUPS.map(([g, n]) => h('div', { class: 'wbtn' + (grp === g ? ' on' : ''), style: 'padding:5px 7px;font-size:12px', onclick: () => { ctx.beep(); grp = g; draw(); } }, n)) : []));
       let rows = ((data && data.listings) || []).filter(l => l.cur === 'chips');
       rows = view === 'mine' ? rows.filter(l => l.mine) : rows.filter(l => (grp === 'all' || (IT(l.item) && groupOf(IT(l.item)) === grp)));
-      const cells = rows.map(l => { const it = IT(l.item); if (!it) return null; return cell(it, l.qty, money(l.price), () => { ctx.beep(); listingPop(l, it); }); }).filter(Boolean);
+      const cells = rows.map(l => { const it = IT(l.item); if (!it) return null; return cell(it, l.qty, money(l.price), () => { ctx.beep(); listingPop(l, it); }, l.lvl); }).filter(Boolean);
       list.replaceChildren(err ? h('p', { class: 'au-empty' }, err) : !data ? h('p', { class: 'au-empty' }, 'Loading...') :
         cells.length ? h('div', { class: 'lgshop' }, cells) : h('p', { class: 'au-empty' }, view === 'mine' ? 'You have nothing on sale. Tap "Post Item".' : 'Nothing is for sale here yet. Be the first: post an item!'));
       list.scrollTop = sc;
@@ -143,7 +147,7 @@ const AuctionUI = (() => {
       p = wood(t, detail(it, l.qty, [
         h('p', null, 'Seller: ' + (l.mine ? 'you' : l.seller)),
         h('div', { class: 'lgc' }, 'Price: ', chipImg(), h('b', null, fmt(l.price) + ' chips'), '  (you have ' + fmt(chips()) + ')'),
-        h('div', { class: 'au-acts' }, buyBtn, h('div', { class: 'wbtn', onclick: () => { ctx.beep(); p.remove(); } }, 'Close'))]), 400);
+        h('div', { class: 'au-acts' }, buyBtn, h('div', { class: 'wbtn', onclick: () => { ctx.beep(); p.remove(); } }, 'Close'))], l.lvl), 400);
     }
     // --- post: pick an item from the Bag, set the quantity (stacks) and the price ---
     function postPop() {
@@ -153,10 +157,10 @@ const AuctionUI = (() => {
       const render = () => {
         if (!pick) {
           return body.replaceChildren(h('div', { class: 'in' }, 'Post an item'), h('small', null, 'Tap an item from your Bag'),
-            bag.length ? h('div', { class: 'au-list', style: 'width:100%;height:min(220px,42vh)' }, h('div', { class: 'lgshop' }, bag.map(o => cell(o.it, o.n, null, () => { ctx.beep(); pick = o; qty = 1; price = String(itemPrice(o.it) || 100); render(); })))) : h('p', { class: 'au-empty' }, 'Your Bag is empty.'),
+            bag.length ? h('div', { class: 'au-list', style: 'width:100%;height:min(220px,42vh)' }, h('div', { class: 'lgshop' }, bag.map(o => cell(o.it, o.n, null, () => { ctx.beep(); pick = o; qty = 1; price = String(itemPrice(o.it) || 100); render(); }, o.kind === 'gear' ? Profile.lvl(o.it.id) : 0)))) : h('p', { class: 'au-empty' }, 'Your Bag is empty.'),
             h('p', null, 'Only your robot\'s own signature weapon cannot be sold.'), h('div', { class: 'wbtn', onclick: () => { ctx.beep(); p.remove(); } }, 'Close'));
         }
-        const it = pick.it, k = pick.kind, lost = k === 'gear' && pick.n <= 1 && Profile.lvl(it.id) > 0, wornLast = k === 'gear' && pick.n <= 1;
+        const it = pick.it, k = pick.kind, upLv = k === 'gear' ? Profile.lvl(it.id) : 0, wornLast = k === 'gear' && pick.n <= 1;
         const inp = noKeys(h('input', { class: 'au-in', type: 'text', inputmode: 'numeric', maxlength: '7', value: price, placeholder: 'chips' }));
         inp.oninput = () => { inp.value = inp.value.replace(/\D/g, '').slice(0, 7); price = inp.value; };
         const step = k === 'mat' ? h('div', { class: 'au-step' }, h('div', { class: 'wbtn', onclick: () => { ctx.beep(); qty = Math.max(1, qty - 1); render(); } }, '-'), h('b', null, '×' + fmt(qty)),
@@ -165,16 +169,17 @@ const AuctionUI = (() => {
         body.replaceChildren(...detail(it, k === 'mat' ? qty : 1, [
           step, h('div', { class: 'lgc' }, 'You own ×' + fmt(pick.n) + (itemPrice(it) ? '  ·  Shop price ' + fmt(itemPrice(it)) : '')),
           h('div', { class: 'lgc' }, k === 'mat' && qty > 1 ? 'Price for all ×' + fmt(qty) + ':' : 'Price:', chipImg(), inp),
-          lost ? h('p', { class: 'au-warn' }, 'Its upgrade +' + Profile.lvl(it.id) + ' is lost when it leaves your Bag.') : null,
+          upLv > 0 ? h('p', { class: 'au-warn' }, 'Its upgrade +' + upLv + ' goes with it: the buyer gets it as +' + upLv + '.') : null,
           wornLast ? h('p', null, 'It is your last copy: robots wearing it will take it off.') : null,
           h('div', { class: 'au-acts' }, h('div', { class: 'wbtn', onclick: async () => {
             ctx.beep(); if (busy) return; const pr = price | 0; if (pr < 1) return ctx.toast('Type a price in chips.');
             const n = k === 'mat' ? qty : 1; if (!removable(it, n)) return ctx.toast('You do not have it any more.');
+            const lv = k === 'gear' ? Profile.lvl(it.id) : 0;   // read the upgrade BEFORE the item leaves the Bag
             busy = true;
-            try { await ctx.api('auction/post', { item: baseId(it.id), qty: n, price: pr, cur: 'chips' }); removeFromBag(it, n); ctx.toast(it.name + ' is on sale for ' + fmt(pr) + ' chips.'); p.remove(); view = 'mine'; }
+            try { await ctx.api('auction/post', { item: baseId(it.id), qty: n, price: pr, cur: 'chips', lvl: lv }); removeFromBag(it, n); ctx.toast(it.name + ' is on sale for ' + fmt(pr) + ' chips.'); p.remove(); view = 'mine'; }
             catch (e) { fail(e); }
             busy = false; load();
-          } }, 'Post for sale'), h('div', { class: 'wbtn red', onclick: () => { ctx.beep(); pick = null; render(); } }, 'Back'))]).childNodes);
+          } }, 'Post for sale'), h('div', { class: 'wbtn red', onclick: () => { ctx.beep(); pick = null; render(); } }, 'Back'))], upLv).childNodes);
       };
       render();
     }
@@ -206,7 +211,7 @@ const MailUI = (() => {
       busy = true;
       try {
         const j = await ctx.api('mail/claim', { id: m.id }), mm = j.mail;   // the server deleted the envelope first: it can never be claimed twice
-        if (mm.kind === 'item') { H.addToBag(it, mm.qty); ctx.toast(it.name + (mm.qty > 1 ? ' ×' + H.fmt(mm.qty) : '') + ' is in your Bag!'); }
+        if (mm.kind === 'item') { H.addToBag(it, mm.qty, mm.lvl); ctx.toast(it.name + (mm.lvl > 0 ? ' +' + mm.lvl : '') + (mm.qty > 1 ? ' ×' + H.fmt(mm.qty) : '') + ' is in your Bag!'); }
         else { Wallet.add(mm.chips); ctx.toast('+' + H.fmt(mm.chips) + ' chips!'); }
         sel = null;
       } catch (e) { H.fail(e); }
@@ -216,13 +221,13 @@ const MailUI = (() => {
       const it = m.item ? H.IT(m.item) : null, open_ = sel === m.id;
       const pic = m.kind === 'chips' ? h('img', { src: 'assets/chip.png', alt: '' }) : it && it.img ? h('img', { src: it.img, alt: '' }) : h('div', { class: 'lg' }, '?');
       const r = h('div', { class: 'wiv' + (open_ ? ' sel' : ''), onclick: () => { ctx.beep(); sel = open_ ? null : m.id; draw(); } }, pic,
-        h('b', null, m.title, h('small', null, (it ? it.name + (m.qty > 1 ? ' ×' + H.fmt(m.qty) : '') : 'Unknown item') + (m.note ? ' · ' + m.note : ''))),
+        h('b', null, m.title, h('small', null, (it ? it.name + (m.lvl > 0 ? ' +' + m.lvl : '') + (m.qty > 1 ? ' ×' + H.fmt(m.qty) : '') : 'Unknown item') + (m.note ? ' · ' + m.note : ''))),
         h('i', null, m.kind === 'chips' ? '+' + H.fmt(m.chips) : '×' + H.fmt(m.qty)));
       if (!open_) return h('div', { class: 'au-mrow' }, r);
       const claimBtn = h('div', { class: 'wbtn', onclick: () => { ctx.beep(); claim(m); } }, m.kind === 'chips' ? 'Claim ' + H.fmt(m.chips) + ' chips' : 'Claim');
       const det = m.kind === 'chips'
         ? h('div', { class: 'idet' }, h('img', { src: 'assets/chip.png', alt: '', draggable: 'false' }), h('div', { class: 'in' }, H.fmt(m.chips) + ' chips'), h('p', null, (it ? it.name + (m.qty > 1 ? ' ×' + H.fmt(m.qty) : '') : 'Your item') + ' was sold. ' + (m.note || '')), h('div', { class: 'au-acts' }, claimBtn))
-        : it ? H.detail(it, m.qty, [h('p', { class: 'note' }, m.note || ''), h('div', { class: 'au-acts' }, claimBtn)]) : h('div', { class: 'idet' }, h('p', null, 'This item is not in this version of the game yet.'));
+        : it ? H.detail(it, m.qty, [h('p', { class: 'note' }, m.note || ''), h('div', { class: 'au-acts' }, claimBtn)], m.lvl) : h('div', { class: 'idet' }, h('p', null, 'This item is not in this version of the game yet.'));
       return h('div', { class: 'au-mrow' }, r, h('div', { class: 'au-mdet' }, det));
     }
     function draw() {
