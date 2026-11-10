@@ -20,7 +20,7 @@ const ArenaFight = (() => {
   const BUF = 4;                  // frames of input the watcher keeps in hand before it (re)starts after a wait (smooth play on slow phones)
   const POLL_MS = 100, POLL_FAST_MS = 50;
   const GRACE = 36;               // frames at the start of every turn where nobody can act (same on every phone): hides the network delay of the hand-over, so nobody freezes after a shot
-  const SNAP_WAIT_MS = 1500, STALL_GIVEUP_MS = 45000, LOST_MS = 30000;
+  const SNAP_WAIT_MS = 1500, STALL_GIVEUP_MS = 20000, LOST_MS = 20000;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   let F = null;                   // the running fight (null = none)
   let H = null;                   // the game functions we replaced (to put them back)

@@ -348,7 +348,7 @@ const OnlineUI = (() => {
   // ---------- server calls ----------
   async function api(path, body, token) {
     if (/YOUR-SERVER/.test(ONLINE_API)) throw new Error('The online server address is not set yet.');
-    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 75000);   // a free Render server can need ~1 minute to wake up
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), /\/(poll|report|fight|board)$/.test(path) ? 10000 : 75000);   // a free Render server can need ~1 minute to wake up (login etc.) - but the polls / fight / report calls of a running game give up after 10 s, so a lost signal is noticed fast instead of hanging for over a minute
     try {
       const r = await fetch(ONLINE_API + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify(body || {}), signal: ctl.signal });
       const j = await r.json().catch(() => ({}));

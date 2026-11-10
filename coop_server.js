@@ -281,7 +281,7 @@ const Coop = (() => {
         const mineDead = !net.ws || net.ws.readyState > 1;
         if (now - S.stall > 3000 && !S.stallMsg) { S.stallMsg = true; toast('A player lost connection... waiting a moment'); }
         // the server removes a silent player after a few seconds and then his robot goes down: the others just carry on. We only give up if OUR connection is dead (or after a very long silence).
-        if ((mineDead && now - S.stall > 6000 || now - S.stall > 60000) && !S.bad) { S.bad = true; toast('Connection lost'); if (hooks.onLost) hooks.onLost(); }
+        if ((mineDead && now - S.stall > 6000 || now - S.stall > 40000) && !S.bad) { S.bad = true; toast('Connection lost'); if (hooks.onLost) hooks.onLost(); }
       }
     } else { S.stall = 0; S.stallMsg = false; }
   }

@@ -595,7 +595,9 @@ const AdvLobbyUI = (() => {
     if (!run || run.ending) return;
     if (run.beating) { run.again = true; return; }
     run.beating = true;
-    try { await C.live.call('adv/report', { stage: run.si, st: run.st, lp: run.lp }); } catch (e) { }
+    let ok = false;
+    try { await C.live.call('adv/report', { stage: run.si, st: run.st, lp: run.lp }); ok = true; } catch (e) { }
+    if (run) { const nw = Date.now(); if (ok) run.lastOk = nw; else if (!run.ending && run.lp >= 100 && nw - (run.lastOk || run.t0 || nw) > 20000) { run.beating = false; return leaveRun('You lost your connection to the room.'); } }   // no answer from the server for 20 s (my signal is gone): do not sit there for minutes, go back
     if (run) { run.beating = false; if (run.again) { run.again = false; runBeat(); } }
   }
   function onRunData(j) {
