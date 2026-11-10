@@ -79,6 +79,13 @@ const OnlineUI = (() => {
 #onl .sp{flex:1}
 #onl .btn.sm{font-size:clamp(11px,2.3vh,15px);padding:6px 12px}
 #onl .pop{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(4,6,14,.6)}
+#onl .pop.wood{background:rgba(10,5,0,.62)}
+#onl .wpnl{width:min(440px,86vw);background:url(assets/online/ui/wood_tile.png) padding-box;border:16px solid transparent;border-image:url(assets/online/ui/panel.png) 30 / 16px stretch;background-clip:padding-box;box-sizing:border-box;padding:6px 10px 10px;text-align:center;color:#fff2da;font-family:var(--body,sans-serif)}
+#onl .watabs{display:flex;gap:8px;justify-content:center;margin:2px 0 8px}
+#onl .watb{padding:7px 14px;border-radius:10px;font:400 15px/1 var(--disp,sans-serif);cursor:pointer;background:rgba(36,18,4,.55);border:2px solid rgba(255,224,160,.3)}#onl .watb.on{border-color:#ffd34a;color:#ffd34a}
+#onl .wlst{height:min(240px,48vh);overflow-y:auto}#onl .wlst p{margin:14px 0;font-size:14px}
+#onl .wiv{display:flex;align-items:center;gap:8px;padding:4px 6px;border-bottom:1px solid rgba(255,220,160,.12);text-align:left;font-size:14px}
+#onl .wiv img{width:30px;height:30px;object-fit:contain;flex:none}#onl .wiv b{flex:1}#onl .wiv i{color:#ffd34a;font-style:normal;font-weight:700}
 /* chat box (bottom left) + icon bar (bottom right) */
 #onl .chat{--cw:clamp(250px,37vw,500px);position:absolute;left:max(6px,env(safe-area-inset-left,0px));bottom:max(6px,env(safe-area-inset-bottom,0px));width:var(--cw);aspect-ratio:697/350;background:url(assets/online/chat.webp) 0 0/100% 100% no-repeat;z-index:10;font-size:calc(var(--cw)/40)}
 #onl .chat .t{position:absolute;top:4%;height:14%;cursor:pointer}
@@ -356,16 +363,16 @@ const OnlineUI = (() => {
     const p = h('div', { class: 'pop', onclick: e => { if (e.target === p) p.remove(); } }, h('div', { class: 'box' }, h('h2', null, title), text ? h('p', null, text) : null, extra || null, h('p', { class: 'warn' }, 'Coming next.'), h('div', { class: 'row' }, btn('OK', () => p.remove()))));
     town_.append(p);
   }
-  function friendsPop() {   // Friend List | World, the same two tabs as in the Arena and the Adventure room (World = the players inside this server right now)
+  function friendsPop() {   // Friend List | World with the same wood panel as the Arena and the Adventure room (World = the players inside this server right now)
     const t = root.firstChild; if (!t) return; let tab = 'world', box = null;
     const draw = () => {
       if (box) box.remove();
       const me_ = session.player, all = ((Live.last && Live.last.online) || []).filter(o => o.id !== me_.id), list = tab === 'friends' ? [] : all;
-      const rows = list.map(o => h('div', { style: 'display:flex;align-items:center;gap:8px;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.12);text-align:left' }, h('img', { src: 'assets/robots/front/' + robotOf(o.robot).id + '.webp', alt: '', style: 'width:30px;height:30px;object-fit:contain;flex:none' }), h('b', { style: 'flex:1' }, o.name), h('small', { style: 'color:#ffd34a;font-weight:700' }, 'Lv ' + o.lv)));
-      const lst = h('div', { style: 'height:200px;overflow-y:auto;margin:8px 0' }, rows.length ? rows : h('p', null, tab === 'friends' ? 'No friends yet. The friend list is coming soon.' : 'Nobody else is online on this server.'));
-      box = h('div', { class: 'pop', onclick: e => { if (e.target === box) box.remove(); } }, h('div', { class: 'box' }, h('h2', null, 'Friends'),
-        h('div', { class: 'row' }, btn('Friend List', () => { tab = 'friends'; draw(); }, tab === 'friends' ? '' : 'alt sm'), btn('World (' + all.length + ')', () => { tab = 'world'; draw(); }, tab === 'world' ? '' : 'alt sm')),
-        lst, h('div', { class: 'row' }, btn('Close', () => box.remove(), 'alt'))));
+      const rows = list.map(o => h('div', { class: 'wiv' }, h('img', { src: 'assets/robots/front/' + robotOf(o.robot).id + '.webp', alt: '' }), h('b', null, o.name), h('i', null, 'Lv ' + o.lv)));
+      const lst = h('div', { class: 'wlst' }, rows.length ? rows : h('p', null, tab === 'friends' ? 'No friends yet. The friend list is coming soon.' : 'Nobody else is online on this server.'));
+      const tabs = h('div', { class: 'watabs' }, h('div', { class: 'watb' + (tab === 'friends' ? ' on' : ''), onclick: () => { beep(); tab = 'friends'; draw(); } }, 'Friend List'),
+        h('div', { class: 'watb' + (tab === 'world' ? ' on' : ''), onclick: () => { beep(); tab = 'world'; draw(); } }, 'World (' + all.length + ')'), h('div', { class: 'watb', onclick: () => { beep(); box.remove(); } }, 'X'));
+      box = h('div', { class: 'pop wood', onclick: e => { if (e.target === box) box.remove(); } }, h('div', { class: 'wpnl' }, tabs, lst));
       t.append(box);
     };
     draw();
