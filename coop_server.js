@@ -85,6 +85,7 @@ const Coop = (() => {
   function begin(opts) {
     if (!net) throw new Error('no connection');
     install(); endStage();
+    { const cur = String(opts.sk).split(':'); for (const k of Object.keys(pend)) { const p = k.split(':'); if (p[0] !== cur[0] || (+p[1] < +cur[1]) || (+p[1] === +cur[1] && +p[2] < +cur[2])) delete pend[k]; } }   // messages of old stages / old runs are useless: drop them (they piled up on the phone)
     S = { sk: opts.sk, mi: opts.mi, si: opts.si, diff: opts.diff, members: opts.members.slice(), host: amHost(), init: null, sim: false, f: 0, limit: 0, q: [], simIn: {}, hashes: {}, myTeam: -1, rng: null, lastHb: 0, over: false, t0: performance.now(), turnF: 0, applying: false, stepping: false, lastSent: null, bad: false, pre: [], uiq: [] };
     const mine = { robot: opts.members.find(m => m.id === net.myId).robot, bonus: JSON.parse(JSON.stringify(profileBonuses(opts.members.find(m => m.id === net.myId).robot))) };
     S.mine = mine;
@@ -125,9 +126,20 @@ const Coop = (() => {
     window.newGame = wrap;
     Adventure.playerRobot = function () { return my.members[0].robot | 0; };   // enemy looks depend on "your" robot: every phone must use the same one
     Adventure.diff = my.diff;
-    try { await Adventure.start(my.mi, my.si); prog(100, 'Ready!'); }
-    catch (e) { console.error('coop start', e); toast('Co-op could not start: ' + ((e && e.message) || e)); if (hooks.onLost) hooks.onLost(); }
-    finally { Adventure.playerRobot = o.pr; if (window.newGame === wrap) window.newGame = o.newGame; }
+    let fail = null;
+    for (let a = 0; a < 3; a++) {   // loadfix_server.js swallows start errors (the screen just stays on "Loading stage"): so we CHECK that the shared map was really built, and try again if not
+      if (S !== my || my.dead) return;
+      try {
+        window.newGame = wrap; Adventure.playerRobot = function () { return my.members[0].robot | 0; }; Adventure.diff = my.diff;
+        await Adventure.start(my.mi, my.si);
+        if (S !== my || my.dead) return;
+        if (my.sim && G.mp === my) { fail = null; break; }
+        throw new Error('the stage did not build');
+      } catch (e) { fail = e; console.error('coop start (try ' + (a + 1) + ')', e); if (a < 2) { prog(68, 'Loading again (' + (a + 2) + ' / 3)...'); await new Promise(r => setTimeout(r, 700)); } }
+    }
+    Adventure.playerRobot = o.pr; if (window.newGame === wrap) window.newGame = o.newGame;
+    if (fail) { toast('Co-op could not start: ' + ((fail && fail.message) || fail)); if (hooks.onLost) hooks.onLost(); return; }
+    prog(100, 'Ready!');
   }
   function coopNewGame(setup, my, realNew) {
     const n = my.members.length, enemyIdx = n;
