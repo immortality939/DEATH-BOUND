@@ -4,7 +4,7 @@
 // ===== ADVENTURE MODE =====
 // Pick a world map, then fight through its stages one by one (like DDTank). The LAST stage of every map is a BOSS:
 // one giant robot (drawn bigger, much more HP, hits harder). Stages are plain data in ADV_MAPS below.
-// 
+//
 // To add another adventure map:
 //   1. paint a 2800x1000 PNG (see assets/adventure/canyon.png) and a 336x120 thumbnail, put them in assets/adventure/
 //   2. add its solid-column list to MAP_RUNS (same as maps.js: one list of [top, bottom] runs per x column)
@@ -549,7 +549,7 @@ const Loot = {
     if (e.stone) { Stones.add(e.n, e.stone); this.got.push({ stone: e.stone, n: e.n }); card.querySelector('em').textContent = 'Added!'; Snd.play(e.stone >= 4 ? 'win' : 'pick'); }
     else if (e.scroll) { Mats.add(matOf('support', 1), e.n); this.got.push({ scroll: 1, n: e.n }); card.querySelector('em').textContent = 'Added!'; Snd.play('win'); }
     else if (e.chips) { Wallet.add(e.chips); this.got.push({ chips: e.chips }); card.querySelector('em').textContent = 'Added!'; Snd.play(e.chips >= 100 ? 'win' : 'pick'); }
-    else { const it = e.it, dup = D.owned.includes(it.id), refund = dup ? Math.round(itemPrice(it) / 10) : 0; if (!dup) D.owned.push(it.id); if (refund) Wallet.add(refund); Profile.save(); this.got.push({ it, dup, refund }); card.querySelector('em').textContent = dup ? 'Owned +' + refund : 'NEW!'; Snd.play(it.rar === 'legendary' || it.rar === 'epic' ? 'win' : 'pick'); }
+    else { const it = e.it, dup = D.owned.includes(it.id); Profile.addCopy(it.id); Profile.save(); this.got.push({ it, dup, n: Profile.copies(it.id) }); card.querySelector('em').textContent = dup ? '+1 copy (×' + Profile.copies(it.id) + ')' : 'NEW!'; Snd.play(it.rar === 'legendary' || it.rar === 'epic' ? 'win' : 'pick'); }
     this.msg();
     if (this.picksLeft <= 0) { clearInterval(this.timer); setTimeout(() => this.revealAll(), auto ? 300 : 800); }
   },
@@ -557,7 +557,7 @@ const Loot = {
     const cards = [...this.el.querySelectorAll('.lc')];
     cards.forEach((c, i) => { if (!c.classList.contains('up')) setTimeout(() => { c.classList.add('up', 'rest'); }, 40 * i); });
     setTimeout(() => {
-      $('lootGot').innerHTML = this.got.map(g => g.scroll ? `<div class="got" style="--rc:${matOf('support', 1).col}"><b><img class="cb" src="${matOf('support', 1).img}" alt=""> +${g.n} ${matOf('support', 1).name}</b> <small>added to your Items</small></div>` : g.stone ? `<div class="got" style="--rc:${STONE_TYPES[g.stone - 1].col}"><b><img class="cb" src="${STONE_TYPES[g.stone - 1].img}" alt=""> +${g.n} ${STONE_TYPES[g.stone - 1].n}${g.n > 1 ? 's' : ''}</b> <small>added to your stones</small></div>` : g.chips ? `<div class="got" style="--rc:#ffd24a"><b><img class="cb" src="assets/chip.png" alt=""> +${g.chips} chips</b> <small>added to your wallet</small></div>` : `<div class="got" style="--rc:${RARITY[g.it.rar].color}"><b>${g.it.name}</b> <i>${RARITY[g.it.rar].name} ${g.it.type}</i> ${Profile.statText(g.it.stats)}${g.dup ? ` <small>(already owned: +${g.refund} chips back)</small>` : ' <small>added to your inventory</small>'}</div>`).join('');
+      $('lootGot').innerHTML = this.got.map(g => g.scroll ? `<div class="got" style="--rc:${matOf('support', 1).col}"><b><img class="cb" src="${matOf('support', 1).img}" alt=""> +${g.n} ${matOf('support', 1).name}</b> <small>added to your Items</small></div>` : g.stone ? `<div class="got" style="--rc:${STONE_TYPES[g.stone - 1].col}"><b><img class="cb" src="${STONE_TYPES[g.stone - 1].img}" alt=""> +${g.n} ${STONE_TYPES[g.stone - 1].n}${g.n > 1 ? 's' : ''}</b> <small>added to your stones</small></div>` : g.chips ? `<div class="got" style="--rc:#ffd24a"><b><img class="cb" src="assets/chip.png" alt=""> +${g.chips} chips</b> <small>added to your wallet</small></div>` : `<div class="got" style="--rc:${RARITY[g.it.rar].color}"><b>${g.it.name}</b> <i>${RARITY[g.it.rar].name} ${g.it.type}</i> ${Profile.statText(g.it.stats)}${g.dup ? ` <small>(+1 copy: you now own ×${g.n})</small>` : ' <small>added to your inventory</small>'}</div>`).join('');
       $('bLootGo').hidden = false; this.msg();
     }, 40 * cards.length + 500);
   },

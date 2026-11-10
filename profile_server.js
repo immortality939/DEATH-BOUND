@@ -319,7 +319,7 @@ const Profile = {
   load() {
     const raw = store.get('profile', null), d = raw || {};
     const fresh = !Array.isArray(d.owned) && !d.lootV;   // brand-new save: start with 4 basic items, buy or win the rest
-    this.data = { char: d.char | 0, owned: Array.isArray(d.owned) ? d.owned : fresh ? ['h_cap', 'r_bolt', 'a_cloth', 's_sandal'] : ITEMS.map(i => i.id), eq: d.eq && typeof d.eq === 'object' ? d.eq : {}, lootV: d.lootV | 0, up: d.up && typeof d.up === 'object' ? d.up : {}, picked: !!d.picked, lvl: clamp(d.lvl | 0 || 1, 1, LVL_MAX), xp: Math.max(0, d.xp | 0), stock: d.stock && typeof d.stock === 'object' ? d.stock : {} };
+    this.data = { char: d.char | 0, owned: Array.isArray(d.owned) ? d.owned : fresh ? ['h_cap', 'r_bolt', 'a_cloth', 's_sandal'] : ITEMS.map(i => i.id), eq: d.eq && typeof d.eq === 'object' ? d.eq : {}, lootV: d.lootV | 0, up: d.up && typeof d.up === 'object' ? d.up : {}, picked: !!d.picked, lvl: clamp(d.lvl | 0 || 1, 1, LVL_MAX), xp: Math.max(0, d.xp | 0), stock: d.stock && typeof d.stock === 'object' ? d.stock : {}, qty: d.qty && typeof d.qty === 'object' ? d.qty : {} };
     if (LOOT_LOCK) {
       if (!this.data.lootV && fresh) { this.data.lootV = 1; }
       else if (!this.data.lootV) {   // first run with loot: you start with the common items (plus anything you wear); the rest is won from Adventure loot cards
@@ -348,6 +348,33 @@ const Profile = {
     if (!this.data.owned.includes(w.id)) this.data.owned.push(w.id);
     const eq = this.eqOf(this.charId()), cur = eq.weapon && itemById(eq.weapon);
     if (!(cur && (cur.shop || cur.sig) && this.data.owned.includes(cur.id))) eq.weapon = w.id;   // keep a worn Shop / signature weapon you own, otherwise wear your own signature weapon
+  },
+  copies(id) { if (!this.data) this.load(); return this.data.owned.includes(id) ? 1 + Math.max(0, (this.data.qty && this.data.qty[id]) | 0) : 0; },   // how many of this item you own (1 + spare copies)
+  addCopy(id) { const D = this.data || this.load(); if (!D.qty) D.qty = {}; if (!D.owned.includes(id)) D.owned.push(id); else D.qty[id] = (D.qty[id] | 0) + 1; },   // bought / looted: first one is added, every next one is another copy
+  sellValue(it) { return it && !it.potion && it.type !== 'mat' ? Math.floor(itemPrice(it) * 0.25) : 0; },   // you get 25% of the Shop price
+  sellItem(id) {   // sells ONE copy; returns the chips you got (0 = could not sell)
+    const D = this.data || this.load(), it = itemById(id), v = this.sellValue(it); if (!it || v <= 0 || !D.owned.includes(id)) return 0;
+    if (!D.qty) D.qty = {};
+    if ((D.qty[id] | 0) > 0) { D.qty[id]--; if (!D.qty[id]) delete D.qty[id]; }
+    else {   // last copy: it leaves the inventory (and the robots wearing it), its upgrade level is lost
+      if (it.sig) return 0;
+      D.owned = D.owned.filter(x => x !== id); if (D.up) delete D.up[id];
+      for (const rid in D.eq) for (const k in D.eq[rid]) if (D.eq[rid][k] === id) delete D.eq[rid][k];
+    }
+    Wallet.add(v); this.ensureWeapon(); this.save(); return v;
+  },
+  sellAsk: null,
+  sellBtn(it) {
+    const v = this.sellValue(it); if (this.sellAsk && this.sellAsk !== it.id) this.sellAsk = null;
+    const last = this.copies(it.id) <= 1; if (v <= 0 || (last && it.sig)) return '';
+    const ask = this.sellAsk === it.id;
+    return `<button class="btn sm ${ask ? '' : 'alt'}" data-act="sell">${ask ? 'Tap again: sell for ' : 'Sell for '}${v.toLocaleString()} chips${last ? ' (last copy)' : ''}</button>`;
+  },
+  doSell() {
+    const id = this.sel, it = id && itemById(id); if (!it) return;
+    if (this.copies(id) <= 1 && this.sellAsk !== id) { this.sellAsk = id; Snd.play('beep'); return; }   // selling your LAST copy asks for a second tap
+    this.sellAsk = null; const v = this.sellItem(id);
+    if (v) { Snd.play('win'); this.msg = `Sold ${it.name} for ${v.toLocaleString()} chips.`; if (!this.data.owned.includes(id)) this.sel = null; } else Snd.play('dud');
   },
   stockOf(id) { if (!this.data) this.load(); return clamp((this.data.stock && this.data.stock[id]) | 0, 0, POTION_MAX); },   // Heal / Team Heal you carry (max POTION_MAX each)
   addStock(id, n) { if (!this.data) this.load(); this.data.stock = this.data.stock || {}; this.data.stock[id] = clamp(this.stockOf(id) + n, 0, POTION_MAX); this.save(); },
@@ -400,7 +427,7 @@ const Profile = {
   openPick(kind, after) { this.load(); this.mode = 'pick'; this.pickKind = kind; this.after = after || null; this.pickSel = this.data.char; this.render(); UI.show('profile'); },
   newGame(k) {   // wipes the profile (items, upgrades, chips, stones) and starts over with robot k and its own weapon
     const rid = Assets.robots.robots[k].id, w = weaponItemFor(rid);
-    this.data = { char: k, owned: ['h_cap', 'r_bolt', 'a_cloth', 's_sandal', w.id], eq: { [rid]: { weapon: w.id } }, lootV: 1, up: {}, picked: true, lvl: 1, xp: 0, stock: {} };
+    this.data = { char: k, owned: ['h_cap', 'r_bolt', 'a_cloth', 's_sandal', w.id], eq: { [rid]: { weapon: w.id } }, lootV: 1, up: {}, picked: true, lvl: 1, xp: 0, stock: {}, qty: {} };
     store.set('chips', 0); for (let t = 1; t <= 5; t++) store.set(stoneKey(t), 0); for (let t = 1; t <= 3; t++) store.set('amu' + t, 0); store.set('sup1', 0); Stones.add(5); Wallet.refresh(); this.save();
   },
   choose(k) {
@@ -439,7 +466,7 @@ const Profile = {
     const TABS = [['all', 'All'], ['weapon', 'Weapon'], ['helmet', 'Helmets'], ['ring', 'Rings'], ['armor', 'Armor'], ['shoes', 'Shoes'], ['heal', 'Heal'], ['wings', 'Wings'], ['necklace', 'Necklace'], ['glove', 'Gloves']];
     const tabs = TABS.map(t => `<button class="pf-tab${this.filter === t[0] ? ' on' : ''}" data-tab="${t[0]}">${t[1]}</button>`).join('');
     let cells = ''; for (let i = 0; i < total; i++) {
-      const it = owned[i]; cells += it ? `<div class="pf-cell${it.id === this.sel ? ' sel' : ''}" data-item="${it.id}">${this.itemTile(it, worn.has(it.id) ? '<em>E</em>' : '', this.lvl(it.id))}</div>` : '<div class="pf-cell off"></div>';
+      const it = owned[i]; cells += it ? `<div class="pf-cell${it.id === this.sel ? ' sel' : ''}" data-item="${it.id}">${this.itemTile(it, (worn.has(it.id) ? '<em>E</em>' : '') + (this.copies(it.id) > 1 ? `<s class="cnt">×${this.copies(it.id)}</s>` : ''), this.lvl(it.id))}</div>` : '<div class="pf-cell off"></div>';
     }
     // Items tab: Heal potions + stones + amulets + guardian scroll (nothing here can be worn)
     const cnt = n => n >= 100000 ? Math.round(n / 1000) + 'k' : n >= 10000 ? (n / 1000).toFixed(1) + 'k' : n.toLocaleString();
@@ -456,8 +483,8 @@ const Profile = {
     } else if (selIt) {
       const L = this.lvl(selIt.id), w = this.wornBy(selIt.id), me = w && w.rid === rob.id, by = w && !me ? R.find(r => r.id === w.rid).name : '';
       const now = statsAt(selIt, L);
-      const btns = (selIt.type === 'weapon' && me && selIt.sig === rob.id ? '' : me ? '<button class="btn sm alt" data-act="un">Unequip</button>' : `<button class="btn sm" data-act="eq">Equip on ${rob.name}</button>`) + (selIt.noUp ? '' : '<button class="btn sm alt" data-act="forge">Forge</button>');
-      side = `<div class="pf-det" style="--rc:${RARITY[selIt.rar].color}">${selIt.img ? `<img class="big" src="${this.imgOf(selIt)}" alt="" draggable="false">` : ''}<h3>${selIt.name}${L ? ` <u class="lvl">+${L}</u>` : ''} <i>${RARITY[selIt.rar].name} ${selIt.type}</i></h3><div class="st">${selIt.type === 'necklace' ? `<span class="pos">+${selIt.stats.nhp}% of total Health</span><span class="neg">Cannot be upgraded</span>` : this.statText(now)}${selIt.type === 'heal' ? `<span class="pos">${healThrows(L)} throws per match</span>` : ''}</div><p class="dim">${selIt.desc}${by ? ' (worn by ' + by + ' — equipping moves it here)' : ''}</p><div class="row">${btns}</div></div>`;
+      const btns = (selIt.type === 'weapon' && me && selIt.sig === rob.id ? '' : me ? '<button class="btn sm alt" data-act="un">Unequip</button>' : `<button class="btn sm" data-act="eq">Equip on ${rob.name}</button>`) + (selIt.noUp ? '' : '<button class="btn sm alt" data-act="forge">Forge</button>') + this.sellBtn(selIt);
+      side = `<div class="pf-det" style="--rc:${RARITY[selIt.rar].color}">${selIt.img ? `<img class="big" src="${this.imgOf(selIt)}" alt="" draggable="false">` : ''}<h3>${selIt.name}${L ? ` <u class="lvl">+${L}</u>` : ''} <i>${RARITY[selIt.rar].name} ${selIt.type}</i></h3><div class="st">${selIt.type === 'necklace' ? `<span class="pos">+${selIt.stats.nhp}% of total Health</span><span class="neg">Cannot be upgraded</span>` : this.statText(now)}${selIt.type === 'heal' ? `<span class="pos">${healThrows(L)} throws per match</span>` : ''}</div><p class="dim">${selIt.desc}${this.copies(selIt.id) > 1 ? ' (You own ×' + this.copies(selIt.id) + ')' : ''}${by ? ' (worn by ' + by + ' — equipping moves it here)' : ''}</p><div class="row">${btns}</div></div>`;
     }
     const inv = this.tab === 'items'
       ? `<div class="pf-cells">${icells}</div>`
@@ -485,7 +512,7 @@ const Profile = {
       else if (cur) { this.sel = this.sel === cur ? null : cur; this.tab = 'equip'; this.msg = null; }
       this.render();
     });
-    root.querySelectorAll('[data-act]').forEach(e => e.onclick = () => { const a = e.dataset.act; if (a === 'forge') { Forge.open(selIt && selIt.type !== 'mat' ? selIt.id : null); return; } if (a === 'eq') this.equip(this.sel); else if (a === 'un') this.unequip(this.sel); this.render(); });
+    root.querySelectorAll('[data-act]').forEach(e => e.onclick = () => { const a = e.dataset.act; if (a === 'sell') { this.doSell(); this.render(); return; } if (a === 'forge') { Forge.open(selIt && selIt.type !== 'mat' ? selIt.id : null); return; } if (a === 'eq') this.equip(this.sel); else if (a === 'un') this.unequip(this.sel); this.render(); });
   },
   open() { this.load(); this.mode = 'main'; this.sel = null; this.msg = null; this.render(); UI.show('profile'); },
   // ---- inventory: tap = select, double-tap = equip in its own slot, drag onto a slot = equip there (one set of listeners; the screen is re-drawn often) ----
@@ -603,10 +630,10 @@ const Shop = {
     const list = [...ITEMS, ...SHOP_GEAR_ITEMS, ...WEAPON_ITEMS, ...SHOP_WEAPON_ITEMS, ...HEAL_ITEMS, ...WING_ITEMS, ...NECK_ITEMS, ...GLOVE_ITEMS, ...POTION_ITEMS, ...MAT_ITEMS].filter(i => (this.type === 'all' || i.type === this.type) && (this.rar === 'all' || i.rar === this.rar)).sort((a, b) => RK[a.rar] - RK[b.rar] || itemPrice(a) - itemPrice(b));
     const TY = [['all', 'All'], ['weapon', 'Weapons'], ['helmet', 'Helmets'], ['ring', 'Rings'], ['armor', 'Armor'], ['shoes', 'Shoes'], ['heal', 'Heal'], ['wings', 'Wings'], ['necklace', 'Necklaces'], ['glove', 'Gloves'], ['potion', 'Items'], ['mat', 'Stones & Scrolls']], RA = [['all', 'Any rarity'], ['common', 'Common'], ['rare', 'Rare'], ['epic', 'Epic'], ['legendary', 'Legendary']];
     const tabs = (arr, cur, key) => arr.map(t => `<button class="pf-tab${cur === t[0] ? ' on' : ''}" data-${key}="${t[0]}">${t[1]}</button>`).join('');
-    const cells = list.map(it => `<div class="pf-cell sp${it.id === this.sel ? ' sel' : ''}${own.has(it.id) ? ' owned' : ''}" data-item="${it.id}">${Profile.itemTile(it)}<u class="pr">${it.type === 'mat' ? `×${fmtK(Mats.get(it))} · <img src="assets/chip.png" alt="">${itemPrice(it).toLocaleString()}` : it.potion ? `${Profile.stockOf(it.id)}/${POTION_MAX} · <img src="assets/chip.png" alt="">${itemPrice(it).toLocaleString()}` : own.has(it.id) ? 'OWNED' : `<img src="assets/chip.png" alt="">${itemPrice(it).toLocaleString()}`}</u></div>`).join('');
+    const cells = list.map(it => `<div class="pf-cell sp${it.id === this.sel ? ' sel' : ''}" data-item="${it.id}">${Profile.itemTile(it, !it.potion && it.type !== 'mat' && own.has(it.id) ? `<s class="cnt">×${Profile.copies(it.id)}</s>` : '')}<u class="pr">${it.type === 'mat' ? `×${fmtK(Mats.get(it))} · <img src="assets/chip.png" alt="">${itemPrice(it).toLocaleString()}` : it.potion ? `${Profile.stockOf(it.id)}/${POTION_MAX} · <img src="assets/chip.png" alt="">${itemPrice(it).toLocaleString()}` : `<img src="assets/chip.png" alt="">${itemPrice(it).toLocaleString()}`}</u></div>`).join('');
     const it = this.sel && itemById(this.sel); let det = '<div class="pf-det"><p class="dim">Tap an item to see its stats, then buy it with chips. Win chips in every match and every Adventure stage.</p></div>';
     if (it) {
-      const isMat = it.type === 'mat', pr = itemPrice(it), stk = it.potion ? Profile.stockOf(it.id) : 0, has = it.potion ? stk >= POTION_MAX : own.has(it.id), can = chips >= pr;
+      const isMat = it.type === 'mat', pr = itemPrice(it), stk = it.potion ? Profile.stockOf(it.id) : 0, has = it.potion ? stk >= POTION_MAX : false, can = chips >= pr;
       det = `<div class="pf-det" style="--rc:${RARITY[it.rar].color}">${it.img ? `<img class="big" src="${it.img}" alt="" draggable="false">` : ''}<h3>${it.name} <i>${isMat ? it.tag : it.potion ? 'Battle item' : RARITY[it.rar].name + ' ' + it.type}</i></h3><div class="st">${isMat ? `<span class="pos">${it.line}</span>` : it.potion ? `<span class="pos">Heals ${Math.round(it.pct * 100)}% of max health${it.potion === 'team' ? ' · whole team' : ''}</span>` : Profile.statText(it.stats)}</div><p class="dim">${it.desc}</p>${it.potion ? `<p class="dim">You carry <b>${stk}/${POTION_MAX}</b>. You can buy again any time, up to ${POTION_MAX}.</p>` : ''}` +
         (isMat ? `<p class="dim">You have <b>${Mats.get(it).toLocaleString()}</b>. Use it in the Forge (Forge anvil in Profile).</p><div class="row">${[1, 10, 100].map(n => `<button class="btn sm" data-buy="${n}"${chips >= pr * n ? '' : ' disabled'}><img class="cb" src="assets/chip.png" alt="">${(pr * n).toLocaleString()} · ×${n}</button>`).join('')}</div>${chips < pr ? `<p class="dim">You need ${(pr - chips).toLocaleString()} more chips.</p>` : ''}${this.msg ? `<p class="shopmsg">${this.msg}</p>` : ''}</div>` : `<div class="row">${has ? `<button class="btn sm alt" disabled>${it.potion ? 'Full ' + stk + '/' + POTION_MAX : 'Owned'}</button>` : `<button class="btn sm" data-buy="1"${can ? '' : ' disabled'}><img class="cb" src="assets/chip.png" alt="">${pr.toLocaleString()} · Buy</button>`}</div>${!has && !can ? `<p class="dim">You need ${(pr - chips).toLocaleString()} more chips.</p>` : ''}${this.msg ? `<p class="shopmsg">${this.msg}</p>` : ''}</div>`);
     }
@@ -630,9 +657,8 @@ const Shop = {
       if (!Wallet.spend(itemPrice(it))) { Snd.play('dud'); return; }
       Profile.addStock(it.id, 1); Snd.play('win'); this.msg = `Bought ${it.name}! You carry ${Profile.stockOf(it.id)}/${POTION_MAX}.`; this.render(); return;
     }
-    if (D.owned.includes(it.id)) return;
     if (!Wallet.spend(itemPrice(it))) { Snd.play('dud'); return; }
-    D.owned.push(it.id); Profile.save(); Snd.play('win'); this.msg = `Bought ${it.name}! Equip it in Profile.`; this.render();
+    Profile.addCopy(it.id); Profile.save(); Snd.play('win'); this.msg = `Bought ${it.name}! You own ×${Profile.copies(it.id)}. Equip or sell it in Profile.`; this.render();
   },
 };
 
