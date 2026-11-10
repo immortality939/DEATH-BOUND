@@ -400,7 +400,8 @@ const OnlineUI = (() => {
     if (typeof ArenaFight === 'undefined') throw new Error('arena_fight.js did not load');
     const fc = { get player() { return session.player; }, toast: toastMsg, expired,
       post: (path, body) => api('/api/arena/' + path, Object.assign({ server: session.player.server || curServer }, body || {}), session.token), loadExtra,
-      hideOnline: () => { root.hidden = true; }, showOnline: () => { root.hidden = false; } };
+      hideOnline: () => { root.hidden = true; }, showOnline: () => { root.hidden = false; },
+      wsUrl: () => String(ONLINE_API).replace(/^http/, 'ws') + '/ws?t=' + session.token + '&sv=' + ((session.player && session.player.server) || curServer) };   // the fight sends its inputs over a WebSocket (fast); the normal HTTP calls stay as a safety net
     return ArenaFight.run(fc, match, cb);
   }
   function advCtx() { const c = arenaCtx(); c.reopenAdv = openAdventure; c.loadExtra = loadExtra; c.session = () => session; return c; }   // (not Object.assign: it would freeze the live `player` getter)

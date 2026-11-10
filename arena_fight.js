@@ -17,7 +17,7 @@ const ArenaFight = (() => {
   const $ = id => document.getElementById(id);
   const IN_KEYS = ['left', 'right', 'up', 'down', 'fire', 'fast'];
   const STATE_CODE = { ground: 0, air: 1, dead: 2, drown: 3 };
-  const BUF = 6;                  // frames of input the watcher keeps in hand before it (re)starts after a wait (smooth play on slow phones)
+  const BUF = 4;                  // frames of input the watcher keeps in hand before it (re)starts after a wait (smooth play on slow phones)
   const POLL_MS = 100, POLL_FAST_MS = 50;
   const GRACE = 36;               // frames at the start of every turn where nobody can act (same on every phone): hides the network delay of the hand-over, so nobody freezes after a shot
   const SNAP_WAIT_MS = 1500, STALL_GIVEUP_MS = 45000, LOST_MS = 30000;
@@ -34,7 +34,10 @@ const ArenaFight = (() => {
   const sigSet = s => { const t = curTeam(); if (!t) return; t.sel = s[0]; t.prevSel = s[1] < 0 ? undefined : s[1]; G.flyMode = !!s[2]; G.powArmed = !!s[3]; };
   const sigEq = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
   const seeded = fn => { const r = Math.random; Math.random = F.rng; try { return fn(); } finally { Math.random = r; } };
-  const push = ev => { ev.n = ++F.n; F.out.push(ev); };
+  const push = ev => {
+    const f = F; ev.n = ++f.n; f.out.push(ev);
+    if (f.wsq) { f.wsq.push(ev); if (f.wsq.length > 3000) f.wsq.shift(); if (!f.wsPend) { f.wsPend = true; Promise.resolve().then(() => { f.wsPend = false; if (F === f) wsFlush(); }); } }   // goes out at once over the WebSocket (after the current step, so 'thr' is up to date)
+  };
 
   // ---------- the engine step ----------
   const calm = () => { if (G.cam && G.cam.shake > 0.05) G.cam.shake *= 0.8; };   // the camera shake only fades while the battle runs: when we wait, fade it by hand (it was shaking like crazy)
@@ -98,6 +101,7 @@ const ArenaFight = (() => {
     if (G.turnCount !== f.tc) {                                       // a new turn started inside this step
       const ended = f.tcOwner; f.tc = G.turnCount; f.tcOwner = ownerOf(G.activeWorm); newTurn(ended);
     }
+    wsFlush();   // tell the other phone at once how far my input is complete
     return true;
   }
   function sample() {                                                 // my keys -> events (only when something changed)
@@ -163,6 +167,43 @@ const ArenaFight = (() => {
   }
 
   // ---------- network ----------
+  // FAST PATH: events + 'thr' go straight to the other phones over the server's WebSocket (no polling delay).
+  // SAFETY NET: the same events also go through the normal HTTP calls (pump). Every event has a number n: each one is used exactly once, in order,
+  // whichever path brings it first. A WebSocket message is only trusted when no event is missing before it (otherwise the HTTP path fills the gap).
+  function ingest(ev) {   // an event from the HTTP log
+    const f = F; if (!f || !ev) return; const R = f.rem[ev.from];
+    if (R && ev.n != null) { if (ev.n <= R.lastN) return; R.lastN = ev.n; }
+    if (ev.k === 'sn') { if (Array.isArray(ev.d)) f.snaps.push(ev); } else if (R) R.q.push(ev);
+  }
+  function wsIn(from, d) {   // a message from the other phone's WebSocket
+    const f = F; if (!f || f.stop) return; const R = f.rem[from]; if (!R) return;
+    for (const ev of (Array.isArray(d.ev) ? d.ev : [])) {
+      if (!ev || ev.n !== R.lastN + 1) continue; R.lastN = ev.n;
+      if (ev.k === 'sn') { if (Array.isArray(ev.d)) f.snaps.push(ev); } else R.q.push(ev);
+    }
+    if (R.lastN === (d.ln | 0) && typeof d.thr === 'number' && d.thr > R.thr) R.thr = d.thr;
+    f.lastData = Date.now();
+  }
+  function wsFlush() {
+    const f = F; if (!f || !f.live || !f.wsq || !f.ws || f.ws.readyState !== 1) return;
+    const now = performance.now(); if (!f.wsq.length && now - f.wsLast < 30) return; f.wsLast = now;
+    const batch = f.wsq.splice(0, 30), thr = f.wsq.length ? Math.min(f.thr, f.wsq[0].f) : f.thr;
+    if (batch.length) f.wsLastN = batch[batch.length - 1].n;
+    try { f.ws.send(JSON.stringify({ to: '*', d: { k: 'fx', m: f.id, ev: batch, thr, ln: f.wsLastN } })); } catch (e) { }
+  }
+  function openWs(f) {
+    if (!f.wsq || !f.C.wsUrl || typeof WebSocket === 'undefined') { f.wsq = null; return; }
+    const open = () => {
+      if (f.stop || f.finished) return; let ws;
+      try { ws = new WebSocket(f.C.wsUrl()); } catch (e) { f.wsq = null; return; }
+      f.ws = ws;
+      ws.onopen = () => { f.wsTries = 0; };
+      ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m && m.d && m.d.k === 'fx' && m.d.m === f.id) wsIn(m.from, m.d); };
+      ws.onclose = () => { if (f.ws === ws) f.ws = null; if (!f.stop && !f.finished && (f.wsTries = (f.wsTries | 0) + 1) <= 10) setTimeout(open, 1200); };
+      ws.onerror = () => { };
+    };
+    open();
+  }
   async function pump() {
     const f = F;
     while (f && !f.stop) {
@@ -196,7 +237,7 @@ const ArenaFight = (() => {
     f.lastData = Date.now();
     if (Array.isArray(j.gone)) f.gone = new Set(j.gone.filter(id => id !== f.me));
     if (j.go && j.loads && !f.loads) { f.loads = j.loads; if (f.goRes) f.goRes(); }
-    for (const ev of (j.events || [])) { if (ev.k === 'sn') { if (Array.isArray(ev.d)) f.snaps.push(ev); } else { const R = f.rem[ev.from]; if (R) R.q.push(ev); } }
+    for (const ev of (j.events || [])) ingest(ev);
     if (typeof j.upto === 'number' && j.upto > f.seen) f.seen = j.upto;
     if (j.thr) for (const id in j.thr) { const R = f.rem[id]; if (R && j.thr[id] > R.thr) R.thr = j.thr[id]; }
     if (j.over && !f.over) { f.over = j.over; if (!f.ended) endByServer(j.over); }
@@ -213,14 +254,14 @@ const ArenaFight = (() => {
     members.forEach((t, i) => t.forEach(id => { teamOf[id] = i; }));
     if (teamOf[me] == null) return Promise.reject(new Error('You are not in this match.'));
     const f = F = { C, cb: cb || {}, match, id: match.id, me, myTeam: teamOf[me], members, teamOf, names: {}, rem: {}, out: [], seen: 0, n: 0, thr: 0, snaps: [], gone: new Set(), post: [0, -1, 0, 0], bits: 0, pj: false, pfl: false,
-      graceEnd: 0, live: false, ended: false, stop: false, finished: false, lastData: Date.now(), stallSince: 0, tc: 0, tcOwner: null, snapWait: null, loads: null, ready: false, loadout: null, report: null, over: null, replay: false, t0: Date.now(), steps: 0, frames: 0, lastStall: 0, maxStall: 0, rtt: 0 };
+      graceEnd: 0, live: false, ended: false, stop: false, finished: false, lastData: Date.now(), stallSince: 0, tc: 0, tcOwner: null, snapWait: null, loads: null, ready: false, loadout: null, report: null, over: null, replay: false, t0: Date.now(), steps: 0, frames: 0, lastStall: 0, maxStall: 0, rtt: 0, wsq: [], wsLast: 0, wsLastN: 0, ws: null, wsPend: false };
     match.teams.forEach(t => t.forEach(x => { f.names[x.id] = x.name; }));
-    for (const id of members.flat()) if (id !== me) f.rem[id] = { q: [], thr: -1, bits: 0, pulse: 0, pj: false, pfl: false, wait: false };
+    for (const id of members.flat()) if (id !== me) f.rem[id] = { q: [], thr: -1, lastN: 0, bits: 0, pulse: 0, pj: false, pfl: false, wait: false };
     f.goP = new Promise(res => { f.goRes = res; });
     f.resultP = new Promise(res => { f.resolve = res; });
     const stat = t => { try { f.cb.onStatus && f.cb.onStatus(t); } catch (e) { } };
     if (f.cb.onControl) f.cb.onControl({ abort: () => { if (!f.live) { f.report = { forfeit: 1 }; flushNow(); finish({ aborted: true }); } else askLeave(); } });
-    pump();
+    pump(); openWs(f);
     (async () => {
       try {
         const mp = f.map = ARENA_MAPS[match.mapSeed % ARENA_MAPS.length];
@@ -372,6 +413,7 @@ const ArenaFight = (() => {
   function finish(res) {
     const f = F; if (!f || f.finished) return; f.finished = true; f.stop = true;
     clearInterval(f.msgTimer); clearTimeout(f.overTimer);
+    try { if (f.ws) { const w = f.ws; f.ws = null; w.close(); } } catch (e) { }
     unhook();
     for (const id of ['arFightMsg', 'arFightEnd', 'arFightAsk', 'arFightDbg']) { const e = $(id); if (e) e.remove(); }
     try { if (f.live) { G.mode = 'menu'; G.projs = []; } for (const id of ['over', 'wmenu', 'pauseScr']) { const e = $(id); if (e) e.hidden = true; } UI.paused = false; UI.show('title'); } catch (e) { }

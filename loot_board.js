@@ -16,6 +16,7 @@ const SharedLoot = (() => {
   function open(o) {
     return new Promise(resolve => {
       let board = null, items = null, stopped = false, busy = false, timer = null, sent = 0;
+      const pend = new Set();   // cards I touched that the server has not confirmed yet (they are already turned over on my screen)
       const applied = new Set(), got = [], t0 = performance.now();
       const finish = () => { stopped = true; clearInterval(timer); if (el) el.hidden = true; resolve(); };
       let el = null;
@@ -34,7 +35,7 @@ const SharedLoot = (() => {
         el.hidden = false; try { $('over').hidden = true; } catch (e) { }
         el.querySelectorAll('.lc').forEach(c => c.onclick = () => flip(+c.dataset.i));
         $('bLootGo').onclick = finish;
-        if (!document.getElementById('lootShareCss')) { const st = document.createElement('style'); st.id = 'lootShareCss'; st.textContent = '.lc.oth .fr,.lc.oth .bk{box-shadow:0 0 0 3px #4da3ff}.lc.oth .bk em{color:#8fc4ff;font-weight:700}.lc.mine .bk{box-shadow:0 0 0 3px #ffd24a}'; document.head.appendChild(st); }
+        if (!document.getElementById('lootShareCss')) { const st = document.createElement('style'); st.id = 'lootShareCss'; st.textContent = '.lc .in{transition:transform .22s}.lc.pend .bk{opacity:.92}.lc.oth .fr,.lc.oth .bk{box-shadow:0 0 0 3px #4da3ff}.lc.oth .bk em{color:#8fc4ff;font-weight:700}.lc.mine .bk{box-shadow:0 0 0 3px #ffd24a}'; document.head.appendChild(st); }
       }
       function msg(j) {
         const m = document.getElementById('lootMsg'); if (!m || !j) return;
@@ -52,15 +53,18 @@ const SharedLoot = (() => {
         if (!j || stopped) return;
         board = j;
         j.picks.forEach((p, i) => {
-          if (!p) return; const card = el.querySelector('.lc[data-i="' + i + '"]'); if (!card || card.classList.contains('up')) return;
+          if (!p) return; const card = el.querySelector('.lc[data-i="' + i + '"]'); if (!card) return;
           const mine = p.id === o.me;
-          card.classList.add('up', mine ? 'mine' : 'oth');
-          if (mine) { if (!applied.has(i)) { applied.add(i); reward(items[i], card); } }
-          else { card.querySelector('em').textContent = p.name; Snd.play('pick'); }
+          if (mine) {
+            card.classList.remove('pend', 'oth'); card.classList.add('up', 'mine');
+            if (!applied.has(i)) { applied.add(i); reward(items[i], card); }
+          } else if (!card.classList.contains('oth')) {   // somebody else has it (also: he was faster than my touch)
+            card.classList.remove('pend', 'mine'); card.classList.add('up', 'oth'); card.querySelector('em').textContent = p.name; Snd.play('pick');
+          }
         });
         msg(j);
         const b = document.getElementById('lootBar'); if (b) { const left = Math.max(0, LOOT_TIME - (performance.now() - t0) / 1000); b.style.width = (left / LOOT_TIME * 100) + '%'; b.classList.toggle('low', left < 8); }
-        if (j.mine < j.per && performance.now() - t0 > LOOT_TIME * 1000 && !busy) {   // out of time: the board flips a random free card for me
+        if (Math.max(j.mine, applied.size) + pend.size < j.per && performance.now() - t0 > LOOT_TIME * 1000) {   // out of time: the board flips a random free card for me
           const free = j.picks.map((p, i) => p ? -1 : i).filter(i => i >= 0); if (free.length) flip(free[Math.floor(Math.random() * free.length)]);
         }
         if (j.done) {
@@ -69,16 +73,22 @@ const SharedLoot = (() => {
           setTimeout(() => Loot.revealAll(), 500);   // every card turns over; the Continue button comes after
         }
       }
-      async function flip(i) {
-        if (stopped || busy || !board || board.done || board.picks[i] || board.mine >= board.per) return;
-        busy = true; const j = await q('pick', { i }); busy = false; if (j && j.picks) render(j);
+      async function flip(i) {   // the card turns over the moment it is touched; the server only confirms (rewards are given when it does)
+        if (stopped || !board || board.done || board.picks[i] || pend.has(i)) return;
+        if (Math.max(board.mine, applied.size) + pend.size >= board.per) return;
+        const card = el.querySelector('.lc[data-i="' + i + '"]'); if (!card || card.classList.contains('up')) return;
+        pend.add(i); card.classList.add('up', 'mine', 'pend'); try { Snd.play('pick'); } catch (e) { }
+        const j = await q('pick', { i }); pend.delete(i);
+        if (stopped) return;
+        if (j && j.picks) render(j);
+        if (!applied.has(i) && !card.classList.contains('oth') && !(j && j.picks && j.picks[i])) card.classList.remove('up', 'mine', 'pend');   // the server did not give me this card (no answer / taken): turn it back
       }
       (async () => {
         let j = null; for (let k = 0; k < 3 && !(j && j.seed); k++) { j = await q('open', { n: o.boss ? 30 : 9, per: o.boss ? 2 : 1 }); if (!(j && j.seed)) await new Promise(r => setTimeout(r, 600)); }
         if (!(j && j.seed)) return fallback();   // the server has no board for us: use the normal single-player board
         try { build(j); } catch (e) { return fallback(); }
         render(j);
-        timer = setInterval(async () => { if (stopped || busy) return; busy = true; const r = await q('poll'); busy = false; if (r && r.picks) render(r); else if (r && r.gone && !stopped) { /* room closed: show what is there */ } }, POLL_MS);
+        timer = setInterval(async () => { if (stopped || busy) return; busy = true; const r = await q('poll'); busy = false; if (stopped) return; if (r && r.picks) render(r); else if (r && r.gone && !stopped) { /* room closed: show what is there */ } }, POLL_MS);
       })();
     });
   }
