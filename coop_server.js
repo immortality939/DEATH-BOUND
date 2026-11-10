@@ -169,7 +169,7 @@ const Coop = (() => {
   }
   const ZERO = { l: 0, r: 0, u: 0, d: 0, fi: 0, fa: 0 };
   function applyRec(r) {   // one stamped input: the buttons + one-shot actions of the player whose turn it is
-    if (r.drop != null) { for (const w of G.worms) if (w.team === r.drop && w.state !== 'dead' && w.state !== 'drown') { w.hp = 0; killWorm(w); } return; }   // a player left: his robot goes down on the same frame everywhere
+    if (r.drop != null) { S.gone = S.gone || {}; S.gone[r.drop] = 3; for (const w of G.worms) if (w.team === r.drop && w.state !== 'dead' && w.state !== 'drown') { w.hp = 0; killWorm(w); } return; }   // a player left: his robot goes down on the same frame everywhere
     const s = r.s || ZERO;
     S.simIn[r.tm] = { l: s.l, r: s.r, u: s.u, d: s.d, fi: s.fi, fa: s.fa, fp: (r.ev || []).includes('fp'), j: (r.ev || []).includes('j'), fl: (r.ev || []).includes('fl') };
     for (const e of r.ev || []) if (typeof e === 'object') { try { applyUi(r.tm, e); } catch (x) { console.warn('coop ui', x); } }
@@ -197,7 +197,8 @@ const Coop = (() => {
   }
   function myTurn() { return !!(S && S.sim && S.myTeam >= 0 && G.mode === 'play' && G.activeWorm && G.activeWorm.team === S.myTeam && !G.swarm && !S.over && S.f >= S.turnF + COOP_GRACE); }
   function freeRun() {   // a phone may run on without the clock when nobody can send input: enemy turns and the first frames of a turn
-    if (!S || (S.gone && Object.keys(S.gone).length) || G.mode !== 'play' || !G.activeWorm) return false;
+    if (!S || G.mode !== 'play' || !G.activeWorm) return false;
+    if (S.gone) for (const k in S.gone) if (S.gone[k] === 1 || S.gone[k] === 2) return false;   // only while a player's drop is still waiting to be applied (same frame on every phone). Once it is applied (3) the phones free-run again: before, ONE disconnect made every other phone depend on the network for every single frame = stutter on every hit
     const t = G.teams[G.activeWorm.team]; if (G.swarm || (t && t.cpu)) return true;
     return S.f < S.turnF + COOP_GRACE;
   }
@@ -351,5 +352,5 @@ const Coop = (() => {
       else tx('h', { k: 'load', sk: S.sk, load: S.mine });
     }
   }
-  return { connect, close, begin, retry, endStage, dropMember, setHost, get active() { return on(); }, get host() { return amHost(); }, get desync() { return !!(S && S.bad); }, get frame() { return S ? S.f : 0; }, get state() { return S; } };
+  return { connect, close, begin, retry, endStage, dropMember, setHost, get active() { return on(); }, get host() { return amHost(); }, get wsOpen() { return !!(net && net.ws && net.ws.readyState === 1); }, get desync() { return !!(S && S.bad); }, get frame() { return S ? S.f : 0; }, get state() { return S; } };
 })();

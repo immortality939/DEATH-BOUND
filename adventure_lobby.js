@@ -207,7 +207,7 @@ const AdvLobbyUI = (() => {
       return repaint();
     }
     if (r.state === 'starting') { if (S.view !== 'starting') starting(); return; }
-    if (r.state === 'running') { if (!run) beginRun(r); return; }   // the party goes into the map's stages
+    if (r.state === 'running') { if (!run) { if (r.run && r.run.id === leftId) { act('leave').catch(() => { }); return; } beginRun(r); } return; }   // the party goes into the map's stages
     if (S.view !== 'room') return room();
     repaint();
   }
@@ -401,6 +401,7 @@ const AdvLobbyUI = (() => {
   // Loot cards (1 flip per stage, 2 on the boss stage) and character XP are the game's own Adventure.onOver / Loot code, so they work exactly like offline.
   let run = null;       // { id, mi, diff, total, si, phase: 'fight' | 'loot' | 'over' | 'wait', st, cur (last room data), tick, unsub, hud, wait }
   let hooked = false;
+  let leftId = 0;       // id of the run I walked out of (so a room that still lists me never pulls me back into a stage I already left)
   const ST = { fight: ['Fighting', '#ffb23c'], won: ['Cleared', '#5be37a'], dead: ['Down', '#ff5a4d'] };
   function runCss() {
     if (document.getElementById('coopcss')) return;
@@ -597,7 +598,7 @@ const AdvLobbyUI = (() => {
     run.beating = true;
     let ok = false;
     try { await C.live.call('adv/report', { stage: run.si, st: run.st, lp: run.lp }); ok = true; } catch (e) { }
-    if (run) { const nw = Date.now(); if (ok) run.lastOk = nw; else if (!run.ending && run.lp >= 100 && nw - (run.lastOk || run.t0 || nw) > 20000) { run.beating = false; return leaveRun('You lost your connection to the room.'); } }   // no answer from the server for 20 s (my signal is gone): do not sit there for minutes, go back
+    if (run) { const nw = Date.now(); if (ok) run.lastOk = nw; else if (!run.ending && run.lp >= 100 && (() => { const q = nw - (run.lastOk || run.t0 || nw); return q > 20000 && ((typeof Coop === 'undefined' || !Coop.wsOpen) || q > 45000); })()) { run.beating = false; return leaveRun('You lost your connection to the room.'); } }   // no answer from the server for 20 s (my signal is gone): do not sit there for minutes, go back
     if (run) { run.beating = false; if (run.again) { run.again = false; runBeat(); } }
   }
   function onRunData(j) {
@@ -615,6 +616,7 @@ const AdvLobbyUI = (() => {
   function drawRun() {
     if (!run) return; const r = run.cur, rm = r && r.run, me_ = C.player ? C.player.id : null;
     const rows = (r ? r.members : []).map(m => ({ name: m.name, id: m.id, st: (rm && rm.m && rm.m[m.id]) || 'fight' }));
+    const sig = [run.phase, run.si, run.total, !!run.wait, rows.map(m => m.id + m.st).join('|')].join('~'); if (run.dsig === sig) return; run.dsig = sig;   // the poll comes every 1.5 s: only rebuild the HUD when something really changed (no needless hitches mid-fight)
     run.hud.style.display = run.phase === 'fight' ? 'flex' : 'none';
     run.hud.replaceChildren(h('span', { class: 'cs' }, 'Stage ' + (run.si + 1) + ' / ' + run.total), ...rows.map(m => h('span', { style: '--c:' + ST[m.st][1] }, h('i'), m.name + (m.id === me_ ? ' (you)' : ''))));
     if (run.wait) {
@@ -625,8 +627,19 @@ const AdvLobbyUI = (() => {
   }
   async function leaveRun(why) {   // why = text for the DEFEATED screen (null = no defeat screen, e.g. 'Leave room' on a result screen)
     if (!run || run.ending) return;
-    run.leaving = true; try { await C.live.call('adv/leave'); } catch (e) { }
+    run.leaving = true; let ok = false;
+    try { await Promise.race([C.live.call('adv/leave').then(() => { ok = true; }), new Promise(res => setTimeout(res, 3000))]); } catch (e) { }   // with no signal the call hung for over a minute and the others waited for me all that time: after 3 s I go anyway
     endRun('left', why);
+    if (!ok) retryLeave();
+  }
+  function retryLeave() {   // my 'leave' did not reach the server (no signal): keep trying until the server lets me go, so the others are never held by a player who is already gone
+    let n = 0;
+    const go = async () => {
+      if (++n > 10) return; const l = C.live && C.live.last, m = l && l.myAdv;
+      if (!m || !m.run || m.run.id !== leftId) return;   // already out of that run (or in a new room): never kick myself out of something else
+      try { await C.live.call('adv/leave'); } catch (e) { setTimeout(go, 2000); }
+    };
+    setTimeout(go, 1000);
   }
   function showDefeat(msg, cb) {
     const old = document.getElementById('coopdef'); if (old) old.remove();
@@ -636,7 +649,7 @@ const AdvLobbyUI = (() => {
   }
   function endRun(kind, why) {
     try { $('bAgain').hidden = false; } catch (e) { }   // back to the room (or the lobby if I left)
-    if (!run || run.ending) return; run.ending = true;
+    if (!run || run.ending) return; run.ending = true; if (kind === 'left') leftId = run.id;
     clearInterval(run.tick); if (run.unsub) run.unsub(); clearWait(); hideLoad(); run.hud.remove();
     try { Coop.close(); } catch (e) { }
     run = null;
