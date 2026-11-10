@@ -99,6 +99,49 @@ const OnlineUI = (() => {
 #onl .pcard{display:flex;gap:12px;align-items:stretch;justify-content:center;--cs:min(62px,15vh);text-align:center}
 #onl .pgrid{display:grid;grid-template-columns:repeat(4,var(--cs));grid-template-rows:repeat(4,var(--cs));gap:4px;flex:none}
 #onl .cslot{position:relative;border:2px solid rgba(255,224,160,.28);border-radius:9px;background:rgba(20,10,2,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;box-sizing:border-box;padding:9px 1px 1px;min-width:0}
+#onl .wpnl.lgw{border-width:11px;border-image:url(assets/online/ui/panel.png) 30 / 11px stretch;padding:2px 8px 6px}
+#onl .lgp{width:min(900px,98vw);height:min(97vh,500px);display:flex;flex-direction:column;gap:4px}
+#onl .lgtitle{flex:none;position:relative;height:clamp(28px,9vh,40px);background:url(assets/online/ui/banner.png) center/100% 100% no-repeat;display:flex;align-items:center;justify-content:center;font:400 clamp(15px,4.6vh,22px) var(--disp,sans-serif);color:#ffd34a;text-shadow:0 2px 0 #4a1f06}
+#onl .lgx{position:absolute;right:5%;top:50%;transform:translateY(-50%);padding:3px 10px;font-size:13px}
+#onl .lgstats{flex:none;display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+#onl .lgs{display:flex;gap:6px;align-items:center;padding:2px 9px;border-radius:8px;background:rgba(20,10,2,.55);border:1px solid rgba(255,224,160,.3);font:700 12px var(--body,sans-serif)}
+#onl .lgs span{color:#cdb98f}#onl .lgs b{color:#fff}#onl .lgs.gold{border-color:#ffd34a}#onl .lgs.gold b{color:#ffd34a}
+#onl .lgdark{background:rgba(22,11,3,.86) padding-box;border:10px solid transparent;border-image:url(assets/online/ui/panel_dark.png) 30 / 10px stretch;box-sizing:border-box;min-height:0}
+#onl .lgmid{flex:1;min-height:0;display:flex;gap:6px}
+#onl .lgleft{flex:1.7;display:flex;flex-direction:column;min-width:0;padding:0 2px}
+#onl .lgleft p{margin:12px;font-size:13px}
+#onl .lglist{flex:1;overflow-y:auto;min-height:0}
+#onl .lgr{display:grid;grid-template-columns:minmax(0,1fr) 34px 72px 60px;align-items:center;gap:4px;padding:3px 6px;border-bottom:1px solid rgba(255,220,160,.12);text-align:left;font-size:13px;cursor:pointer}
+#onl .lgr.n{grid-template-columns:minmax(0,1fr) 58px 72px}
+#onl .lgr span{text-align:center;color:#ffd34a;font-weight:700}
+#onl .lgr .nm{display:flex;align-items:center;gap:6px;text-align:left;min-width:0;color:#fff2da}
+#onl .lgr .nm b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#onl .lgr .nm small{display:block;color:#cdb98f;font-size:10px;font-weight:400}
+#onl .lgr .nm img{width:26px;height:26px;object-fit:contain;flex:none}
+#onl .lgr .lgi{width:26px;height:26px;flex:none;border-radius:7px;background:rgba(255,211,74,.18);border:1px solid #e0a53a;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:13px}
+#onl .lgr .st.on{color:#7dff9a}#onl .lgr .st.off{color:#9a8f7a}
+#onl .lgr.me{background:rgba(127,208,255,.14)}#onl .lgr.sel{background:rgba(255,211,74,.18)}
+#onl .lgr.lgh2{cursor:default;font:700 10px var(--body,sans-serif);text-transform:uppercase;letter-spacing:1px;color:#cdb98f;background:rgba(255,211,74,.08);border-radius:6px}
+#onl .lgr.lgh2 span{color:#cdb98f;font-weight:700}
+#onl .lgr.ap{grid-template-columns:minmax(0,1fr) auto auto;cursor:default}#onl .lgr.ap .wbtn{padding:5px 8px;font-size:12px}
+#onl .lgapps{max-height:min(220px,40vh);overflow-y:auto;width:100%}
+#onl .lgright{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0}
+#onl .lgboard{flex:1;display:flex;flex-direction:column;gap:5px;padding:0 4px;overflow:hidden}
+#onl .lgbh{font:400 15px var(--disp,sans-serif);color:#ffd34a;flex:none}
+#onl .lgnote{margin:0;text-align:left;font-size:13px;line-height:1.35;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:#e9dcc0}
+#onl .lgta{flex:1;min-height:0;resize:none;background:#17171d;color:#fff;border:0;border-radius:6px;padding:5px;font:600 13px var(--body,sans-serif);outline:0;user-select:text;-webkit-user-select:text}
+#onl .lgbtns{flex:none;display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+#onl .lgbot{flex:none;display:flex;gap:6px;align-items:flex-end;justify-content:space-between}
+#onl .lgib{display:flex;gap:6px;align-items:flex-end}
+#onl .lgib button{border:0;background:none;padding:0;cursor:pointer;height:clamp(34px,10vh,48px);transition:transform .1s,filter .1s}
+#onl .lgib button img{height:100%;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.55));pointer-events:none}
+#onl .lgib button:active{transform:translateY(-3px) scale(1.07);filter:brightness(1.15)}
+#onl .lgin{width:90%;box-sizing:border-box;background:#17171d;color:#fff;border:0;border-radius:6px;padding:8px;font:600 15px var(--body,sans-serif);outline:0;text-align:center;user-select:text;-webkit-user-select:text}
+#onl .lgmsg{margin:0;min-height:16px;color:#ff8a7a;font:700 12px var(--body,sans-serif)}
+#onl .lgc{font:700 13px var(--body,sans-serif);color:#cdb98f;display:flex;gap:5px;align-items:center;justify-content:center;flex-wrap:wrap}#onl .lgc b{color:#ffd34a}
+#onl .lgchip{width:18px;height:18px;object-fit:contain}
+#onl .lgshop{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+#onl .cslot.lgn{width:78px;height:92px;padding:8px 2px 2px}#onl .lgn b{font-size:10px;white-space:normal;text-align:center;line-height:1.1}#onl .lgn .cost{font:700 10px var(--body,sans-serif);color:#ffd34a}
 #onl .cslot.tap{cursor:pointer}#onl .cslot.tap:active{filter:brightness(1.3)}
 #onl .idet{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
 #onl .idet img{width:84px;height:84px;object-fit:contain;border:2px solid var(--rc,#aab4cc);border-radius:12px;background:rgba(20,10,2,.55);padding:6px;box-sizing:content-box}
@@ -205,14 +248,18 @@ const OnlineUI = (() => {
 
   // ---------- LIVE: one poll every ~1.5 s while you are in the town / arena (heartbeat + online list + rooms + chat) ----------
   const chatLog = [], chatDraws = [], pmLog = [];
+  const leagueLog = []; let myLg = null;   // my league chat + which league I am in ({ id, name } or null), both come with the live poll
   let pmSince = 0, chatTab = 'all', pmPeer = null, pmUnread = false, friendList = [];   // chat tab: 'all' | 'league' | 'private'; pmPeer = who your Private messages go to
   const redrawChats = () => { for (let i = chatDraws.length - 1; i >= 0; i--) { if (!chatDraws[i].ok()) chatDraws.splice(i, 1); else chatDraws[i].draw(); } };
   const Live = (() => {
-    let on = false, srv = 0, since = 0, last = null, timer = null, inflight = false, eqSent = '', eqAt = 0;
+    let on = false, srv = 0, since = 0, lsince = 0, last = null, timer = null, inflight = false, eqSent = '', eqAt = 0;
     const subs = new Set();
     const apply = j => {
       last = j; if (j.seq < since) since = 0; else since = j.seq;
       if (j.chat && j.chat.length) { for (const m of j.chat) chatLog.push({ who: m.who, text: m.text }); while (chatLog.length > 80) chatLog.shift(); redrawChats(); }
+      if (j.lg !== undefined) { const id = j.lg ? j.lg.id : null; if ((myLg && myLg.id) !== id) { leagueLog.length = 0; lsince = 0; if (!id && chatTab === 'league') chatTab = 'all'; redrawChats(); } myLg = j.lg || null; try { session.player.league = id; } catch (e) { } }
+      if (j.lchat && j.lchat.length) { for (const m of j.lchat) leagueLog.push({ who: m.who, text: m.text }); while (leagueLog.length > 80) leagueLog.shift(); redrawChats(); }
+      if (j.lseq != null) lsince = j.lseq;
       if (j.pmSeq != null && j.pmSeq < pmSince) pmSince = 0;   // the server was restarted
       if (j.pm && j.pm.length) {   // private messages (sent to me, or sent by me: the server echoes both)
         const myId = session && session.player && session.player.id; let got = false;
@@ -228,13 +275,13 @@ const OnlineUI = (() => {
     const call = async (path, body) => {
       const inf = myInfo(), es = inf.eq ? JSON.stringify(inf.eq) : '', now = Date.now();
       if (es && es === eqSent && now - eqAt < 30000) delete inf.eq; else if (es) { eqSent = es; eqAt = now; }
-      const j = await api((/^adv\//.test(path) ? '/api/' : '/api/arena/') + path, Object.assign({ server: srv, since, pmSince }, inf, body || {}), session.token); apply(j); return j;
+      const j = await api((/^(adv|league)\//.test(path) ? '/api/' : '/api/arena/') + path, Object.assign({ server: srv, since, pmSince, lsince }, inf, body || {}), session.token); apply(j); return j;
     };
     const tick = async () => {
       if (!on) return; if (!inflight) { inflight = true; try { await call('poll'); } catch (e) { if (e.status === 401) { stop(); return expired(); } } inflight = false; }
       if (on) timer = setTimeout(tick, root && root.hidden ? 2500 : 1500);   // slower while the Bag / Shop is open, but still fast enough to get invitations
     };
-    const start = server => { stop(); on = true; srv = server; since = 0; last = null; eqSent = ''; chatLog.length = 0; pmLog.length = 0; pmSince = 0; pmPeer = null; pmUnread = false; chatTab = 'all'; friendList = []; timer = setTimeout(tick, 0); };
+    const start = server => { stop(); on = true; srv = server; since = 0; lsince = 0; leagueLog.length = 0; myLg = null; last = null; eqSent = ''; chatLog.length = 0; pmLog.length = 0; pmSince = 0; pmPeer = null; pmUnread = false; chatTab = 'all'; friendList = []; timer = setTimeout(tick, 0); };
     const stop = () => { on = false; clearTimeout(timer); inflight = false; subs.clear(); Notif.clear(); };
     return { start, stop, call, subscribe: f => { subs.add(f); if (last) f(last); return () => subs.delete(f); }, get last() { return last; }, get running() { return on; }, nudge: () => { if (on) { clearTimeout(timer); timer = setTimeout(tick, 0); } } };
   })();
@@ -456,7 +503,7 @@ const OnlineUI = (() => {
       inp.placeholder = chatTab === 'private' ? (pmPeer ? 'PM to ' + pmPeer.name + '...' : 'Choose a player first...') : 'Type message...';
       let rows;
       if (chatTab === 'private') rows = [peerLine(), ...pmLog.map(m => h('div', { class: 'pm', onclick: () => { pmPeer = m.peer; draw(); inp.focus(); } }, m.mine ? [h('b', null, 'To ' + m.peer.name + ': '), m.text] : [h('b', null, m.peer.name + ': '), m.text]))];
-      else if (chatTab === 'league') rows = [h('div', null, h('i', null, 'League chat opens when you join a league.'))];
+      else if (chatTab === 'league') rows = myLg ? leagueLog.map(m => h('div', null, [h('b', null, m.who + ': '), m.text])) : [h('div', null, h('i', null, 'League chat opens when you join a league.'))];
       else rows = chatLog.map(m => h('div', null, m.sys ? h('i', null, m.text) : [h('b', null, m.who + ': '), m.text]));
       log.replaceChildren(...rows); log.scrollTop = log.scrollHeight;
     };
@@ -464,7 +511,11 @@ const OnlineUI = (() => {
     if (!chatLog.length) chatLog.push({ sys: 1, text: 'Welcome to Server ' + (p.server || curServer) + ', ' + p.name + '!' });
     const send = async () => {
       const t = inp.value.trim(); if (!t) return;
-      if (chatTab === 'league') return toastMsg('League chat opens when you join a league.');
+      if (chatTab === 'league') {
+        if (!myLg) return toastMsg('League chat opens when you join a league.');
+        inp.value = ''; try { await Live.call('league/chat', { text: t }); Live.nudge(); } catch (e) { if (e.status === 401) return expired(); toastMsg(e.status === 429 ? 'Slow down a little.' : 'Message not sent.'); }
+        return;
+      }
       if (chatTab === 'private') {
         if (!pmPeer) return toastMsg('Open Friends, tap a player and press PM.');
         inp.value = '';
@@ -605,6 +656,142 @@ const OnlineUI = (() => {
     };
     draw(); load('players');
   }
+
+  // ---------- LEAGUE HOUSE: no league = list of leagues (tap one -> Apply) + Create League (100 chips) | in a league = members, message board, chat, League Shop (necklaces for contribution) ----------
+  const lapi = (p, b) => api('/api/league/' + p, Object.assign({ server: session.player.server || curServer }, myInfo(), b || {}), session.token);
+  const LG_MAX = 30, LG_COST = 100, LG_SHOP = [['neck_1', 300], ['neck_2', 500], ['neck_3', 900], ['neck_4', 1400], ['neck_5', 2000]];
+  const chipsNow = () => { try { return Wallet.get(); } catch (e) { return 0; } };
+  const fmtL = n => (n | 0).toLocaleString();
+  function confirmPop(title, text, yes, fn) {
+    const t = root.firstChild; if (!t) return; let p = null;
+    p = h('div', { class: 'pop wood', style: 'z-index:70', onclick: e => { if (e.target === p) p.remove(); } }, h('div', { class: 'wpnl lgw', style: 'width:min(340px,92vw)' }, h('div', { class: 'idet' },
+      h('div', { class: 'in' }, title), h('p', null, text), h('div', { style: 'display:flex;gap:8px' }, h('div', { class: 'wbtn', onclick: () => { beep(); p.remove(); fn(); } }, yes), h('div', { class: 'wbtn red', onclick: () => { beep(); p.remove(); } }, 'Cancel')))));
+    t.append(p);
+  }
+  function leaguePop() {
+    const t = root.firstChild; if (!t) return;
+    let data = null, err = '', sel = null, draft = null, box = null, tm = null, busy = false;
+    const meId = session.player.id;
+    const pill = (l, v, gold) => h('div', { class: 'lgs' + (gold ? ' gold' : '') }, h('span', null, l), h('b', null, v));
+    const noKeys = el => { el.onkeydown = el.onkeyup = el.onkeypress = e => e.stopPropagation(); return el; };
+    const title = h('div', { class: 'lgtitle' }), stats = h('div', { class: 'lgstats' }), left = h('div', { class: 'lgleft lgdark' }), right = h('div', { class: 'lgright' });
+    const chat = chatBox(session.player); chat.style.cssText = '--cw:min(300px,58vh);position:relative;left:auto;bottom:auto;flex:none';
+    const ibar = h('div', { class: 'lgib' }, ICONS.map(ic => h('button', { 'aria-label': ic.name, onclick: () => { beep(); iconGo(ic); } }, h('img', { src: 'assets/online/i_' + ic.id + '.webp', alt: ic.name }))));
+    function iconGo(ic) {
+      if (ic.id === 'bag') { clearInterval(tm); box.remove(); retFn = () => { town(); leaguePop(); }; return launch('profile'); }   // the Bag = Profile of your online character, then back here
+      if (ic.id === 'friends') return friendsPop();
+      iconPop(ic);
+    }
+    const close = () => { clearInterval(tm); if (box) box.remove(); };
+    const load = async () => {
+      try { data = await lapi('info'); err = ''; } catch (e) { if (e.status === 401) return expired(); err = e.message || 'Could not load the league.'; }
+      if (data && data.mine && (!myLg || myLg.id !== data.mine.id)) { myLg = { id: data.mine.id, name: data.mine.name }; leagueLog.length = 0; Live.nudge(); }
+      if (data && !data.mine && myLg) { myLg = null; leagueLog.length = 0; }
+      try { session.player.league = myLg ? myLg.id : null; } catch (e) { }
+      if (box && box.isConnected) draw();
+    };
+    const act = async (fn, okMsg) => {   // one server action at a time, then refresh
+      if (busy) return; busy = true;
+      try { await fn(); if (okMsg) toastMsg(okMsg); } catch (e) { if (e.status === 401) { busy = false; return expired(); } toastMsg(e.message || 'Something went wrong.'); }
+      busy = false; await load();
+    };
+    function draw() {
+      const mine = data && data.mine, oldL = left.querySelector('.lglist'), sc = oldL ? oldL.scrollTop : 0;
+      title.firstChild.textContent = mine ? mine.name : 'League House';
+      stats.replaceChildren(...(mine ? [pill('Members', mine.members.length + '/' + mine.max), pill('Power', fmtL(mine.power)), pill('My Contribution', fmtL(mine.contrib), 1)] : [pill('My Chips', fmtL(chipsNow())), pill('Create a league', LG_COST + ' chips')]));
+      let lst, bar = null, board, btns = [];
+      if (!data) lst = h('p', null, err || 'Loading...');
+      else if (mine) {
+        lst = h('div', { class: 'lglist' }, mine.members.map(o => h('div', { class: 'lgr' + (o.id === meId ? ' me' : '') + (sel === o.id ? ' sel' : ''), onclick: () => { beep(); sel = sel === o.id ? null : o.id; draw(); } },
+          h('span', { class: 'nm' }, h('img', { src: 'assets/robots/front/' + robotOf(o.robot).id + '.webp', alt: '' }), h('b', null, o.name, o.owner ? h('small', null, '👑 Owner') : null)), h('span', null, o.lv), h('span', null, fmtL(o.power)), h('span', { class: 'st ' + (o.online ? 'on' : 'off') }, o.online ? 'Online' : 'Offline'))));
+        const so = sel && mine.members.find(o => o.id === sel);
+        if (so) bar = h('div', { class: 'wact' }, h('small', null, so.name), h('div', { class: 'wbtn', onclick: () => { beep(); playerCard(so.id); } }, 'View'),
+          mine.owner && so.id !== meId ? h('div', { class: 'wbtn red', onclick: () => { beep(); confirmPop('Remove ' + so.name + '?', 'He will leave your league.', 'Remove', () => { sel = null; act(() => lapi('kick', { id: so.id }), so.name + ' was removed.'); }); } }, 'Kick') : null);
+      } else if (!data.leagues.length) lst = h('p', null, 'No leagues yet. Be the first: press Create League!');
+      else {
+        lst = h('div', { class: 'lglist' }, data.leagues.map(L => h('div', { class: 'lgr n' + (sel === L.id ? ' sel' : ''), onclick: () => { beep(); sel = sel === L.id ? null : L.id; draw(); } },
+          h('span', { class: 'nm' }, h('em', { class: 'lgi' }, '⚔'), h('b', null, L.name, L.applied ? h('small', null, 'Applied') : null)), h('span', null, L.members + '/' + LG_MAX), h('span', null, fmtL(L.power)))));
+        const L = sel && data.leagues.find(x => x.id === sel);
+        if (L) bar = h('div', { class: 'wact' }, h('small', null, L.name), L.applied ? h('div', { class: 'wbtn red', onclick: () => { beep(); act(() => lapi('unapply', { id: L.id }), 'Application cancelled.'); } }, 'Cancel Application')
+          : L.full ? h('div', { class: 'wbtn off' }, 'Full') : h('div', { class: 'wbtn', onclick: () => { beep(); act(() => lapi('apply', { id: L.id }), 'Applied to ' + L.name + '. Wait for the owner.'); } }, 'Apply League'));
+      }
+      const head = h('div', { class: 'lgr lgh2' + (mine ? '' : ' n') }, mine ? [h('span', null, 'Name'), h('span', null, 'Lv'), h('span', null, 'Power'), h('span', null, 'Status')] : [h('span', null, 'League'), h('span', null, 'Members'), h('span', null, 'Power')]);
+      left.replaceChildren(head, lst, bar); const nl = left.querySelector('.lglist'); if (nl) nl.scrollTop = sc;
+      // right side: message board + buttons
+      let bbody;
+      if (mine && mine.owner) {
+        const ta = noKeys(h('textarea', { class: 'lgta', maxlength: '200', placeholder: 'Write a message for your members...' })); ta.value = draft != null ? draft : (mine.notice || ''); ta.oninput = () => { draft = ta.value; };
+        bbody = [ta, h('div', { class: 'wbtn', onclick: () => { beep(); const v = ta.value; draft = null; act(() => lapi('notice', { text: v }), 'Message posted.'); } }, 'Post')];
+      } else {
+        const L = mine ? mine : (sel && data && data.leagues && data.leagues.find(x => x.id === sel));
+        bbody = [h('p', { class: 'lgnote' }, L ? (L.notice || 'No message yet.') : 'Tap a league to read its message.')];
+      }
+      board = h('div', { class: 'lgboard lgdark' }, h('div', { class: 'lgbh' }, 'Message Board'), bbody);
+      if (mine) {
+        btns.push(h('div', { class: 'wbtn', onclick: () => { beep(); shopPop(); } }, 'League Shop'));
+        if (mine.owner) btns.push(h('div', { class: 'wbtn', onclick: () => { beep(); appsPop(); } }, 'Applications' + (mine.applicants && mine.applicants.length ? ' (' + mine.applicants.length + ')' : '')));
+        btns.push(h('div', { class: 'wbtn red', onclick: () => { beep(); confirmPop('Quit League?', 'You leave ' + mine.name + ' and lose your contribution.' + (mine.owner ? ' The member who joined first becomes the owner.' : ''), 'Quit', () => { sel = null; act(() => lapi('leave'), 'You left the league.'); }); } }, 'Quit League'));
+      } else btns.push(h('div', { class: 'wbtn', onclick: () => { beep(); createPop(); } }, 'Create League'));
+      right.replaceChildren(board, h('div', { class: 'lgbtns' }, btns));
+    }
+    function createPop() {
+      let p = null; const inp = noKeys(h('input', { class: 'lgin', maxlength: '16', placeholder: 'League name', autocomplete: 'off', spellcheck: 'false' })), msg = h('p', { class: 'lgmsg' });
+      const pay = h('div', { class: 'wbtn', onclick: async () => {
+        beep(); const name = inp.value.replace(/\s+/g, ' ').trim();
+        if (!/^[\p{L}\p{N} _-]{3,16}$/u.test(name)) return void (msg.textContent = 'The name must be 3 to 16 letters or numbers.');
+        if (chipsNow() < LG_COST) return void (msg.textContent = 'You need ' + LG_COST + ' chips. You have ' + fmtL(chipsNow()) + '.');
+        if (busy) return; busy = true;
+        try { await lapi('create', { name }); try { Wallet.spend(LG_COST); } catch (e) { } p.remove(); toastMsg('League ' + name + ' created!'); sel = null; draft = null; Live.nudge(); }
+        catch (e) { busy = false; if (e.status === 401) return expired(); return void (msg.textContent = e.message || 'Could not create the league.'); }
+        busy = false; load();
+      } }, 'Pay ' + LG_COST + ' chips & Create');
+      p = h('div', { class: 'pop wood', style: 'z-index:60', onclick: e => { if (e.target === p) p.remove(); } }, h('div', { class: 'wpnl lgw', style: 'width:min(360px,94vw)' }, h('div', { class: 'idet' },
+        h('div', { class: 'in' }, 'Create League'), h('p', null, 'Pick a name nobody uses yet.'), inp,
+        h('div', { class: 'lgc' }, 'Cost: ', h('img', { class: 'lgchip', src: 'assets/chip.png', alt: '' }), h('b', null, LG_COST + ' chips'), '  (you have ' + fmtL(chipsNow()) + ')'), msg,
+        h('div', { style: 'display:flex;gap:8px' }, pay, h('div', { class: 'wbtn red', onclick: () => { beep(); p.remove(); } }, 'Cancel')))));
+      t.append(p); setTimeout(() => { try { inp.focus(); } catch (e) { } }, 50);
+    }
+    function appsPop() {
+      let p = null; const body = h('div', { class: 'idet' });
+      const render = () => {
+        const L = data && data.mine, ap = (L && L.applicants) || [];
+        body.replaceChildren(h('div', { class: 'in' }, 'Applications'), h('small', null, (L ? L.members.length : 0) + '/' + LG_MAX + ' members'),
+          h('div', { class: 'lgapps' }, ap.length ? ap.map(o => h('div', { class: 'lgr ap' }, h('span', { class: 'nm', onclick: () => { beep(); playerCard(o.id); } }, h('img', { src: 'assets/robots/front/' + robotOf(o.robot).id + '.webp', alt: '' }), h('b', null, o.name, h('small', null, 'Lv ' + o.lv + ' · ' + fmtL(o.power)))),
+            h('div', { class: 'wbtn', onclick: async () => { beep(); await act(() => lapi('accept', { id: o.id }), o.name + ' joined your league.'); render(); } }, 'Accept'), h('div', { class: 'wbtn red', onclick: async () => { beep(); await act(() => lapi('decline', { id: o.id })); render(); } }, 'Decline'))) : h('p', null, 'No applications right now.')),
+          h('div', { class: 'wbtn', onclick: () => { beep(); p.remove(); } }, 'Close'));
+      };
+      p = h('div', { class: 'pop wood', style: 'z-index:60', onclick: e => { if (e.target === p) p.remove(); } }, h('div', { class: 'wpnl lgw', style: 'width:min(420px,96vw)' }, body)); render(); t.append(p);
+    }
+    function shopPop() {
+      syncRobot(); let p = null, pick = null; const body = h('div', { class: 'idet' });
+      const have = () => (data && data.mine ? data.mine.contrib : 0), owned = id => { try { return Profile.copies(id) > 0; } catch (e) { return false; } };
+      const render = () => {
+        if (!pick) {
+          return body.replaceChildren(h('div', { class: 'in' }, 'League Shop'), h('small', null, 'Necklaces'), h('div', { class: 'lgc' }, 'Your contribution: ', h('b', null, fmtL(have()))),
+            h('div', { class: 'lgshop' }, LG_SHOP.map(([id, cost]) => { const it = itemById(id); return h('div', { class: 'cslot has tap lgn', style: '--rc:' + RARITY[it.rar].color, onclick: () => { beep(); pick = id; render(); } },
+              it.img ? h('img', { src: it.img, alt: '', draggable: 'false' }) : null, h('b', null, it.name), h('span', { class: 'cost' }, fmtL(cost) + (owned(id) ? ' ✓' : ''))); })),
+            h('p', null, 'Win Free Fights and League Fights to earn contribution.'), h('div', { class: 'wbtn', onclick: () => { beep(); p.remove(); } }, 'Close'));
+        }
+        const it = itemById(pick), cost = LG_SHOP.find(x => x[0] === pick)[1], own = owned(pick), can = have() >= cost;
+        body.replaceChildren(it.img ? h('img', { src: it.img, alt: '', draggable: 'false', style: '--rc:' + RARITY[it.rar].color }) : null, h('div', { class: 'in' }, it.name), h('small', null, RARITY[it.rar].name + ' Necklace'),
+          h('div', { class: 'st' }, h('span', { class: 'pos' }, '+' + ((it.stats && it.stats.nhp) || 0) + '% of total Health'), h('span', { class: 'neg' }, 'Cannot be upgraded')), h('p', null, it.desc || ''),
+          h('div', { class: 'lgc' }, 'Cost: ', h('b', null, fmtL(cost) + ' contribution'), '  (you have ' + fmtL(have()) + ')'),
+          h('div', { style: 'display:flex;gap:8px' },
+            own ? h('div', { class: 'wbtn off' }, 'Already in your Bag') : can ? h('div', { class: 'wbtn', onclick: async () => {
+              beep(); if (busy) return; busy = true;
+              try { const j = await lapi('buy', { item: pick }); Profile.data || Profile.load(); Profile.addCopy(pick); Profile.save(); if (data && data.mine) data.mine.contrib = j.contrib; toastMsg(it.name + ' is in your Bag!'); pick = null; busy = false; render(); draw(); load(); }
+              catch (e) { busy = false; if (e.status === 401) return expired(); toastMsg(e.message || 'Could not buy.'); }
+            } }, 'Pay for contribution') : h('div', { class: 'wbtn off' }, 'Need ' + fmtL(cost - have()) + ' more'),
+            h('div', { class: 'wbtn red', onclick: () => { beep(); pick = null; render(); } }, 'Cancel')));
+      };
+      p = h('div', { class: 'pop wood', style: 'z-index:60', onclick: e => { if (e.target === p) p.remove(); } }, h('div', { class: 'wpnl lgw', style: 'width:min(400px,96vw)' }, body)); render(); t.append(p);
+    }
+    title.append(h('span', null, 'League House'), h('div', { class: 'lgx wbtn', onclick: () => { beep(); close(); } }, 'X'));
+    box = h('div', { class: 'pop wood', onclick: e => { if (e.target === box) close(); } }, h('div', { class: 'wpnl lgw lgp' }, title, stats, h('div', { class: 'lgmid' }, left, right), h('div', { class: 'lgbot' }, chat, ibar)));
+    t.append(box); draw(); load();
+    if (myLg) { chatTab = 'league'; redrawChats(); }
+    tm = setInterval(() => { if (!box || !box.isConnected) return clearInterval(tm); if (!busy) load(); }, 5000);
+  }
   function iconPop(ic) {
     if (ic.id === 'bag') { try { return launch('profile'); } catch (e) { fromTown = false; root.hidden = false; toastMsg('Could not open the Bag.'); return; } }   // the Bag = Profile of YOUR online character, same as in the Arena and the Adventure
     if (ic.id === 'friends') return friendsPop();
@@ -673,6 +860,7 @@ const OnlineUI = (() => {
   }
   function building(b) {
     if (b.id === 'hall') return hallPop();
+    if (b.id === 'league') return leaguePop();
     if (b.id === 'arena') return openArena();
     if (b.id === 'gate') return openAdventure();
     if (b.id === 'gate' || b.id === 'armory' || b.id === 'shop') { try { return launch(b.id); } catch (e) { fromTown = false; root.hidden = false; toastMsg('Could not open ' + b.name + '.'); return; } }
