@@ -361,8 +361,8 @@ const OnlineUI = (() => {
     const draw = () => {
       if (box) box.remove();
       const me_ = session.player, all = ((Live.last && Live.last.online) || []).filter(o => o.id !== me_.id), list = tab === 'friends' ? [] : all;
-      const rows = list.map(o => h('div', { style: 'display:flex;align-items:center;gap:8px;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.12);text-align:left' }, h('div', { style: 'width:32px;height:32px;flex:none' }, robotImg(robotOf(o.robot))), h('b', { style: 'flex:1' }, o.name), h('small', null, 'Lv ' + o.lv)));
-      const lst = h('div', { style: 'height:230px;overflow-y:auto;margin:8px 0' }, rows.length ? rows : h('p', null, tab === 'friends' ? 'No friends yet. The friend list is coming soon.' : 'Nobody else is online on this server.'));
+      const rows = list.map(o => h('div', { style: 'display:flex;align-items:center;gap:8px;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.12);text-align:left' }, h('img', { src: 'assets/robots/front/' + robotOf(o.robot).id + '.webp', alt: '', style: 'width:30px;height:30px;object-fit:contain;flex:none' }), h('b', { style: 'flex:1' }, o.name), h('small', { style: 'color:#ffd34a;font-weight:700' }, 'Lv ' + o.lv)));
+      const lst = h('div', { style: 'height:200px;overflow-y:auto;margin:8px 0' }, rows.length ? rows : h('p', null, tab === 'friends' ? 'No friends yet. The friend list is coming soon.' : 'Nobody else is online on this server.'));
       box = h('div', { class: 'pop', onclick: e => { if (e.target === box) box.remove(); } }, h('div', { class: 'box' }, h('h2', null, 'Friends'),
         h('div', { class: 'row' }, btn('Friend List', () => { tab = 'friends'; draw(); }, tab === 'friends' ? '' : 'alt sm'), btn('World (' + all.length + ')', () => { tab = 'world'; draw(); }, tab === 'world' ? '' : 'alt sm')),
         lst, h('div', { class: 'row' }, btn('Close', () => box.remove(), 'alt'))));
