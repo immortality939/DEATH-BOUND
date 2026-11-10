@@ -272,8 +272,9 @@ const ArenaFight = (() => {
   // ---------- hooks (put back in unhook) ----------
   function hook() {
     _rand = Math.random;
-    H = { ug: updateGame, up: usePotion, dt: doTeleport, sp: Snd.play, cp: UI.canPick, tp: UI.togglePause, so: UI.showOver, bPass: $('bPass').onclick, bQuit: $('bQuit').onclick, wbtn: $('wbtn').onclick, fbtn: $('fbtn').onclick };
+    H = { ug: updateGame, up: usePotion, dt: doTeleport, sp: Snd.play, cp: UI.canPick, tp: UI.togglePause, so: UI.showOver, bPass: $('bPass').onclick, bQuit: $('bQuit').onclick, wbtn: $('wbtn').onclick, fbtn: $('fbtn').onclick, dc: dropCrate };
     updateGame = stepOnline;
+    dropCrate = function () { /* online Arena: no falling item boxes */ };
     Snd.play = function (n, a) { const r = Math.random; if (F && r === F.rng) { Math.random = _rand; try { return H.sp.call(this, n, a); } finally { Math.random = r; } } return H.sp.call(this, n, a); };   // sounds must not eat the shared random numbers
     usePotion = function (ti, k) {
       if (!F || !F.live || F.ended || F.replay) return H.up.apply(this, arguments);
@@ -298,6 +299,7 @@ const ArenaFight = (() => {
   function unhook() {
     if (!H) return;
     try {
+      if (H.dc) dropCrate = H.dc;
       updateGame = H.ug; usePotion = H.up; doTeleport = H.dt; Snd.play = H.sp; UI.canPick = H.cp; UI.togglePause = H.tp; UI.showOver = H.so;
       $('bPass').onclick = H.bPass; $('bQuit').onclick = H.bQuit; $('wbtn').onclick = H.wbtn; $('fbtn').onclick = H.fbtn;
       const pb = $('powbtn'); if (pb && H.pow) pb.removeEventListener('click', H.pow, true);
@@ -339,8 +341,19 @@ const ArenaFight = (() => {
     const msg = r.draw ? 'DRAW!' : r.win ? 'VICTORY!' : 'DEFEAT';
     const col = r.draw ? '#fff' : r.win ? '#7dff7a' : '#ff7a6d';
     const o = overlay('arFightEnd', '<h2 style="margin:0 0 8px;font:400 34px var(--disp,sans-serif);color:' + col + '">' + msg + '</h2><p style="margin:6px 0 12px;color:#c9d4ee">' + (r.why || (G.turnCount ? 'The battle lasted ' + G.turnCount + ' turns.' : '')) + '</p>');
-    o.firstChild.append(bigBtn('Back to Arena', () => finish({ win: !!r.win, draw: !!r.draw })));
+    const res = { win: !!r.win, draw: !!r.draw };
+    if (f.live && !r.forfeit) o.firstChild.append(bigBtn('Loot cards', () => { o.remove(); lootThenFinish(res); }));   // both fighters flip ONE shared 3x3 board, live
+    else o.firstChild.append(bigBtn('Back to Arena', () => finish(res)));
     const m = $('arFightMsg'); if (m) m.remove();
+  }
+  const ARENA_LOOT = { mi: 1, si: 1, df: 0 };   // how good the Arena loot is (same tables as Adventure map 2, normal difficulty, stage board)
+  async function lootThenFinish(res) {
+    const f = F; if (!f) return;
+    try { if (typeof SharedLoot === 'undefined' && f.C.loadExtra) await f.C.loadExtra('loot_board.js'); } catch (e) { }
+    if (typeof SharedLoot === 'undefined' || F !== f) return finish(res);
+    try { $('hud').hidden = true; $('touch').hidden = true; } catch (e) { }
+    try { await SharedLoot.open({ me: f.C.player.id, boss: false, mi: ARENA_LOOT.mi, si: ARENA_LOOT.si, df: ARENA_LOOT.df, call: (op, x) => f.C.post('board', Object.assign({ op, bid: 'm' + f.id }, x)), fallback: done => done() }); } catch (e) { }
+    finish(res);
   }
   function endByServer(over) {
     const f = F; if (!f) return;

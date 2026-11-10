@@ -356,7 +356,25 @@ const OnlineUI = (() => {
     const p = h('div', { class: 'pop', onclick: e => { if (e.target === p) p.remove(); } }, h('div', { class: 'box' }, h('h2', null, title), text ? h('p', null, text) : null, extra || null, h('p', { class: 'warn' }, 'Coming next.'), h('div', { class: 'row' }, btn('OK', () => p.remove()))));
     town_.append(p);
   }
-  function iconPop(ic) { pop(ic.name, ''); }
+  function friendsPop() {   // Friend List | World, the same two tabs as in the Arena and the Adventure room (World = the players inside this server right now)
+    const t = root.firstChild; if (!t) return; let tab = 'world', box = null;
+    const draw = () => {
+      if (box) box.remove();
+      const me_ = session.player, all = ((Live.last && Live.last.online) || []).filter(o => o.id !== me_.id), list = tab === 'friends' ? [] : all;
+      const rows = list.map(o => h('div', { style: 'display:flex;align-items:center;gap:8px;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.12);text-align:left' }, h('div', { style: 'width:32px;height:32px;flex:none' }, robotImg(robotOf(o.robot))), h('b', { style: 'flex:1' }, o.name), h('small', null, 'Lv ' + o.lv)));
+      const lst = h('div', { style: 'height:230px;overflow-y:auto;margin:8px 0' }, rows.length ? rows : h('p', null, tab === 'friends' ? 'No friends yet. The friend list is coming soon.' : 'Nobody else is online on this server.'));
+      box = h('div', { class: 'pop', onclick: e => { if (e.target === box) box.remove(); } }, h('div', { class: 'box' }, h('h2', null, 'Friends'),
+        h('div', { class: 'row' }, btn('Friend List', () => { tab = 'friends'; draw(); }, tab === 'friends' ? '' : 'alt sm'), btn('World (' + all.length + ')', () => { tab = 'world'; draw(); }, tab === 'world' ? '' : 'alt sm')),
+        lst, h('div', { class: 'row' }, btn('Close', () => box.remove(), 'alt'))));
+      t.append(box);
+    };
+    draw();
+  }
+  function iconPop(ic) {
+    if (ic.id === 'bag') { try { return launch('profile'); } catch (e) { fromTown = false; root.hidden = false; toastMsg('Could not open the Bag.'); return; } }   // the Bag = Profile of YOUR online character, same as in the Arena and the Adventure
+    if (ic.id === 'friends') return friendsPop();
+    pop(ic.name, '');
+  }
 
   // ---- Arena: its code (arena_v2.js + arena_maps.js) is downloaded from GitHub the first time you tap the building ----
   const extraDone = {};
@@ -374,7 +392,7 @@ const OnlineUI = (() => {
     if (typeof ArenaFight === 'undefined') await loadExtra('arena_fight.js');
     if (typeof ArenaFight === 'undefined') throw new Error('arena_fight.js did not load');
     const fc = { get player() { return session.player; }, toast: toastMsg, expired,
-      post: (path, body) => api('/api/arena/' + path, Object.assign({ server: session.player.server || curServer }, body || {}), session.token),
+      post: (path, body) => api('/api/arena/' + path, Object.assign({ server: session.player.server || curServer }, body || {}), session.token), loadExtra,
       hideOnline: () => { root.hidden = true; }, showOnline: () => { root.hidden = false; } };
     return ArenaFight.run(fc, match, cb);
   }

@@ -475,11 +475,20 @@ const AdvLobbyUI = (() => {
     if (!win) {   // defeat: the normal result screen, with Retry stage / Leave room
       const out = orig.call(A);
       run.st = 'dead'; run.phase = 'over';
-      try { $('bAgain').textContent = 'Retry stage'; $('bMenu').textContent = 'Leave room'; } catch (e) { }
+      try { $('bAgain').hidden = true; $('bMenu').textContent = 'Back to room'; } catch (e) { }   // no retry: a failed stage sends the party back to the room
       drawRun(); runBeat(); return out;
     }
-    const lo = Loot.open;   // victory: the loot board (1 flip, boss stage 2 flips); when it closes we wait for the team instead of the result screen
-    Loot.open = function (a, b, cb) { return lo.call(this, a, b, () => lootDone()); };
+    const lo = Loot.open;   // victory: ONE shared loot board for the whole party (1 flip each, boss stage 2); everybody sees every flip live. When it closes we wait for the team
+    Loot.open = function (a, b, cb) {
+      const self = this, my = run, boss = !!b;
+      (async () => {
+        try { if (typeof SharedLoot === 'undefined') await C.loadExtra('loot_board.js'); } catch (e) { }
+        if (typeof SharedLoot === 'undefined' || run !== my) return lo.call(self, a, b, () => lootDone());
+        SharedLoot.open({ me: C.player.id, boss, mi: my.mi, si: my.si, df: my.diff,
+          call: (op, x) => C.live.call('adv/board', Object.assign({ op, bid: my.id + ':' + my.si }, x)),
+          fallback: done => lo.call(self, a, b, done) }).then(() => { if (run === my) lootDone(); });
+      })();
+    };
     try { orig.call(A); } finally { Loot.open = lo; }
     run.phase = 'loot'; drawRun();
   }
@@ -534,7 +543,8 @@ const AdvLobbyUI = (() => {
       h('button', { class: 'lv', onclick: () => { C.beep(); d.remove(); cb(); } }, 'Back to room'));
     document.body.append(d);
   }
-  function endRun(kind, why) {   // back to the room (or the lobby if I left)
+  function endRun(kind, why) {
+    try { $('bAgain').hidden = false; } catch (e) { }   // back to the room (or the lobby if I left)
     if (!run || run.ending) return; run.ending = true;
     clearInterval(run.tick); if (run.unsub) run.unsub(); clearWait(); run.hud.remove();
     try { Coop.close(); } catch (e) { }
