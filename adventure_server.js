@@ -4,7 +4,7 @@
 // ===== ADVENTURE MODE =====
 // Pick a world map, then fight through its stages one by one (like DDTank). The LAST stage of every map is a BOSS:
 // one giant robot (drawn bigger, much more HP, hits harder). Stages are plain data in ADV_MAPS below.
-//
+// 
 // To add another adventure map:
 //   1. paint a 2800x1000 PNG (see assets/adventure/canyon.png) and a 336x120 thumbnail, put them in assets/adventure/
 //   2. add its solid-column list to MAP_RUNS (same as maps.js: one list of [top, bottom] runs per x column)
