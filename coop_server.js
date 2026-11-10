@@ -32,7 +32,8 @@ const Coop = (() => {
   const attempts = {};       // host: how many times each stage was restarted
   const loads = {};          // host: loadouts received per stage key: sk -> { playerId: load }
   let installed = false, orig = {};
-  const hooks = { onAgain: null, onLost: null, onDesync: null, toast: null };
+  const hooks = { onAgain: null, onLost: null, onDesync: null, toast: null, onProg: null };
+  const prog = (p, t) => { try { if (hooks.onProg) hooks.onProg(p, t); } catch (e) { } };   // loading progress (0..100) for the loading screen
   const toast = m => { try { (hooks.toast || (() => { }))(m); } catch (e) { } };
 
   // ---------------- network ----------------
@@ -47,7 +48,7 @@ const Coop = (() => {
         ws.onopen = () => { opened = true; net.tries = 0; res(); };
         setTimeout(() => { if (!opened && net && net.ws === ws) { try { ws.close(); } catch (e) { } rej(new Error('server did not answer (is it updated and awake?)')); } }, 70000);
         ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m && m.d) onMsg(m.from, m.d); };
-        ws.onclose = () => { if (!net || net.closed || net.ws !== ws) return; if (!opened) { rej(new Error('no connection')); return; } if (net.tries++ < 2) { toast('Connection lost... trying again'); setTimeout(() => { if (net && !net.closed) open(); }, 1200); } else { toast('Connection lost'); if (hooks.onLost) hooks.onLost(); } };
+        ws.onclose = () => { if (!net || net.closed || net.ws !== ws) return; if (!opened) { rej(new Error('no connection')); return; } if (net.tries++ < 5) { toast('Connection lost... trying again'); setTimeout(() => { if (net && !net.closed) open(); }, 1500); } else { toast('Connection lost'); if (hooks.onLost) hooks.onLost(); } };
         ws.onerror = () => { };
       };
       open();
@@ -63,7 +64,7 @@ const Coop = (() => {
 
   function onMsg(from, d) {
     if (!d || !d.k || !d.sk) return;
-    if (d.k === 'load') { if (!amHost()) return; (loads[d.sk] = loads[d.sk] || {})[from] = d.load; if (S && S.sk === d.sk) tryInit(); return; }
+    if (d.k === 'load') { if (!amHost()) return; (loads[d.sk] = loads[d.sk] || {})[from] = d.load; if (S && S.sk === d.sk) { if (S.init) tx(from, S.init); else tryInit(); } return; }   // a phone that asks again after the stage was started missed my 'init': send it again
     if (d.k === 'retry') { if (!amHost()) return; if (S && S.sk === d.sk) doAgain(); return; }
     if (d.k === 'again') { if (from === net.hostId && hooks.onAgain) hooks.onAgain(d.si, d.att); return; }
     if (d.k === 'init') { if (from !== net.hostId) return; }
@@ -88,19 +89,21 @@ const Coop = (() => {
     const mine = { robot: opts.members.find(m => m.id === net.myId).robot, bonus: JSON.parse(JSON.stringify(profileBonuses(opts.members.find(m => m.id === net.myId).robot))) };
     S.mine = mine;
     toast(S.host ? 'Waiting for the other players...' : 'Waiting for the host to start...');
-    if (S.host) { (loads[S.sk] = loads[S.sk] || {})[net.myId] = mine; S.timer = setTimeout(() => { if (S && !S.init) tryInit(true); }, 45000); tryInit(); }
+    prog(40, S.host ? 'Waiting for the other players...' : 'Gear sent. Waiting for the host...');
+    if (S.host) { (loads[S.sk] = loads[S.sk] || {})[net.myId] = mine; S.timer = setTimeout(() => { if (S && !S.init) tryInit(true); }, 120000); tryInit(); }
     else {
-      tx('h', { k: 'load', sk: S.sk, load: mine });
-      S.timer = setTimeout(() => { if (S && !S.init) { toast('The host did not start the stage'); if (hooks.onLost) hooks.onLost(); } }, 60000);
+      const sk0 = S.sk, mySt = S, sendLoad = () => { if (!S || S !== mySt || S.init || S.dead || S.sk !== sk0) return; tx('h', { k: 'load', sk: sk0, load: mine }); S.rt = setTimeout(sendLoad, 2500); };   // keep asking until the host's 'init' arrives (a single message can get lost while somebody is still connecting)
+      sendLoad();
+      S.timer = setTimeout(() => { if (S && !S.init) { toast('The host did not start the stage'); if (hooks.onLost) hooks.onLost(); } }, 130000);
     }
     const q = pend[S.sk]; if (q) { delete pend[S.sk]; for (const d of q) handle(d); }
   }
-  function endStage() { if (S) { clearTimeout(S.timer); S.dead = true; } S = null; }
+  function endStage() { if (S) { clearTimeout(S.timer); clearTimeout(S.rt); S.dead = true; } S = null; }
 
   function tryInit(force) {   // host: everybody's gear is here -> choose the seed and tell everybody
     if (!S || !S.host || S.init) return;
     const L = loads[S.sk] || {}, have = S.members.filter(m => L[m.id]);
-    if (have.length < S.members.length && !force) return;
+    if (have.length < S.members.length && !force) { prog(40 + Math.round(24 * have.length / Math.max(1, S.members.length)), 'Waiting for players (' + have.length + ' / ' + S.members.length + ')...'); return; }
     const mem = have.map(m => ({ id: m.id, name: m.name, robot: m.robot, bonus: L[m.id].bonus }));
     const d = { k: 'init', sk: S.sk, seed: (REAL_RANDOM() * 2 ** 31) | 0, mem };
     tx('*', d); startSim(d);
@@ -113,8 +116,8 @@ const Coop = (() => {
   function retry() { if (!S) return; if (S.host) doAgain(); else tx('h', { k: 'retry', sk: S.sk }); }
 
   async function startSim(init) {
-    if (!S || S.init) return; clearTimeout(S.timer);
-    toast('Building the shared map...');
+    if (!S || S.init) return; clearTimeout(S.timer); clearTimeout(S.rt);
+    toast('Building the shared map...'); prog(68, 'Building the shared map...');
     S.init = init; S.members = init.mem; S.myTeam = init.mem.findIndex(m => m.id === net.myId); S.rng = mulberry(init.seed);
     if (S.myTeam < 0) { toast('The stage started without you (loading took too long)'); if (hooks.onLost) hooks.onLost(); return; }
     const my = S, o = { newGame: window.newGame, pr: Adventure.playerRobot };
@@ -122,7 +125,7 @@ const Coop = (() => {
     window.newGame = wrap;
     Adventure.playerRobot = function () { return my.members[0].robot | 0; };   // enemy looks depend on "your" robot: every phone must use the same one
     Adventure.diff = my.diff;
-    try { await Adventure.start(my.mi, my.si); }
+    try { await Adventure.start(my.mi, my.si); prog(100, 'Ready!'); }
     catch (e) { console.error('coop start', e); toast('Co-op could not start: ' + ((e && e.message) || e)); if (hooks.onLost) hooks.onLost(); }
     finally { Adventure.playerRobot = o.pr; if (window.newGame === wrap) window.newGame = o.newGame; }
   }
@@ -319,6 +322,7 @@ const Coop = (() => {
 
   // ---------------- for the lobby ----------------
   function dropMember(id) {   // a player left the room: whoever numbers the frames takes his robot out, on the same frame everywhere
+    if (S && !S.init && S.members.some(m => m.id === id)) { S.members = S.members.filter(m => m.id !== id); if (S.host) tryInit(); return; }   // he left while the stage was still loading: nobody waits for him any more
     if (!on() || S.over) return; const k = S.members.findIndex(m => m.id === id); if (k < 0) return; S.gone = S.gone || {}; if (!S.gone[k]) S.gone[k] = 1;
   }
   function setHost(id) {   // the old host left: the server made somebody else host. He now numbers the frames during enemy turns.

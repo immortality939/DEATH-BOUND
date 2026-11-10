@@ -416,6 +416,26 @@ const AdvLobbyUI = (() => {
 #coopdef{position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;box-sizing:border-box;text-align:center;background:rgba(6,10,22,.9);color:#eef3ff;font-family:var(--body,sans-serif)}
 #coopdef h2{margin:0;font:400 clamp(28px,6vw,48px) var(--disp,sans-serif);color:#ff6d5e}
 #coopdef p{margin:0;font-size:16px;color:#cdd7ef}
+#coopload{position:fixed;inset:0;z-index:120;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(6px,2vh,14px);padding:10px 14px;box-sizing:border-box;text-align:center;background:radial-gradient(ellipse at 50% 30%,#3a1766 0%,#1a0b30 55%,#07040f 100%);color:#eef3ff;font-family:var(--body,sans-serif);touch-action:none;user-select:none;-webkit-user-select:none}
+#coopload h2{margin:0;font:400 clamp(20px,5vh,34px) var(--disp,sans-serif);color:#ffb23c;letter-spacing:.06em}
+#coopload .sub{font-size:clamp(11px,2.6vh,14px);color:#cdb8ee}
+#coopload .cards{display:flex;gap:clamp(8px,2vw,16px);justify-content:center;flex-wrap:wrap}
+#coopload .pc{width:clamp(104px,20vw,150px);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:8px 8px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;box-sizing:border-box}
+#coopload .pc img{height:clamp(54px,24vh,116px);max-width:100%;object-fit:contain;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))}
+#coopload .pc b{font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#coopload .bar{width:100%;height:10px;border-radius:99px;background:rgba(255,255,255,.14);overflow:hidden}
+#coopload .bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#ff9a2e,#ffd34a);transition:width .5s ease}
+#coopload .pc.ok .bar i{background:linear-gradient(90deg,#3fcf6a,#8cf0a2)}
+#coopload .pc.bad{opacity:.65}
+#coopload .pc.bad .bar i{background:#ff5a4d}
+#coopload .pp{font:700 15px var(--body,sans-serif)}
+#coopload .ps{font-size:11px;color:#cdd7ef;min-height:14px}
+#coopload .pc.bad .ps{color:#ff8a7e}
+#coopload .pc.slow .ps{color:#ffcf6a}
+#coopload .all{width:min(78vw,420px);display:flex;flex-direction:column;gap:4px}
+#coopload .all .bar{height:12px}
+#coopload .msg{font-size:clamp(11px,2.6vh,14px);color:#cdd7ef;min-height:16px}
+#coopload .lv{padding:8px 20px;border-radius:10px;border:0;cursor:pointer;font:700 14px var(--body,sans-serif);color:#eef3ff;background:linear-gradient(#34456e,#233152)}
 #coopwait .lv,#coopdef .lv{padding:10px 22px;border-radius:10px;border:0;cursor:pointer;font:700 16px var(--body,sans-serif);color:#eef3ff;background:linear-gradient(#34456e,#233152)}`;
     document.head.append(s);
   }
@@ -438,26 +458,35 @@ const AdvLobbyUI = (() => {
     const mi = maps().findIndex(m => m.id === r.map);
     if (mi < 0) { C.toast('This phone does not have that adventure map.'); act('leave').then(() => route()); return; }
     hookAdventure(); runCss();
-    run = { id: r.run.id, mi, diff: r.diff | 0, total: r.run.total, si: r.run.stage, phase: 'fight', st: 'fight', cur: r, ending: false, launching: true, beating: false, again: false };
+    run = { id: r.run.id, mi, diff: r.diff | 0, total: r.run.total, si: r.run.stage, phase: 'fight', st: 'fight', cur: r, ending: false, launching: true, beating: false, again: false, lp: 4, lpt: 'Joining the room...', roster: r.members.map(m => ({ id: m.id, name: m.name, robot: m.robot | 0 })), t0: Date.now(), ov: null };
     run.hud = h('div', { id: 'coophud' }); document.body.append(run.hud);
     run.unsub = C.live.subscribe(onRunData);
     run.tick = setInterval(runBeat, 1500);
+    showLoad();   // the loading screen covers everything BEFORE the game's title menu appears (a tap on that menu used to drop the player out of the run)
     try { C.launch('gate', () => C.reopenAdv()); } finally { run.launching = false; }   // hides the room, goes landscape; coming back to the title screen returns to the room
-    C.toast('Connecting to the room...');
     connectCoop(r).then(() => { if (run) startStage(r.run.stage); }).catch(e => { console.error('coop connect', e); C.toast('Cannot start the shared map: ' + ((e && e.message) || 'check your internet') + '. (Is the server updated?)'); leaveRun(null); });
   }
   // ONE shared stage for the whole room (coop_server.js): same map, same enemies, one robot per player. The host phone is the clock.
   async function connectCoop(r) {
+    setLp(8, 'Loading co-op...');
     if (typeof Coop === 'undefined') await C.loadExtra('coop_server.js');
     if (typeof Coop === 'undefined') throw new Error('coop missing');
-    const ss = C.session(), base = String(ONLINE_API).replace(/^http/, 'ws');
-    await Coop.connect(base + '/ws?t=' + ss.token + '&sv=' + (ss.player.server | 0), ss.player.id, r.hostId,
-      { toast: m => C.toast(m), onLost: () => { leaveRun('You lost your connection to the room.'); }, onAgain: (si, att) => { if (run) startStage(si, att); } });
+    setLp(14, 'Connecting to the server...');
+    const ss = C.session(), base = String(ONLINE_API).replace(/^http/, 'ws'), url = base + '/ws?t=' + ss.token + '&sv=' + (ss.player.server | 0);
+    const hooks = { toast: m => C.toast(m), onLost: () => { leaveRun('You lost your connection to the room.'); }, onAgain: (si, att) => { if (run) startStage(si, att); }, onProg: (p, t) => setLp(p, t) };
+    let err = null;
+    for (let a = 1; a <= 4; a++) {   // the server can be slow to answer the first time: try a few times before giving up
+      try { await Coop.connect(url, ss.player.id, r.hostId, hooks); err = null; break; }
+      catch (e) { err = e; if (!run) return; setLp(14, 'Connection failed, trying again (' + a + ' / 4)...'); await new Promise(res => setTimeout(res, 1500)); if (!run) return; }
+    }
+    if (err) throw err;
+    setLp(30, 'Connected. Waiting for the other players...');
     run.hostId = r.hostId;
   }
   function startStage(si, att) {
     if (!run) return;
     clearWait(); run.si = si; run.st = 'fight'; run.phase = 'fight';
+    run.lp = 36; run.lpt = 'Loading stage ' + (si + 1) + '...'; hideLoad(); if (run.cur && run.cur.members) run.roster = run.cur.members.map(m => ({ id: m.id, name: m.name, robot: m.robot | 0 })); showLoad();
     Adventure.diff = run.diff; try { $('over').hidden = true; } catch (e) { }
     drawRun(); runBeat();
     const members = ((run.cur && run.cur.members) || []).map(m => ({ id: m.id, name: m.name, robot: m.robot | 0 }));
@@ -501,19 +530,78 @@ const AdvLobbyUI = (() => {
     document.body.append(run.wait);
     drawRun(); runBeat(); evalRun();
   }
+  // ---- LOADING SCREEN: shows every player's character with a 0..100% bar until all phones are connected and the stage is built ----
+  // 0-30% joining + connecting to the server | 40-66% gear exchanged with the host | 68-99% building the shared map | 100% ready.
+  // Everybody reports his own % to the server (adv/report) and sees the others' % live, so you know who is still connecting (or lost).
+  function setLp(p, t) {
+    if (!run) return; if (p > run.lp) run.lp = p; if (t) run.lpt = t;
+    if (run.ov) drawLoad(); runBeat();
+  }
+  function showLoad() {
+    if (!run || run.ov) return; runCss();
+    run.t0 = Date.now(); run.doneAt = 0; run.leaveTap = 0; run.cards = {};
+    const M = mapOf(run.cur && run.cur.map);
+    const cards = h('div', { class: 'cards' });
+    for (const m of run.roster) {
+      const c = { el: h('div', { class: 'pc' }), bar: h('i'), pct: h('div', { class: 'pp' }, '0%'), st: h('div', { class: 'ps' }, 'Connecting...') };
+      c.el.append(rimg(m.robot), h('b', null, m.name + (m.id === (C.player && C.player.id) ? ' (you)' : '')), h('div', { class: 'bar' }, c.bar), c.pct, c.st);
+      run.cards[m.id] = c; cards.append(c.el);
+    }
+    run.allBar = h('i'); run.allTxt = h('div', { class: 'msg' }, ''); run.leaveBtn = h('button', { class: 'lv', hidden: true, onclick: () => {
+      if (!run) return; const now = Date.now();
+      if (now - run.leaveTap < 4000) { C.beep(); leaveRun(null); return; }
+      run.leaveTap = now; run.leaveBtn.textContent = 'Tap again to leave';
+    } }, 'Leave room');
+    run.ov = h('div', { id: 'coopload' }, h('h2', null, 'ADVENTURE' + (M ? '  -  ' + M.name : '')),
+      h('div', { class: 'sub' }, 'Connecting players... please wait'), cards,
+      h('div', { class: 'all' }, h('div', { class: 'bar' }, run.allBar), run.allTxt),
+      h('div', { class: 'msg', id: 'coopmsg' }, ''), run.leaveBtn);
+    for (const ev of ['click', 'touchstart', 'pointerdown', 'mousedown']) run.ov.addEventListener(ev, e => { e.stopPropagation(); }, false);   // the menu below can not be tapped
+    document.body.append(run.ov);
+    run.lti = setInterval(drawLoad, 400); drawLoad();
+  }
+  function hideLoad() {
+    if (!run) return; clearInterval(run.lti); if (run.ov) { run.ov.remove(); run.ov = null; }
+  }
+  function drawLoad() {
+    if (!run || !run.ov) return;
+    const r = run.cur, rm = r && r.run, now = Date.now(), my = C.player ? C.player.id : null, rows = [];
+    for (const m of run.roster) {
+      const c = run.cards[m.id]; if (!c) continue;
+      const srv = r ? r.members.find(x => x.id === m.id) : null, gone = !!(r && !srv), isMe = m.id === my;
+      const p = isMe ? run.lp : Math.max((rm && rm.lp && rm.lp[m.id]) | 0, srv && srv.ws ? 30 : 0);
+      let t = 'Connecting...', cls = 'pc';
+      if (gone) { t = 'Disconnected'; cls += ' bad'; }
+      else if (p >= 100) { t = 'Ready!'; cls += ' ok'; }
+      else if (isMe) t = run.lpt;
+      else if (p >= 68) t = 'Building the map...';
+      else if (p >= 40) t = 'Gear ready';
+      else if (p >= 30) t = 'Connected';
+      else if (now - run.t0 > 12000) { t = 'Slow connection...'; cls += ' slow'; }
+      c.el.className = cls; c.bar.style.width = p + '%'; c.pct.textContent = gone ? '--' : p + '%'; c.st.textContent = t;
+      rows.push({ p, gone });
+    }
+    const live = rows.filter(x => !x.gone), avg = live.length ? Math.round(live.reduce((a, x) => a + x.p, 0) / live.length) : 0, rdy = live.filter(x => x.p >= 100).length, lost = rows.length - live.length;
+    run.allBar.style.width = avg + '%';
+    run.allTxt.textContent = 'Players ready: ' + rdy + ' / ' + live.length + '   |   ' + avg + '%' + (lost ? '   |   ' + lost + ' disconnected' : '');
+    const stuck = now - run.t0 > 45000 && run.lp < 100; run.leaveBtn.hidden = !stuck;
+    if (!stuck) { run.leaveBtn.textContent = 'Leave room'; run.leaveTap = 0; }
+    document.getElementById('coopmsg').textContent = stuck ? 'Taking long? You can leave and try again.' : (run.lp >= 100 ? 'Starting...' : 'Do not close the game while loading.');
+    if (run.lp >= 100) { if (!run.doneAt) run.doneAt = now; if (live.every(x => x.p >= 100) || now - run.doneAt > 2500) hideLoad(); }   // everybody ready (or the others are only a moment behind): go
+  }
   function clearWait() { if (run && run.wait) { run.wait.remove(); run.wait = null; } }
   async function runBeat() {   // tell the server how this stage is going (also the heartbeat)
     if (!run || run.ending) return;
     if (run.beating) { run.again = true; return; }
     run.beating = true;
-    try { await C.live.call('adv/report', { stage: run.si, st: run.st }); } catch (e) { }
+    try { await C.live.call('adv/report', { stage: run.si, st: run.st, lp: run.lp }); } catch (e) { }
     if (run) { run.beating = false; if (run.again) { run.again = false; runBeat(); } }
   }
   function onRunData(j) {
     if (!run) return; run.cur = j.myAdv || null;
     if (run.cur && run.hostId && run.cur.hostId !== run.hostId) { run.hostId = run.cur.hostId; try { Coop.setHost(run.hostId); } catch (e) { } C.toast('The host left. The adventure goes on.'); }   // the server picked a new host: he becomes the clock of the enemy turns
     if (run.cur) { const ids = new Set(run.cur.members.map(m => m.id)); const st = typeof Coop !== 'undefined' ? Coop.state : null; if (st) for (const m of st.members) if (!ids.has(m.id)) Coop.dropMember(m.id); }
-    evalRun(); drawRun();
+    evalRun(); drawRun(); if (run && run.ov) drawLoad();
   }
   function evalRun() {
     if (!run || run.ending) return; const r = run.cur;
@@ -546,7 +634,7 @@ const AdvLobbyUI = (() => {
   function endRun(kind, why) {
     try { $('bAgain').hidden = false; } catch (e) { }   // back to the room (or the lobby if I left)
     if (!run || run.ending) return; run.ending = true;
-    clearInterval(run.tick); if (run.unsub) run.unsub(); clearWait(); run.hud.remove();
+    clearInterval(run.tick); if (run.unsub) run.unsub(); clearWait(); hideLoad(); run.hud.remove();
     try { Coop.close(); } catch (e) { }
     run = null;
     try { Loot.cb = null; clearInterval(Loot.timer); if (Loot.el) Loot.el.hidden = true; } catch (e) { }
