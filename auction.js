@@ -21,7 +21,7 @@ const AuctionUI = (() => {
   // ---------- the Bag (what the player owns, and how to add / remove it) ----------
   function bagItems() {
     const D = Profile.data || Profile.load(), out = [];
-    for (const id of D.owned) { const it = IT(id); if (!it) continue; const n = Profile.copies(id); if (it.sig && n <= 1) continue; out.push({ it, n, kind: 'gear' }); }   // your robot's own signature weapon can never leave
+    for (const id of D.owned) { const it = IT(id); if (!it) continue; if (it.sig && Profile.copies(id) <= 1) continue; out.push({ it, n: 1, kind: 'gear' }); }   // your robot's own signature weapon can never leave
     for (const it of POTION_ITEMS) { const n = Profile.stockOf(it.id); if (n > 0) out.push({ it, n, kind: 'potion' }); }
     for (const it of MAT_ITEMS) { const n = Mats.get(it); if (n > 0) out.push({ it, n, kind: 'mat' }); }
     return out.sort((a, b) => (RK[a.it.rar] ?? 9) - (RK[b.it.rar] ?? 9) || a.it.name.localeCompare(b.it.name));
@@ -30,10 +30,9 @@ const AuctionUI = (() => {
     const k = kindOf(it);
     if (k === 'mat') return Mats.spend(it, qty);
     if (k === 'potion') { if (Profile.stockOf(it.id) < qty) return false; Profile.addStock(it.id, -qty); return true; }
-    const D = Profile.data || Profile.load(); if (!D.owned.includes(it.id)) return false; if (!D.qty) D.qty = {};
-    if ((D.qty[it.id] | 0) > 0) { D.qty[it.id]--; if (!D.qty[it.id]) delete D.qty[it.id]; }
-    else {   // last copy: it leaves the Bag (and the robots wearing it), its upgrade level is lost
-      if (it.sig) return false;
+    const D = Profile.data || Profile.load(); if (!D.owned.includes(it.id)) return false;
+    if (it.sig && Profile.copies(it.id) <= 1) return false;
+    { // this copy leaves the Bag (and the robot wearing it), its upgrade level is lost
       D.owned = D.owned.filter(x => x !== it.id); if (D.up) delete D.up[it.id];
       for (const rid in D.eq) for (const key in D.eq[rid]) if (D.eq[rid][key] === it.id) delete D.eq[rid][key];
     }
@@ -172,7 +171,7 @@ const AuctionUI = (() => {
             ctx.beep(); if (busy) return; const pr = price | 0; if (pr < 1) return ctx.toast('Type a price in chips.');
             const n = k === 'mat' ? qty : 1; if (!removable(it, n)) return ctx.toast('You do not have it any more.');
             busy = true;
-            try { await ctx.api('auction/post', { item: it.id, qty: n, price: pr, cur: 'chips' }); removeFromBag(it, n); ctx.toast(it.name + ' is on sale for ' + fmt(pr) + ' chips.'); p.remove(); view = 'mine'; }
+            try { await ctx.api('auction/post', { item: baseId(it.id), qty: n, price: pr, cur: 'chips' }); removeFromBag(it, n); ctx.toast(it.name + ' is on sale for ' + fmt(pr) + ' chips.'); p.remove(); view = 'mine'; }
             catch (e) { fail(e); }
             busy = false; load();
           } }, 'Post for sale'), h('div', { class: 'wbtn red', onclick: () => { ctx.beep(); pick = null; render(); } }, 'Back'))]).childNodes);

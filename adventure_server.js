@@ -489,7 +489,7 @@ const Loot = {
   },
   roll(si, boss) {   // stages: 1-2 gear cards from this map's table, the rest chips / stones. Boss board: 30 cards = 6 gear + 2 weapons + stones + chips (the best rarity this map can give is guaranteed once).
     const mi = Adventure.mi | 0, st = Adventure.si | 0, df = Adventure.diff | 0, nItems = boss ? 6 : (Math.random() < .4 ? 2 : 1), n = boss ? 30 : 9;
-    const lv = this.lvOf(mi, df, boss, st), W = this.weights(lv), own = new Set((Profile.data || Profile.load()).owned), out = [];
+    const lv = this.lvOf(mi, df, boss, st), W = this.weights(lv), own = new Set((Profile.data || Profile.load()).owned.map(baseId)), out = [];
     const gear = this.pool(lv, false), wpn = boss ? this.pool(lv, true) : [];
     const pick = (sub, from) => {   // pick the rarity by the map's odds, then an item of it (items you don't own yet show up more often)
       const R = {}; sub.forEach(c => (R[c.it.rar] = R[c.it.rar] || []).push(c)); const ks = Object.keys(R); if (!ks.length) return false;
@@ -549,7 +549,7 @@ const Loot = {
     if (e.stone) { Stones.add(e.n, e.stone); this.got.push({ stone: e.stone, n: e.n }); card.querySelector('em').textContent = 'Added!'; Snd.play(e.stone >= 4 ? 'win' : 'pick'); }
     else if (e.scroll) { Mats.add(matOf('support', 1), e.n); this.got.push({ scroll: 1, n: e.n }); card.querySelector('em').textContent = 'Added!'; Snd.play('win'); }
     else if (e.chips) { Wallet.add(e.chips); this.got.push({ chips: e.chips }); card.querySelector('em').textContent = 'Added!'; Snd.play(e.chips >= 100 ? 'win' : 'pick'); }
-    else { const it = e.it, dup = D.owned.includes(it.id); Profile.addCopy(it.id); Profile.save(); this.got.push({ it, dup, n: Profile.copies(it.id) }); card.querySelector('em').textContent = dup ? '+1 copy (×' + Profile.copies(it.id) + ')' : 'NEW!'; Snd.play(it.rar === 'legendary' || it.rar === 'epic' ? 'win' : 'pick'); }
+    else { const it = e.it, dup = Profile.hasBase(it.id); Profile.addCopy(it.id); Profile.save(); this.got.push({ it, dup, n: 1 }); card.querySelector('em').textContent = dup ? 'NEW ITEM (+0)' : 'NEW!'; Snd.play(it.rar === 'legendary' || it.rar === 'epic' ? 'win' : 'pick'); }
     this.msg();
     if (this.picksLeft <= 0) { clearInterval(this.timer); setTimeout(() => this.revealAll(), auto ? 300 : 800); }
   },
@@ -557,7 +557,7 @@ const Loot = {
     const cards = [...this.el.querySelectorAll('.lc')];
     cards.forEach((c, i) => { if (!c.classList.contains('up')) setTimeout(() => { c.classList.add('up', 'rest'); }, 40 * i); });
     setTimeout(() => {
-      $('lootGot').innerHTML = this.got.map(g => g.scroll ? `<div class="got" style="--rc:${matOf('support', 1).col}"><b><img class="cb" src="${matOf('support', 1).img}" alt=""> +${g.n} ${matOf('support', 1).name}</b> <small>added to your Items</small></div>` : g.stone ? `<div class="got" style="--rc:${STONE_TYPES[g.stone - 1].col}"><b><img class="cb" src="${STONE_TYPES[g.stone - 1].img}" alt=""> +${g.n} ${STONE_TYPES[g.stone - 1].n}${g.n > 1 ? 's' : ''}</b> <small>added to your stones</small></div>` : g.chips ? `<div class="got" style="--rc:#ffd24a"><b><img class="cb" src="assets/chip.png" alt=""> +${g.chips} chips</b> <small>added to your wallet</small></div>` : `<div class="got" style="--rc:${RARITY[g.it.rar].color}"><b>${g.it.name}</b> <i>${RARITY[g.it.rar].name} ${g.it.type}</i> ${Profile.statText(g.it.stats)}${g.dup ? ` <small>(+1 copy: you now own ×${g.n})</small>` : ' <small>added to your inventory</small>'}</div>`).join('');
+      $('lootGot').innerHTML = this.got.map(g => g.scroll ? `<div class="got" style="--rc:${matOf('support', 1).col}"><b><img class="cb" src="${matOf('support', 1).img}" alt=""> +${g.n} ${matOf('support', 1).name}</b> <small>added to your Items</small></div>` : g.stone ? `<div class="got" style="--rc:${STONE_TYPES[g.stone - 1].col}"><b><img class="cb" src="${STONE_TYPES[g.stone - 1].img}" alt=""> +${g.n} ${STONE_TYPES[g.stone - 1].n}${g.n > 1 ? 's' : ''}</b> <small>added to your stones</small></div>` : g.chips ? `<div class="got" style="--rc:#ffd24a"><b><img class="cb" src="assets/chip.png" alt=""> +${g.chips} chips</b> <small>added to your wallet</small></div>` : `<div class="got" style="--rc:${RARITY[g.it.rar].color}"><b>${g.it.name}</b> <i>${RARITY[g.it.rar].name} ${g.it.type}</i> ${Profile.statText(g.it.stats)}${g.dup ? ` <small>(new separate item, +0)</small>` : ' <small>added to your inventory</small>'}</div>`).join('');
       $('bLootGo').hidden = false; this.msg();
     }, 40 * cards.length + 500);
   },

@@ -254,7 +254,10 @@ const POTION_ITEMS = [
   { id: 'pot_heal', img: 'assets/items/pot_heal.png', name: 'Heal', type: 'potion', potion: 'self', pct: .5, rar: 'item', stats: {}, desc: 'Heals the robot that is playing for 50% of its max health. One tap on its box in battle: instant, and you can still fire in the same turn. Carry up to 2. Used ones are gone after the match.' },
   { id: 'pot_team', img: 'assets/items/pot_team.png', name: 'Team Heal', type: 'potion', potion: 'team', pct: .35, rar: 'item', stats: {}, desc: 'Heals EVERY living robot of your team for 35% of its own max health. One tap on its box in battle: instant, and you can still fire in the same turn. Carry up to 2. Used ones are gone after the match.' },
 ];
-const itemById = id => ITEMS.find(i => i.id === id) || NECK_ITEMS.find(i => i.id === id) || GLOVE_ITEMS.find(i => i.id === id) || HEAL_ITEMS.find(i => i.id === id) || WING_ITEMS.find(i => i.id === id) || POTION_ITEMS.find(i => i.id === id) || SHOP_GEAR_ITEMS.find(i => i.id === id) || WEAPON_ITEMS.find(i => i.id === id) || SHOP_WEAPON_ITEMS.find(i => i.id === id) || (typeof MAT_ITEMS !== 'undefined' ? MAT_ITEMS.find(i => i.id === id) : null);
+const baseId = id => { id = String(id == null ? '' : id); const k = id.indexOf('#'); return k < 0 ? id : id.slice(0, k); };   // 'r_ring#2' -> 'r_ring' (every extra copy of a gear piece is its own item 'baseid#n')
+const _itemBase = id => ITEMS.find(i => i.id === id) || NECK_ITEMS.find(i => i.id === id) || GLOVE_ITEMS.find(i => i.id === id) || HEAL_ITEMS.find(i => i.id === id) || WING_ITEMS.find(i => i.id === id) || POTION_ITEMS.find(i => i.id === id) || SHOP_GEAR_ITEMS.find(i => i.id === id) || WEAPON_ITEMS.find(i => i.id === id) || SHOP_WEAPON_ITEMS.find(i => i.id === id) || (typeof MAT_ITEMS !== 'undefined' ? MAT_ITEMS.find(i => i.id === id) : null);
+const _instCache = {};
+const itemById = id => { if (id == null) return null; if (typeof id === 'string' && id.indexOf('#') > 0) { const b = _itemBase(baseId(id)); if (!b) return null; const c = _instCache[id]; if (c && c.__b === b) return c; return (_instCache[id] = Object.assign({}, b, { id, base: b.id, __b: b })); } return _itemBase(id); };   // an extra copy looks and acts like its base item but has its own id (own upgrade level, own slot)
 const weaponItemFor = rid => WEAPON_ITEMS.find(i => i.sig === rid);
 const LOOT_LOCK = true;   // true = items must be won (Adventure loot cards). Set to false to own every item like before.
 const INV_CELLS = 24;
@@ -329,7 +332,7 @@ const Profile = {
       }
     } else for (const id of ITEMS.map(i => i.id)) if (!this.data.owned.includes(id)) this.data.owned.push(id);   // loot lock off: every item is yours
     this.data.char = clamp(this.data.char, 0, Assets.robots.robots.length - 1);
-    this.ensureWeapon(); this.save();
+    this.splitStacks(); this.ensureWeapon(); this.save();
     return this.data;
   },
   save() { store.set('profile', this.data); },
@@ -349,18 +352,21 @@ const Profile = {
     const eq = this.eqOf(this.charId()), cur = eq.weapon && itemById(eq.weapon);
     if (!(cur && (cur.shop || cur.sig) && this.data.owned.includes(cur.id))) eq.weapon = w.id;   // keep a worn Shop / signature weapon you own, otherwise wear your own signature weapon
   },
-  copies(id) { if (!this.data) this.load(); return this.data.owned.includes(id) ? 1 + Math.max(0, (this.data.qty && this.data.qty[id]) | 0) : 0; },   // how many of this item you own (1 + spare copies)
-  addCopy(id) { const D = this.data || this.load(); if (!D.qty) D.qty = {}; if (!D.owned.includes(id)) D.owned.push(id); else D.qty[id] = (D.qty[id] | 0) + 1; },   // bought / looted: first one is added, every next one is another copy
+  splitStacks() {   // old saves kept "x2" counters in qty: turn every spare into its own item (+0), so gear never stacks
+    const D = this.data; if (!D.qty) { D.qty = {}; return; }
+    for (const id in D.qty) { const n = D.qty[id] | 0; if (!itemById(id)) continue; for (let i = 0; i < n; i++) D.owned.push(this.newInstId(id)); }
+    D.qty = {};
+  },
+  newInstId(id) { const b = baseId(id), D = this.data; let n = 2; while (D.owned.includes(b + '#' + n)) n++; return b + '#' + n; },
+  copies(id) { if (!this.data) this.load(); const b = baseId(id); return this.data.owned.filter(x => baseId(x) === b).length; },   // how many separate copies of this kind of item you own
+  hasBase(id) { if (!this.data) this.load(); const b = baseId(id); return this.data.owned.some(x => baseId(x) === b); },
+  addCopy(id) { const D = this.data || this.load(), b = baseId(id); if (!D.owned.includes(b)) D.owned.push(b); else D.owned.push(this.newInstId(b)); },   // bought / looted: the first one is the item itself, every next one is a NEW separate item (+0, own slot)
   sellValue(it) { return it && !it.potion && it.type !== 'mat' ? Math.floor(itemPrice(it) * 0.25) : 0; },   // you get 25% of the Shop price
-  sellItem(id) {   // sells ONE copy; returns the chips you got (0 = could not sell)
+  sellItem(id) {   // sells THIS copy; returns the chips you got (0 = could not sell)
     const D = this.data || this.load(), it = itemById(id), v = this.sellValue(it); if (!it || v <= 0 || !D.owned.includes(id)) return 0;
-    if (!D.qty) D.qty = {};
-    if ((D.qty[id] | 0) > 0) { D.qty[id]--; if (!D.qty[id]) delete D.qty[id]; }
-    else {   // last copy: it leaves the inventory (and the robots wearing it), its upgrade level is lost
-      if (it.sig) return 0;
-      D.owned = D.owned.filter(x => x !== id); if (D.up) delete D.up[id];
-      for (const rid in D.eq) for (const k in D.eq[rid]) if (D.eq[rid][k] === id) delete D.eq[rid][k];
-    }
+    if (it.sig && this.copies(id) <= 1) return 0;   // your own signature weapon is never sold (its last copy)
+    D.owned = D.owned.filter(x => x !== id); if (D.up) delete D.up[id];
+    for (const rid in D.eq) for (const k in D.eq[rid]) if (D.eq[rid][k] === id) delete D.eq[rid][k];
     Wallet.add(v); this.ensureWeapon(); this.save(); return v;
   },
   sellAsk: null,
@@ -383,7 +389,7 @@ const Profile = {
   wornBy(itemId) { for (const rid in this.data.eq) for (const k in this.data.eq[rid]) if (this.data.eq[rid][k] === itemId) return { rid, slot: k }; return null; },
   bonuses(robotIdx) {   // totals used in battle: gear (upgrade levels included) + character level. wmul = damage multiplier of the signature weapon
     const rid = Assets.robots.robots[robotIdx].id, eq = this.data.eq[rid] || {}, g = { hp: 0, def: 0, dmg: 0, xdmg: 0, vit: 0, agi: 0, dex: 0, luk: 0, crt: 0, cdm: 0 }; let wmul = 1, wlvl = 0, wid = null, hid = null, heal = 0, hammo = 0, wbon = 0, wing = null, neck = 0;
-    for (const k in eq) { const it = itemById(eq[k]); if (!it) continue; const st = statsAt(it, this.lvl(it.id)); if (it.type === 'wings') wing = it.id; if (it.type === 'necklace') { neck = (it.stats.nhp || 0) / 100; continue; } if (it.type === 'heal') { hid = it.id; heal = st.heal || 0; hammo = healThrows(this.lvl(it.id)); } if (it.type === 'weapon') { wlvl = this.lvl(it.id); wmul = 1 + upBonus(wlvl); wid = it.id; wbon = (WEAPON_DMG_BONUS[it.rar] || 0) * wmul; } for (const s in st) if (s in g) g[s] += st[s]; if (it.type !== 'weapon' && st.dmg) g.xdmg += st.dmg; }
+    for (const k in eq) { const it = itemById(eq[k]); if (!it) continue; const st = statsAt(it, this.lvl(it.id)); if (it.type === 'wings') wing = baseId(it.id); if (it.type === 'necklace') { neck = (it.stats.nhp || 0) / 100; continue; } if (it.type === 'heal') { hid = baseId(it.id); heal = st.heal || 0; hammo = healThrows(this.lvl(it.id)); } if (it.type === 'weapon') { wlvl = this.lvl(it.id); wmul = 1 + upBonus(wlvl); wid = baseId(it.id); wbon = (WEAPON_DMG_BONUS[it.rar] || 0) * wmul; } for (const s in st) if (s in g) g[s] += st[s]; if (it.type !== 'weapon' && st.dmg) g.xdmg += st.dmg; }
     g.xdmg += wbon;   // the rarity Damage bonus sits on the weapon: it is added to every hit and grows with the weapon's upgrade level
     const out = charStats(this.level(), g, wmul, wlvl); out.neck = neck; if (neck) out.hp += Math.round((POWER_BASE_HP + out.hp) * neck);   // NECKLACE: +% of the TOTAL health (100 base + gear + attributes), added last
     out.wid = wid; out.wing = wing; out.hid = hid; out.heal = heal; out.hammo = hammo; out.pots = POTION_ITEMS.map(it => ({ id: it.id, img: it.img, name: it.name, kind: it.potion, pct: it.pct, uses: this.stockOf(it.id) })); return out;   // wid = the weapon item you wear (battle uses it)
@@ -400,7 +406,7 @@ const Profile = {
     const w = this.wornBy(itemId); if (w) delete this.data.eq[w.rid][w.slot];   // an item can only be on one robot
     this.eqOf(this.charId())[slot.key] = itemId; this.save();
   },
-  unequip(itemId) { const it = itemById(itemId); if (it && it.type === 'weapon' && it.sig === this.charId()) return; const w = this.wornBy(itemId); if (w) { delete this.data.eq[w.rid][w.slot]; if (it && it.type === 'weapon') this.ensureWeapon(); this.save(); } },   // taking off a Shop weapon puts your signature weapon back
+  unequip(itemId) { const it = itemById(itemId); if (it && it.type === 'weapon' && it.sig === this.charId() && !it.base) return; const w = this.wornBy(itemId); if (w) { delete this.data.eq[w.rid][w.slot]; if (it && it.type === 'weapon') this.ensureWeapon(); this.save(); } },   // taking off a Shop weapon puts your signature weapon back
   upgrade(id) {
     const it = itemById(id), L = this.lvl(id); if (!it || it.potion || L >= UP_MAX || !this.data.owned.includes(id)) return;
     const cost = UP_COST[L], st = this.stoneSel || 1, sn = STONE_TYPES[st - 1].n;
@@ -461,12 +467,12 @@ const Profile = {
       return `<div class="pf-slot g-${key}${ok ? ' can' : ''}${it && it.id === this.sel ? ' sel' : ''}" data-slot="${key}"><small>${s.label}</small>${it ? this.itemTile(it, '', this.lvl(it.id)) : '<span class="pf-empty">empty</span>'}</div>`;
     };
     const RK = { legendary: 0, epic: 1, rare: 2, common: 3 }, allOwned = D.owned.map(itemById).filter(Boolean);
-    const owned = allOwned.filter(it => this.filter === 'all' || it.type === this.filter).map((it, k) => ({ it, k })).sort((a, b) => (a.it.type === 'weapon' ? -1 : 0) - (b.it.type === 'weapon' ? -1 : 0) || RK[a.it.rar] - RK[b.it.rar] || a.k - b.k).map(o => o.it);
+    const owned = allOwned.filter(it => this.filter === 'all' || it.type === this.filter).map((it, k) => ({ it, k: allOwned.findIndex(o => baseId(o.id) === baseId(it.id)) * 1000 + k })).sort((a, b) => (a.it.type === 'weapon' ? -1 : 0) - (b.it.type === 'weapon' ? -1 : 0) || RK[a.it.rar] - RK[b.it.rar] || a.k - b.k).map(o => o.it);
     const total = Math.max(INV_CELLS, Math.ceil(owned.length / 4) * 4);
     const TABS = [['all', 'All'], ['weapon', 'Weapon'], ['helmet', 'Helmets'], ['ring', 'Rings'], ['armor', 'Armor'], ['shoes', 'Shoes'], ['heal', 'Heal'], ['wings', 'Wings'], ['necklace', 'Necklace'], ['glove', 'Gloves']];
     const tabs = TABS.map(t => `<button class="pf-tab${this.filter === t[0] ? ' on' : ''}" data-tab="${t[0]}">${t[1]}</button>`).join('');
     let cells = ''; for (let i = 0; i < total; i++) {
-      const it = owned[i]; cells += it ? `<div class="pf-cell${it.id === this.sel ? ' sel' : ''}" data-item="${it.id}">${this.itemTile(it, (worn.has(it.id) ? '<em>E</em>' : '') + (this.copies(it.id) > 1 ? `<s class="cnt">×${this.copies(it.id)}</s>` : ''), this.lvl(it.id))}</div>` : '<div class="pf-cell off"></div>';
+      const it = owned[i]; cells += it ? `<div class="pf-cell${it.id === this.sel ? ' sel' : ''}" data-item="${it.id}">${this.itemTile(it, (worn.has(it.id) ? '<em>E</em>' : ''), this.lvl(it.id))}</div>` : '<div class="pf-cell off"></div>';
     }
     // Items tab: Heal potions + stones + amulets + guardian scroll (nothing here can be worn)
     const cnt = n => n >= 100000 ? Math.round(n / 1000) + 'k' : n >= 10000 ? (n / 1000).toFixed(1) + 'k' : n.toLocaleString();
@@ -483,8 +489,8 @@ const Profile = {
     } else if (selIt) {
       const L = this.lvl(selIt.id), w = this.wornBy(selIt.id), me = w && w.rid === rob.id, by = w && !me ? R.find(r => r.id === w.rid).name : '';
       const now = statsAt(selIt, L);
-      const btns = (selIt.type === 'weapon' && me && selIt.sig === rob.id ? '' : me ? '<button class="btn sm alt" data-act="un">Unequip</button>' : `<button class="btn sm" data-act="eq">Equip on ${rob.name}</button>`) + (selIt.noUp ? '' : '<button class="btn sm alt" data-act="forge">Forge</button>') + this.sellBtn(selIt);
-      side = `<div class="pf-det" style="--rc:${RARITY[selIt.rar].color}">${selIt.img ? `<img class="big" src="${this.imgOf(selIt)}" alt="" draggable="false">` : ''}<h3>${selIt.name}${L ? ` <u class="lvl">+${L}</u>` : ''} <i>${RARITY[selIt.rar].name} ${selIt.type}</i></h3><div class="st">${selIt.type === 'necklace' ? `<span class="pos">+${selIt.stats.nhp}% of total Health</span><span class="neg">Cannot be upgraded</span>` : this.statText(now)}${selIt.type === 'heal' ? `<span class="pos">${healThrows(L)} throws per match</span>` : ''}</div><p class="dim">${selIt.desc}${this.copies(selIt.id) > 1 ? ' (You own ×' + this.copies(selIt.id) + ')' : ''}${by ? ' (worn by ' + by + ' — equipping moves it here)' : ''}</p><div class="row">${btns}</div></div>`;
+      const btns = (selIt.type === 'weapon' && me && selIt.sig === rob.id && !selIt.base ? '' : me ? '<button class="btn sm alt" data-act="un">Unequip</button>' : `<button class="btn sm" data-act="eq">Equip on ${rob.name}</button>`) + (selIt.noUp ? '' : '<button class="btn sm alt" data-act="forge">Forge</button>') + this.sellBtn(selIt);
+      side = `<div class="pf-det" style="--rc:${RARITY[selIt.rar].color}">${selIt.img ? `<img class="big" src="${this.imgOf(selIt)}" alt="" draggable="false">` : ''}<h3>${selIt.name}${L ? ` <u class="lvl">+${L}</u>` : ''} <i>${RARITY[selIt.rar].name} ${selIt.type}</i></h3><div class="st">${selIt.type === 'necklace' ? `<span class="pos">+${selIt.stats.nhp}% of total Health</span><span class="neg">Cannot be upgraded</span>` : this.statText(now)}${selIt.type === 'heal' ? `<span class="pos">${healThrows(L)} throws per match</span>` : ''}</div><p class="dim">${selIt.desc}${by ? ' (worn by ' + by + ' — equipping moves it here)' : ''}</p><div class="row">${btns}</div></div>`;
     }
     const inv = this.tab === 'items'
       ? `<div class="pf-cells">${icells}</div>`
@@ -625,7 +631,7 @@ const Shop = {
   type: 'all', rar: 'all', sel: null, msg: '',
   open() { Profile.data || Profile.load(); this.msg = ''; this.render(); UI.show('shop'); },
   render() {
-    const root = $('shop'), D = Profile.data || Profile.load(), own = new Set(D.owned), chips = Wallet.get();
+    const root = $('shop'), D = Profile.data || Profile.load(), own = new Set(D.owned.map(baseId)), chips = Wallet.get();
     const RK = { item: -1, common: 0, rare: 1, epic: 2, legendary: 3 };
     const list = [...ITEMS, ...SHOP_GEAR_ITEMS, ...WEAPON_ITEMS, ...SHOP_WEAPON_ITEMS, ...HEAL_ITEMS, ...WING_ITEMS, ...NECK_ITEMS, ...GLOVE_ITEMS, ...POTION_ITEMS, ...MAT_ITEMS].filter(i => (this.type === 'all' || i.type === this.type) && (this.rar === 'all' || i.rar === this.rar)).sort((a, b) => RK[a.rar] - RK[b.rar] || itemPrice(a) - itemPrice(b));
     const TY = [['all', 'All'], ['weapon', 'Weapons'], ['helmet', 'Helmets'], ['ring', 'Rings'], ['armor', 'Armor'], ['shoes', 'Shoes'], ['heal', 'Heal'], ['wings', 'Wings'], ['necklace', 'Necklaces'], ['glove', 'Gloves'], ['potion', 'Items'], ['mat', 'Stones & Scrolls']], RA = [['all', 'Any rarity'], ['common', 'Common'], ['rare', 'Rare'], ['epic', 'Epic'], ['legendary', 'Legendary']];

@@ -243,7 +243,7 @@ const OnlineUI = (() => {
       const w = (worn.weapon && itemById(worn.weapon)) || weaponItemFor(r.id);
       let power; try { power = Adventure.myPower(); } catch (e2) { }
       let eq; try {   // what I wear: { slot: [itemId, upgradeLevel] } (the Hall of Fame shows it to other players)
-        eq = {}; for (const k of ['weapon', 'helmet', 'ring1', 'ring2', 'armor', 'shoes', 'heal', 'wings', 'neck', 'glove']) { const id = worn[k] || (k === 'weapon' && w && w.id); if (id) eq[k] = [id, Profile.lvl(id)]; }
+        eq = {}; for (const k of ['weapon', 'helmet', 'ring1', 'ring2', 'armor', 'shoes', 'heal', 'wings', 'neck', 'glove']) { const id = worn[k] || (k === 'weapon' && w && w.id); if (id) eq[k] = [baseId(id), Profile.lvl(id)]; }
       } catch (e2) { eq = undefined; }
       return { lv: Profile.level(), power, weapon: w ? { name: w.name, img: Profile.imgOf(w) } : undefined, eq };
     } catch (e) { return {}; }

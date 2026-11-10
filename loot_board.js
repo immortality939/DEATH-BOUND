@@ -47,7 +47,7 @@ const SharedLoot = (() => {
         if (e.stone) { Stones.add(e.n, e.stone); got.push({ stone: e.stone, n: e.n }); em.textContent = 'You: Added!'; Snd.play(e.stone >= 4 ? 'win' : 'pick'); }
         else if (e.scroll) { Mats.add(matOf('support', 1), e.n); got.push({ scroll: 1, n: e.n }); em.textContent = 'You: Added!'; Snd.play('win'); }
         else if (e.chips) { Wallet.add(e.chips); got.push({ chips: e.chips }); em.textContent = 'You: Added!'; Snd.play(e.chips >= 100 ? 'win' : 'pick'); }
-        else { const it = e.it, dup = D.owned.includes(it.id); Profile.addCopy(it.id); Profile.save(); got.push({ it, dup, n: Profile.copies(it.id) }); em.textContent = dup ? 'You: +1 copy (×' + Profile.copies(it.id) + ')' : 'You: NEW!'; Snd.play(it.rar === 'legendary' || it.rar === 'epic' ? 'win' : 'pick'); }
+        else { const it = e.it, dup = Profile.hasBase(it.id); Profile.addCopy(it.id); Profile.save(); got.push({ it, dup, n: 1 }); em.textContent = dup ? 'You: +1 copy (×' + Profile.copies(it.id) + ')' : 'You: NEW!'; Snd.play(it.rar === 'legendary' || it.rar === 'epic' ? 'win' : 'pick'); }
       }
       function render(j) {
         if (!j || stopped) return;
