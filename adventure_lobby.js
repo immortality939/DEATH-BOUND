@@ -41,12 +41,12 @@ const AdvLobbyUI = (() => {
     c.onclick = () => C.toast(nm); return c;
   }
   const lootOf = (M, d) => { try { return withDiff(d, () => Adventure.dropList(M, true)); } catch (e) { return []; } };
-  function banner(M, d, w, hh, extra) {   // map picture + boss portrait + stage count (used in the room and in the map picker)
+  function banner(M, d, w, hh, extra, label) {   // map picture + boss portrait + stage count (used in the room and in the map picker)
     const bs = bossOf(M, d), pt = portraitOf(bs), n = stagesOf(M, d).length;
     const b = h('div', { class: 'mban', style: `width:${w}px;height:${hh}px;background-image:url(${M.thumb});border-color:${DIFFS[d].c}` },
       h('div', { class: 'mshade' }),
       pt ? h('img', { class: 'mboss', src: pt, alt: '', onerror: function () { this.style.display = 'none'; } }) : null,
-      h('div', { class: 'mstage' }, n + ' STAGES'),
+      h('div', { class: 'mstage' }, label || (n + ' STAGES')),
       bs ? h('div', { class: 'mbn' }, 'BOSS: ' + bs.bossName) : null, extra || null);
     return b;
   }
@@ -214,7 +214,7 @@ const AdvLobbyUI = (() => {
   const sigOf = () => {
     const r = S.my, mem = m => [m.id, m.lv, m.power, m.ready ? 1 : 0, m.host ? 1 : 0, m.robot, m.weapon && m.weapon.name].join(':');
     if (S.view === 'lobby') return JSON.stringify([S.online.map(o => o.id + ':' + o.lv), S.rooms.slice(0, 30).map(x => [x.id, x.map, x.diff, x.state, x.members.map(mem)])]);
-    if (S.view === 'room' && r) return JSON.stringify([r.id, r.map, r.diff, r.state, r.hostId, r.members.map(mem)]);
+    if (S.view === 'room' && r) return JSON.stringify([r.id, r.map, r.diff, r.state, r.hostId, r.next && r.next.stage, r.members.map(mem)]);
     return '';
   };
   function repaint() { const s = sigOf(); if (s && s !== S.sig) { if (S.view === 'lobby') lobby(); else if (S.view === 'room') room(); } }
@@ -256,7 +256,7 @@ const AdvLobbyUI = (() => {
       const card = h('div', { class: 'rc' + (full ? ' full' : '') },
         M ? h('img', { src: M.thumb, alt: '', style: 'width:52px;height:34px;object-fit:cover' }) : h('img', { alt: '', src: 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==' }),
         h('div', { class: 't' }, h('b', null, M ? M.name : 'No map selected yet'),
-          h('small', null, 'Room ' + r.id + '  |  ' + host.name + (M ? '  |  ' : ''), M ? h('i', { style: 'font-style:normal;color:' + DIFFS[d].c }, DIFFS[d].n) : null, going ? '  |  Playing' : n >= SLOTS ? '  |  Full' : '')),
+          h('small', null, 'Room ' + r.id + '  |  ' + host.name + (M ? '  |  ' : ''), M ? h('i', { style: 'font-style:normal;color:' + DIFFS[d].c }, DIFFS[d].n) : null, going ? '  |  Playing' : r.next ? '  |  Stage ' + (r.next.stage + 1) + '/' + r.next.total : n >= SLOTS ? '  |  Full' : '')),
         h('div', { class: 'n' + (full ? ' f' : '') }, n + '/' + SLOTS));
       card.onclick = () => { C.beep(); joinRoom(r); }; grid.append(card);
     });
@@ -297,7 +297,7 @@ const AdvLobbyUI = (() => {
     }
     // middle: boss + map picture, items to loot, the chosen map
     if (M) {
-      const mb = banner(M, d, 250, 124); mb.style.left = '458px'; mb.style.top = '64px'; st.append(mb);
+      const mb = banner(M, d, 250, 124, null, r.next ? 'STAGE ' + (r.next.stage + 1) + ' / ' + r.next.total : null); mb.style.left = '458px'; mb.style.top = '64px'; st.append(mb);
       const lootBox = h('div', { class: 'abs ins', style: 'left:458px;top:194px;width:250px;height:146px;overflow:hidden' });
       st.append(lootBox, h('div', { class: 'abs hd', style: 'left:474px;top:202px' }, 'TAKE ITEMS'));
       const lg = h('div', { class: 'lg', style: 'left:468px;top:222px;width:230px;height:112px' }); for (const e of lootOf(M, d).slice(0, 40)) lg.append(lootCell(e)); st.append(lg);
@@ -308,7 +308,7 @@ const AdvLobbyUI = (() => {
     }
     const bar = h('div', { class: 'abs pnl mapbar', style: 'left:458px;top:346px;width:250px;height:46px;border-width:12px;border-image-width:12px' },
       M ? h('span', null, M.name + '  ', h('i', { style: 'font-style:normal;color:' + DIFFS[d].c }, DIFFS[d].n)) : h('span', { style: 'color:#ffe3b0' }, 'Select adventure map'));
-    if (host) { bar.style.cursor = 'pointer'; bar.onclick = () => { C.beep(); picker(); }; }
+    if (host && !r.next) { bar.style.cursor = 'pointer'; bar.onclick = () => { C.beep(); picker(); }; }
     st.append(bar);
     // right: room, my items, item shop (Heal + Team Heal only, max 2 each)
     st.append(h('div', { class: 'abs', style: 'left:716px;top:8px;width:236px;text-align:center;font:400 22px var(--disp,sans-serif);color:#ffd34a;-webkit-text-stroke:1.5px #4a1f06;paint-order:stroke fill' }, 'Room ' + r.id),
@@ -329,7 +329,7 @@ const AdvLobbyUI = (() => {
     st.append(chatBox(12, 368, 340));
     st.append(btn('INVITE', 716, 322, 112, 54, () => invitePop(false)));
     if (host) st.append(btn('START', 836, 316, 118, 62, async () => {
-      if (!M) { C.toast('Select an adventure map first.'); return picker(); }
+      if (!M) { C.toast('Select an adventure map first.'); return picker(); }   // (mid-adventure the map is fixed: Start plays the next stage)
       if (mm.some(m => !m.host && !m.ready)) return C.toast('Everyone must press Ready first.');
       if (await act('start', { total: stagesOf(M, d).length })) route();
     }, 'go'));
@@ -609,7 +609,7 @@ const AdvLobbyUI = (() => {
   function evalRun() {
     if (!run || run.ending) return; const r = run.cur;
     if (!r) return endRun('left', 'You were disconnected from the adventure.');   // I was dropped (no way back into a running adventure)
-    if (r.state === 'room' || !r.run || r.run.id !== run.id) return endRun('done');   // the party finished the last stage
+    if (r.state === 'room' || !r.run || r.run.id !== run.id) return r.next ? endRun('between', 'Stage ' + (run.si + 1) + ' cleared! Get ready for stage ' + (r.next.stage + 1) + '.') : endRun('done');   // 'between' = back to the room with the next stage waiting; 'done' = the party finished the last stage
     if (run.phase === 'wait' && r.run.stage > run.si) startStage(r.run.stage);  // everybody cleared it: next stage, all together
   }
   function drawRun() {
@@ -643,6 +643,7 @@ const AdvLobbyUI = (() => {
     try { Loot.cb = null; clearInterval(Loot.timer); if (Loot.el) Loot.el.hidden = true; } catch (e) { }
     try { $('over').hidden = true; $('hud').hidden = true; $('touch').hidden = true; G.mode = 'menu'; Adventure.active = false; } catch (e) { }
     if (kind === 'done') { C.toast('Adventure complete! Back to your room.'); UI.show('title'); return; }
+    if (kind === 'between') { C.toast(why); UI.show('title'); return; }
     if (why === null) { UI.show('title'); return; }
     showDefeat(why || 'You left the adventure.', () => UI.show('title'));   // 'Back to room' brings the player back to the room (or the Adventure lobby)
   }
