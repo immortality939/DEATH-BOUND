@@ -92,6 +92,24 @@ const OnlineUI = (() => {
 #onl .wact small{color:#cdb98f;font-size:13px;margin-right:auto}
 #onl .wbtn{padding:6px 12px;border-radius:9px;font:400 14px/1 var(--disp,sans-serif);cursor:pointer;color:#fff;background:linear-gradient(#e0a53a,#9a5a14);border:2px solid #ffe3a0;text-shadow:0 1px 0 #4a1f06}
 #onl .wbtn.red{background:linear-gradient(#d9503f,#8c2418);border-color:#ffb3a8}#onl .wbtn.off{background:#555;border-color:#888;color:#ccc;cursor:default;text-shadow:none}
+#onl .wlst.big{height:min(300px,56vh)}
+#onl .wiv .rk{font-style:normal;font-weight:700;min-width:34px;color:#cdb98f}#onl .wiv .rk.r1{color:#ffd34a}#onl .wiv .rk.r2{color:#dfe6f3}#onl .wiv .rk.r3{color:#e8955a}
+#onl .wiv.me{background:rgba(127,208,255,.14);border-radius:8px}#onl .wiv small{display:block;color:#cdb98f;font-size:11px;font-weight:400}
+#onl .wiv .lg{width:30px;height:30px;flex:none;border-radius:8px;background:rgba(255,211,74,.18);border:1px solid #e0a53a;display:flex;align-items:center;justify-content:center;font-size:14px}
+#onl .pcard{display:flex;gap:12px;align-items:stretch;justify-content:center;--cs:min(62px,15vh);text-align:center}
+#onl .pgrid{display:grid;grid-template-columns:repeat(4,var(--cs));grid-template-rows:repeat(4,var(--cs));gap:4px;flex:none}
+#onl .cslot{position:relative;border:2px solid rgba(255,224,160,.28);border-radius:9px;background:rgba(20,10,2,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;box-sizing:border-box;padding:9px 1px 1px;min-width:0}
+#onl .cslot.has{border-color:var(--rc,#aab4cc);box-shadow:inset 0 0 8px rgba(0,0,0,.5)}
+#onl .cslot small{position:absolute;top:0;left:0;right:0;font:700 7px var(--body,sans-serif);color:#cdb98f;text-transform:uppercase;text-align:center;white-space:nowrap;overflow:hidden}
+#onl .cslot img{width:58%;height:auto;max-height:58%;object-fit:contain;pointer-events:none}
+#onl .cslot b{font-size:7.5px;line-height:1.1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff2da}
+#onl .cslot u{position:absolute;top:8px;left:2px;text-decoration:none;font:700 9px/12px var(--body,sans-serif);padding:0 3px;border-radius:4px;background:#b8360f;color:#fff}
+#onl .cslot span{color:rgba(255,255,255,.22);font-size:10px}
+#onl .cport{grid-area:1/2/4/4;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,224,160,.2);display:flex;align-items:center;justify-content:center;overflow:hidden}
+#onl .cport img{width:94%;height:94%;object-fit:contain;filter:drop-shadow(0 4px 4px rgba(0,0,0,.5))}
+#onl .pinfo{display:flex;flex-direction:column;justify-content:center;gap:7px;min-width:112px;max-width:150px}
+#onl .pinfo .nm{font:400 19px/1.1 var(--disp,sans-serif);color:#ffd34a;word-break:break-word}#onl .pinfo small{color:#cdb98f;font-size:12px}
+#onl .pinfo .pw{font:700 12px var(--body,sans-serif);color:#cdb98f;text-transform:uppercase;letter-spacing:1px}#onl .pinfo .pw b{display:block;font:400 24px/1.1 var(--disp,sans-serif);color:#fff;letter-spacing:0}
 #olNotif{position:fixed;left:50%;top:max(10px,env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:2147483000;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;max-width:94vw}
 #olNotif .nb{pointer-events:auto;display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:14px;background:rgba(36,18,4,.95);border:3px solid #ffd34a;box-shadow:0 6px 18px rgba(0,0,0,.6);font:600 15px var(--body,sans-serif);color:#fff2da}
 #olNotif .nb button{flex:none;min-width:72px;height:34px;padding:0 12px;border-radius:9px;cursor:pointer;color:#fff;font:400 15px var(--disp,sans-serif);background:linear-gradient(#e0a53a,#9a5a14);border:2px solid #ffe3a0;text-shadow:0 1px 0 #4a1f06}
@@ -164,12 +182,15 @@ const OnlineUI = (() => {
     if (!ns) return; ns = null;
     try { Profile.data = null; Profile.load(); if (setupBackup) UI.setup = JSON.parse(setupBackup); } catch (e) { } setupBackup = null;
   }
-  function myInfo() {   // level + weapon, shown to other players
+  function myInfo() {   // level + weapon + equipment, shown to other players
     try {
-      if (!Profile.data) Profile.load(); const r = robotOf(session.player.robot), eq = Profile.eqOf(r.id);
-      const w = (eq.weapon && itemById(eq.weapon)) || weaponItemFor(r.id);
+      if (!Profile.data) Profile.load(); const r = robotOf(session.player.robot), worn = Profile.eqOf(r.id);
+      const w = (worn.weapon && itemById(worn.weapon)) || weaponItemFor(r.id);
       let power; try { power = Adventure.myPower(); } catch (e2) { }
-      return { lv: Profile.level(), power, weapon: w ? { name: w.name, img: Profile.imgOf(w) } : undefined };
+      let eq; try {   // what I wear: { slot: [itemId, upgradeLevel] } (the Hall of Fame shows it to other players)
+        eq = {}; for (const k of ['weapon', 'helmet', 'ring1', 'ring2', 'armor', 'shoes', 'heal', 'wings', 'neck', 'glove']) { const id = worn[k] || (k === 'weapon' && w && w.id); if (id) eq[k] = [id, Profile.lvl(id)]; }
+      } catch (e2) { eq = undefined; }
+      return { lv: Profile.level(), power, weapon: w ? { name: w.name, img: Profile.imgOf(w) } : undefined, eq };
     } catch (e) { return {}; }
   }
 
@@ -178,7 +199,7 @@ const OnlineUI = (() => {
   let pmSince = 0, chatTab = 'all', pmPeer = null, pmUnread = false, friendList = [];   // chat tab: 'all' | 'league' | 'private'; pmPeer = who your Private messages go to
   const redrawChats = () => { for (let i = chatDraws.length - 1; i >= 0; i--) { if (!chatDraws[i].ok()) chatDraws.splice(i, 1); else chatDraws[i].draw(); } };
   const Live = (() => {
-    let on = false, srv = 0, since = 0, last = null, timer = null, inflight = false;
+    let on = false, srv = 0, since = 0, last = null, timer = null, inflight = false, eqSent = '', eqAt = 0;
     const subs = new Set();
     const apply = j => {
       last = j; if (j.seq < since) since = 0; else since = j.seq;
@@ -196,13 +217,15 @@ const OnlineUI = (() => {
       subs.forEach(f => { try { f(j); } catch (e) { } });
     };
     const call = async (path, body) => {
-      const j = await api((/^adv\//.test(path) ? '/api/' : '/api/arena/') + path, Object.assign({ server: srv, since, pmSince }, myInfo(), body || {}), session.token); apply(j); return j;
+      const inf = myInfo(), es = inf.eq ? JSON.stringify(inf.eq) : '', now = Date.now();
+      if (es && es === eqSent && now - eqAt < 30000) delete inf.eq; else if (es) { eqSent = es; eqAt = now; }
+      const j = await api((/^adv\//.test(path) ? '/api/' : '/api/arena/') + path, Object.assign({ server: srv, since, pmSince }, inf, body || {}), session.token); apply(j); return j;
     };
     const tick = async () => {
       if (!on) return; if (!inflight) { inflight = true; try { await call('poll'); } catch (e) { if (e.status === 401) { stop(); return expired(); } } inflight = false; }
       if (on) timer = setTimeout(tick, root && root.hidden ? 2500 : 1500);   // slower while the Bag / Shop is open, but still fast enough to get invitations
     };
-    const start = server => { stop(); on = true; srv = server; since = 0; last = null; chatLog.length = 0; pmLog.length = 0; pmSince = 0; pmPeer = null; pmUnread = false; chatTab = 'all'; friendList = []; timer = setTimeout(tick, 0); };
+    const start = server => { stop(); on = true; srv = server; since = 0; last = null; eqSent = ''; chatLog.length = 0; pmLog.length = 0; pmSince = 0; pmPeer = null; pmUnread = false; chatTab = 'all'; friendList = []; timer = setTimeout(tick, 0); };
     const stop = () => { on = false; clearTimeout(timer); inflight = false; subs.clear(); Notif.clear(); };
     return { start, stop, call, subscribe: f => { subs.add(f); if (last) f(last); return () => subs.delete(f); }, get last() { return last; }, get running() { return on; }, nudge: () => { if (on) { clearTimeout(timer); timer = setTimeout(tick, 0); } } };
   })();
@@ -497,6 +520,60 @@ const OnlineUI = (() => {
     const tm = setInterval(async () => { if (!box || !box.isConnected) return clearInterval(tm); await refreshFriends(); if (box && box.isConnected) draw(); }, 3000);   // online / offline + new players stay fresh while the panel is open
     refreshFriends().then(() => { if (box && box.isConnected) draw(); });
   }
+  // ---------- HALL OF FAME: Top Player (up to 100, highest power first) | Top League (up to 100, combined power of all members) ----------
+  const hapi = (p, b) => api('/api/hall/' + p, Object.assign({ server: session.player.server || curServer }, myInfo(), b || {}), session.token);
+  const SLOT_LABEL = { helmet: 'Helmet', armor: 'Armor', shoes: 'Shoes', ring1: 'Ring 1', ring2: 'Ring 2', wings: 'Wings', glove: 'Gloves', weapon: 'Weapon', heal: 'Angelic Arm', neck: 'Necklace' };
+  const SLOT_AREA = { helmet: '1/1', armor: '2/1', shoes: '3/1', ring1: '1/4', ring2: '2/4', wings: '3/4', glove: '4/1', weapon: '4/2', heal: '4/3', neck: '4/4' };   // same places as in the Profile
+  function slotBox(k, v) {
+    let it = null; try { it = v && itemById(v[0]); } catch (e) { }
+    const L = v ? v[1] | 0 : 0; let img = it && it.img;
+    if (img && it.type === 'weapon' && L && typeof wtier === 'function') { try { const tt = wtier(L); if (tt) img = img.replace('.png', '_t' + tt + '.png'); } catch (e) { } }   // weapon picture changes at +10, +11, +12 (like in the Profile)
+    let col = null; try { col = it && RARITY[it.rar] && RARITY[it.rar].color; } catch (e) { }
+    return h('div', { class: 'cslot' + (it ? ' has' : ''), style: 'grid-area:' + SLOT_AREA[k] + (col ? ';--rc:' + col : '') }, h('small', null, SLOT_LABEL[k]),
+      it ? [img ? h('img', { src: img, alt: '', draggable: 'false' }) : null, h('b', null, it.name), L ? h('u', null, '+' + L) : null] : h('span', null, 'empty'));
+  }
+  async function playerCard(id) {   // popup: front picture, everything he wears (same slots as the Profile), power, Add Friend
+    const t = root.firstChild; if (!t) return; let d, card = null;
+    try { d = (await hapi('profile', { id })).player; } catch (e) { if (e.status === 401) return expired(); return toastMsg(e.message || 'Could not open this player.'); }
+    let sent = false;
+    const draw = () => {
+      if (card) card.remove();
+      const r = robotOf(d.robot), eq = d.eq || {};
+      const grid = h('div', { class: 'pgrid' }, h('div', { class: 'cport' }, h('img', { src: 'assets/robots/front/' + r.id + '.webp', alt: '' })), Object.keys(SLOT_AREA).map(k => slotBox(k, eq[k])));
+      const fbtn = d.me ? h('small', null, 'This is you') : d.friend ? h('div', { class: 'wbtn off' }, 'Friends') : (d.pending || sent) ? h('div', { class: 'wbtn off' }, 'Request sent') : h('div', { class: 'wbtn', onclick: async () => {
+        beep(); try { const j = await fapi('request', { to: d.id }); if (j.friends) { d.friend = true; refreshFriends(); toastMsg('You and ' + d.name + ' are now friends.'); } else { sent = true; toastMsg('Friend request sent to ' + d.name); } draw(); }
+        catch (e) { if (e.status === 401) return expired(); toastMsg(e.message || 'Could not send the request.'); } } }, 'Add Friend');
+      const info = h('div', { class: 'pinfo' }, h('div', { class: 'nm' }, d.name), h('small', null, r.name + '  |  Lv ' + d.lv), h('div', { class: 'pw' }, 'Power', h('b', null, (d.power | 0).toLocaleString())), h('small', null, d.online ? '● Online' : 'Offline'), fbtn, h('div', { class: 'wbtn', onclick: () => { beep(); card.remove(); } }, 'Close'));
+      card = h('div', { class: 'pop wood', onclick: e => { if (e.target === card) card.remove(); } }, h('div', { class: 'wpnl', style: 'width:min(540px,96vw)' }, h('div', { class: 'pcard' }, grid, info)));
+      t.append(card);
+    };
+    draw();
+  }
+  function hallPop() {
+    const t = root.firstChild; if (!t) return; let tab = 'players', box = null; const data = { players: null, leagues: null }; let err = '';
+    const load = async which => {
+      try { const j = await hapi(which); data[which] = which === 'players' ? j.players || [] : j.leagues || []; err = ''; }
+      catch (e) { if (e.status === 401) return expired(); err = e.message || 'Could not load the list.'; data[which] = []; }
+      if (box && box.isConnected) draw();
+    };
+    const draw = () => {
+      let sc = 0; if (box) { const old = box.querySelector('.wlst'); if (old) sc = old.scrollTop; box.remove(); }
+      const meId = session.player.id, list = data[tab === 'players' ? 'players' : 'leagues'];
+      let rows;
+      if (list == null) rows = h('p', null, 'Loading...');
+      else if (err) rows = h('p', null, err);
+      else if (!list.length) rows = h('p', null, tab === 'players' ? 'No players yet.' : 'No leagues yet. Leagues are coming soon.');
+      else if (tab === 'players') rows = list.map(o => h('div', { class: 'wiv' + (o.id === meId ? ' me' : ''), onclick: () => { beep(); playerCard(o.id); } },
+        h('em', { class: 'rk' + (o.rank <= 3 ? ' r' + o.rank : '') }, '#' + o.rank), h('img', { src: 'assets/robots/front/' + robotOf(o.robot).id + '.webp', alt: '' }), h('b', null, o.name, h('small', null, 'Lv ' + o.lv)), h('i', null, (o.power | 0).toLocaleString())));
+      else rows = list.map((o, i) => h('div', { class: 'wiv' }, h('em', { class: 'rk' + (i < 3 ? ' r' + (i + 1) : '') }, '#' + (i + 1)), h('div', { class: 'lg' }, '⚔'), h('b', null, o.name, h('small', null, (o.members | 0) + ' members')), h('i', null, (o.power | 0).toLocaleString())));
+      const lst = h('div', { class: 'wlst big' }, rows);
+      const tabs = h('div', { class: 'watabs' }, h('div', { class: 'watb' + (tab === 'players' ? ' on' : ''), onclick: () => { beep(); tab = 'players'; if (!data.players) load('players'); draw(); } }, 'Top Player'),
+        h('div', { class: 'watb' + (tab === 'leagues' ? ' on' : ''), onclick: () => { beep(); tab = 'leagues'; load('leagues'); draw(); } }, 'Top League'), h('div', { class: 'watb', onclick: () => { beep(); box.remove(); } }, 'X'));
+      box = h('div', { class: 'pop wood', onclick: e => { if (e.target === box) box.remove(); } }, h('div', { class: 'wpnl' }, h('div', { style: 'font:400 20px var(--disp,sans-serif);color:#ffd34a;margin:0 0 6px' }, 'Hall of Fame'), tabs, lst));
+      t.append(box); lst.scrollTop = sc;
+    };
+    draw(); load('players');
+  }
   function iconPop(ic) {
     if (ic.id === 'bag') { try { return launch('profile'); } catch (e) { fromTown = false; root.hidden = false; toastMsg('Could not open the Bag.'); return; } }   // the Bag = Profile of YOUR online character, same as in the Arena and the Adventure
     if (ic.id === 'friends') return friendsPop();
@@ -564,6 +641,7 @@ const OnlineUI = (() => {
     if (kind === 'gate') Adventure.open(); else if (kind === 'armory') Forge.open(null); else if (kind === 'shop') Shop.open(); else if (kind === 'profile') Profile.open();
   }
   function building(b) {
+    if (b.id === 'hall') return hallPop();
     if (b.id === 'arena') return openArena();
     if (b.id === 'gate') return openAdventure();
     if (b.id === 'gate' || b.id === 'armory' || b.id === 'shop') { try { return launch(b.id); } catch (e) { fromTown = false; root.hidden = false; toastMsg('Could not open ' + b.name + '.'); return; } }
