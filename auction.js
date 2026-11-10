@@ -85,9 +85,17 @@ const AuctionUI = (() => {
 #onl .au-mdet{padding:6px 4px 10px;background:rgba(255,211,74,.08);border-radius:0 0 8px 8px}
 #onl .au-mdet .note{color:#cdb98f;font:700 12px var(--body,sans-serif)}
 #onl .au-new{color:#ff6a5a;font-weight:700}
+#onl .au-c{max-height:94vh;overflow-y:auto;box-sizing:border-box}
+#onl .au-c .idet{gap:3px}
+#onl .au-c .idet img{width:52px;height:52px;padding:3px}
+#onl .au-c .idet img.lgchip{width:18px;height:18px;padding:0;border:0;background:none;border-radius:0}
+#onl .au-c .idet .in{font-size:16px}
+#onl .au-c .idet .st{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:0 10px;font-size:11px}
+#onl .au-c .idet p{font-size:11px}
+#onl .au-acts{position:sticky;bottom:-6px;z-index:2;display:flex;gap:8px;justify-content:center;padding:6px 0 2px;background:linear-gradient(rgba(122,74,31,0),#7a4a1f 35%)}
 `;
   function ensureCss() { if (!document.getElementById('auCss')) document.head.append(h('style', { id: 'auCss' }, css)); }
-  const wood = (ctxEl, inner, w) => { const p = h('div', { class: 'pop wood', style: 'z-index:60', onclick: e => { if (e.target === p) p.remove(); } }, h('div', { class: 'wpnl lgw', style: 'width:min(' + (w || 420) + 'px,96vw)' }, inner)); ctxEl.append(p); return p; };
+  const wood = (ctxEl, inner, w) => { const p = h('div', { class: 'pop wood', style: 'z-index:60', onclick: e => { if (e.target === p) p.remove(); } }, h('div', { class: 'wpnl lgw au-c', style: 'width:min(' + (w || 420) + 'px,96vw)' }, inner)); ctxEl.append(p); return p; };
   const fail = e => { if (e && e.status === 401) { ctx.expired(); return; } ctx.toast((e && e.message) || 'Something went wrong.'); };
 
   // =============================== AUCTION HOUSE ===============================
@@ -136,7 +144,7 @@ const AuctionUI = (() => {
       p = wood(t, detail(it, l.qty, [
         h('p', null, 'Seller: ' + (l.mine ? 'you' : l.seller)),
         h('div', { class: 'lgc' }, 'Price: ', chipImg(), h('b', null, fmt(l.price) + ' chips'), '  (you have ' + fmt(chips()) + ')'),
-        h('div', { style: 'display:flex;gap:8px;justify-content:center' }, buyBtn, h('div', { class: 'wbtn', onclick: () => { ctx.beep(); p.remove(); } }, 'Close'))]), 400);
+        h('div', { class: 'au-acts' }, buyBtn, h('div', { class: 'wbtn', onclick: () => { ctx.beep(); p.remove(); } }, 'Close'))]), 400);
     }
     // --- post: pick an item from the Bag, set the quantity (stacks) and the price ---
     function postPop() {
@@ -160,7 +168,7 @@ const AuctionUI = (() => {
           h('div', { class: 'lgc' }, k === 'mat' && qty > 1 ? 'Price for all ×' + fmt(qty) + ':' : 'Price:', chipImg(), inp),
           lost ? h('p', { class: 'au-warn' }, 'Its upgrade +' + Profile.lvl(it.id) + ' is lost when it leaves your Bag.') : null,
           wornLast ? h('p', null, 'It is your last copy: robots wearing it will take it off.') : null,
-          h('div', { style: 'display:flex;gap:8px;justify-content:center' }, h('div', { class: 'wbtn', onclick: async () => {
+          h('div', { class: 'au-acts' }, h('div', { class: 'wbtn', onclick: async () => {
             ctx.beep(); if (busy) return; const pr = price | 0; if (pr < 1) return ctx.toast('Type a price in chips.');
             const n = k === 'mat' ? qty : 1; if (!removable(it, n)) return ctx.toast('You do not have it any more.');
             busy = true;
@@ -174,7 +182,7 @@ const AuctionUI = (() => {
     const removable = (it, n) => { const k = kindOf(it); if (k === 'mat') return Mats.get(it) >= n; if (k === 'potion') return Profile.stockOf(it.id) >= n; return Profile.copies(it.id) > (it.sig ? 1 : 0); };
 
     const title = h('div', { class: 'lgtitle' }, h('span', null, 'Auction House'), h('div', { class: 'lgx wbtn', onclick: () => { ctx.beep(); close(); } }, 'X'));
-    box = h('div', { class: 'pop wood', onclick: e => { if (e.target === box) close(); } }, h('div', { class: 'wpnl lgw', style: 'width:min(560px,98vw)' }, title, stats, tabs, sub, list, bot));
+    box = h('div', { class: 'pop wood', onclick: e => { if (e.target === box) close(); } }, h('div', { class: 'wpnl lgw au-c', style: 'width:min(560px,98vw)' }, title, stats, tabs, sub, list, bot));
     t.append(box); draw(); load();
     tm = setInterval(() => { if (!box || !box.isConnected) return clearInterval(tm); const a = document.activeElement; if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) return; if (!busy) load(); }, 6000);
   }
@@ -214,8 +222,8 @@ const MailUI = (() => {
       if (!open_) return h('div', { class: 'au-mrow' }, r);
       const claimBtn = h('div', { class: 'wbtn', onclick: () => { ctx.beep(); claim(m); } }, m.kind === 'chips' ? 'Claim ' + H.fmt(m.chips) + ' chips' : 'Claim');
       const det = m.kind === 'chips'
-        ? h('div', { class: 'idet' }, h('img', { src: 'assets/chip.png', alt: '', draggable: 'false' }), h('div', { class: 'in' }, H.fmt(m.chips) + ' chips'), h('p', null, (it ? it.name + (m.qty > 1 ? ' ×' + H.fmt(m.qty) : '') : 'Your item') + ' was sold. ' + (m.note || '')), claimBtn)
-        : it ? H.detail(it, m.qty, [h('p', { class: 'note' }, m.note || ''), claimBtn]) : h('div', { class: 'idet' }, h('p', null, 'This item is not in this version of the game yet.'));
+        ? h('div', { class: 'idet' }, h('img', { src: 'assets/chip.png', alt: '', draggable: 'false' }), h('div', { class: 'in' }, H.fmt(m.chips) + ' chips'), h('p', null, (it ? it.name + (m.qty > 1 ? ' ×' + H.fmt(m.qty) : '') : 'Your item') + ' was sold. ' + (m.note || '')), h('div', { class: 'au-acts' }, claimBtn))
+        : it ? H.detail(it, m.qty, [h('p', { class: 'note' }, m.note || ''), h('div', { class: 'au-acts' }, claimBtn)]) : h('div', { class: 'idet' }, h('p', null, 'This item is not in this version of the game yet.'));
       return h('div', { class: 'au-mrow' }, r, h('div', { class: 'au-mdet' }, det));
     }
     function draw() {
@@ -224,7 +232,7 @@ const MailUI = (() => {
       list.scrollTop = sc;
     }
     const title = h('div', { class: 'lgtitle' }, h('span', null, 'Envelope'), h('div', { class: 'lgx wbtn', onclick: () => { ctx.beep(); close(); } }, 'X'));
-    box = h('div', { class: 'pop wood', style: 'z-index:65', onclick: e => { if (e.target === box) close(); } }, h('div', { class: 'wpnl lgw', style: 'width:min(460px,96vw)' }, title,
+    box = h('div', { class: 'pop wood', style: 'z-index:65', onclick: e => { if (e.target === box) close(); } }, h('div', { class: 'wpnl lgw au-c', style: 'width:min(460px,96vw)' }, title,
       h('p', { style: 'margin:4px;font-size:12px;color:#cdb98f' }, 'Bought items, sale money and returned items. Tap one, then Claim.'), list));
     t.append(box); draw(); load();
     tm = setInterval(() => { if (!box || !box.isConnected) return clearInterval(tm); if (!busy) load(); }, 8000);

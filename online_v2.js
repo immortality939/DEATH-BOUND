@@ -865,14 +865,14 @@ const OnlineUI = (() => {
     try {
       if (typeof AuctionUI === 'undefined') { toastMsg('Loading Auction House...'); await loadExtra('auction.js'); }
       if (typeof AuctionUI === 'undefined') throw new Error('auction did not start');
-      syncRobot(); AuctionUI.open(auctionCtx());
+      syncRobot(); try { goLandscape(); } catch (e) { } AuctionUI.open(auctionCtx());
     } catch (e) { toastMsg('Cannot load the Auction House. Check your internet.'); }
   }
   async function openMail() {
     try {
       if (typeof MailUI === 'undefined') { toastMsg('Opening envelope...'); await loadExtra('auction.js'); }
       if (typeof MailUI === 'undefined') throw new Error('mail did not start');
-      syncRobot(); MailUI.open(auctionCtx());
+      syncRobot(); try { goLandscape(); } catch (e) { } MailUI.open(auctionCtx());
     } catch (e) { toastMsg('Cannot open the envelope. Check your internet.'); }
   }
   // While you are ONLINE, what you buy in the Shop goes to the envelope (not straight into the Bag). Offline the Shop is untouched: this is removed when you leave online.
