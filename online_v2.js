@@ -211,11 +211,66 @@ const OnlineUI = (() => {
   // ---------- separate ONLINE save (keys are prefixed while you are online) ----------
   const GAME_KEYS = ['profile', 'chips', 'stones', 'amu', 'adv', 'wins', 'sup1', 'setup'];
   let ns = null, setupBackup = null, storePatched = false;
+
+  // ---------- CLOUD SAVE: a copy of this character's progress lives on the server, tied to your code ----------
+  // Items, chips, stones, level / XP and Adventure progress are uploaded while you play and loaded again when you log in on a new phone / after a re-install.
+  const CLOUD_KEYS = ['profile', 'chips', 'stones', 'sup1', 'adv', 'wins', 'stones2', 'stones3', 'stones4', 'stones5', 'amu1', 'amu2', 'amu3'];
+  const Cloud = (() => {
+    let ready = false, dirty = false, timer = 0, gen = 0, retry = 0, waiting = null;
+    const tKey = () => 'rwo_cloudt_' + ns;
+    const lastT = () => { try { return +localStorage.getItem(tKey()) || 0; } catch (e) { return 0; } };
+    const setT = (k, t) => { try { localStorage.setItem(k, String(t)); } catch (e) { } };
+    const collect = () => { const o = {}; for (const k of CLOUD_KEYS) { const v = store.get(k, null); if (v !== null && v !== undefined) o[k] = v; } return o; };
+    const svOf = () => (session && session.player && session.player.server) || curServer;
+    function restore(obj, t) {
+      for (const k of CLOUD_KEYS) if (obj[k] !== undefined && obj[k] !== null) store.set(k, obj[k]);
+      Profile.data = null; Profile.load();
+      try { const idx = Math.max(0, Math.min(session.player.robot | 0, robots().length - 1)); if (Profile.data.char !== idx) { Profile.data.char = idx; Profile.ensureWeapon(); Profile.save(); } } catch (e) { }
+      try { Wallet.refresh(); Stones.refresh(); } catch (e) { }
+      setT(tKey(), t);
+    }
+    async function sync(had, g) {   // returns true when the cloud copy was checked
+      let r; const sess = session, sv = svOf(), key = tKey();
+      try { r = await api('/api/save/get', { server: sv }, sess.token); }
+      catch (e) { if (e.status === 401) return false; if (g === gen && ns && retry++ < 6) setTimeout(() => { if (g === gen && ns) sync(had, g); }, 10000); return false; }
+      if (g !== gen || !ns || key !== tKey()) return false;
+      const lt = had ? lastT() : 0; let take = false;
+      if (r.save && r.t > lt) {
+        take = !had || lt > 0;   // fresh install, or the server copy is newer than what this phone last synced
+        if (had && lt === 0) { try { const o = JSON.parse(r.save), sl = (o.profile && o.profile.lvl) | 0; take = sl > Profile.level(); } catch (e) { take = false; } }   // two phones that never synced: keep the stronger character
+      }
+      if (take) { try { restore(JSON.parse(r.save), r.t); toast0('Your saved progress is back!'); } catch (e) { } ready = true; dirty = false; return true; }
+      ready = true;
+      if (had && (!r.save || lt > r.t || r.t === 0)) { dirty = true; flush(false); }   // the server has nothing (or an older copy): back up this phone's progress now
+      return true;
+    }
+    const toast0 = m => { try { toastMsg(m); } catch (e) { } };
+    async function flush(unload) {
+      if (!ready || !dirty || !ns || !session) return; clearTimeout(timer);
+      const snap = JSON.stringify(collect()), t = Date.now(), key = tKey(), sess = session, sv = svOf(); dirty = false;
+      try {
+        if (unload && snap.length < 55000) { fetch(ONLINE_API + '/api/save/put', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + sess.token }, body: JSON.stringify({ server: sv, t, save: snap }) }).catch(() => { }); setT(key, t); }
+        else { await api('/api/save/put', { server: sv, t, save: snap }, sess.token); setT(key, t); }
+      } catch (e) {
+        if (e && e.status === 409) { ready = false; toast0('This character was saved on another phone. Leave online mode and come back to load it.'); return; }
+        if (e && e.status === 401) return;
+        dirty = true; if (!unload) timer = setTimeout(() => flush(false), 15000);
+      }
+    }
+    return {
+      begin(had) { ready = false; dirty = false; retry = 0; clearTimeout(timer); const g = ++gen; waiting = sync(had, g).then(ok => ({ ok, had })); },
+      wait() { return waiting || Promise.resolve({ ok: true, had: true }); },
+      mark() { if (!ready || !ns) return; dirty = true; clearTimeout(timer); timer = setTimeout(() => flush(false), 5000); },
+      flush,
+    };
+  })();
+  document.addEventListener('visibilitychange', () => { if (document.hidden) Cloud.flush(true); });
+  window.addEventListener('pagehide', () => Cloud.flush(true));
   function patchStore() {
     if (storePatched) return; storePatched = true;
     const g = store.get.bind(store), st = store.set.bind(store);
     store.get = (k, d) => g(ns && GAME_KEYS.includes(k) ? ns + k : k, d);
-    store.set = (k, v) => st(ns && GAME_KEYS.includes(k) ? ns + k : k, v);
+    store.set = (k, v) => { st(ns && GAME_KEYS.includes(k) ? ns + k : k, v); if (ns && CLOUD_KEYS.includes(k)) Cloud.mark(); };
     const R = Profile.render;   // the Bag shows the NAME you gave your online character
     Profile.render = function () {
       const r = R.apply(this, arguments);
@@ -226,7 +281,8 @@ const OnlineUI = (() => {
   function activateChar() {
     try {
       patchStore(); patchShop(); if (!ns) setupBackup = JSON.stringify(UI.setup);
-      ns = 'on_' + String(session.player.id || 'x').replace(/[^a-z0-9]/gi, '').slice(0, 10) + '_s' + (session.player.server || curServer) + '_';
+      const wasNs = ns; ns = 'on_' + String(session.player.id || 'x').replace(/[^a-z0-9]/gi, '').slice(0, 10) + '_s' + (session.player.server || curServer) + '_';
+      const had = store.get('profile', null) !== null; if (!wasNs) Cloud.begin(had);   // check the cloud copy BEFORE the empty profile of a new install gets saved
       Profile.data = null; Profile.load();
       const idx = Math.max(0, Math.min(session.player.robot | 0, robots().length - 1));
       if (Profile.data.char !== idx || !Profile.data.picked) { Profile.data.char = idx; Profile.data.picked = true; Profile.ensureWeapon(); Profile.save(); }
@@ -234,7 +290,7 @@ const OnlineUI = (() => {
     } catch (e) { }
   }
   function deactivateChar() {   // back to the OFFLINE save
-    if (!ns) return; ns = null; unpatchShop();
+    if (!ns) return; Cloud.flush(true); ns = null; unpatchShop();
     try { Profile.data = null; Profile.load(); if (setupBackup) UI.setup = JSON.parse(setupBackup); } catch (e) { } setupBackup = null;
   }
   function myInfo() {   // level + weapon + equipment, shown to other players
@@ -444,10 +500,14 @@ const OnlineUI = (() => {
   }
 
   // the character is chosen: switch to its own save, start the live connection, show the town
-  function play(player) {
+  async function play(player) {
     session.player = Object.assign({}, session.player, player, { id: player.id || (session.player && session.player.id) });
     curServer = session.player.server || curServer; session.player.server = curServer;
-    activateChar(); mailN = 0; Live.start(curServer); refreshFriends(); town();
+    activateChar();
+    busy('Loading your saved progress...');
+    const c = await Cloud.wait();   // a new phone / re-install gets its items, chips and level back from the server here
+    if (!c.ok && !c.had) { toastMsg('Could not load your saved progress. Check your internet and try again.'); return serverList(); }   // never start a fresh empty save over a real one
+    mailN = 0; Live.start(curServer); refreshFriends(); town();
   }
 
   // ---------- 5. TOWN ----------
