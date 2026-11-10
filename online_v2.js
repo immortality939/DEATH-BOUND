@@ -6,7 +6,8 @@
    Server calls used (see SERVER_API.md for the exact JSON and the SQL):
      /api/guest  /api/login  /api/me           (already existed)
      /api/servers   /api/enter   /api/character                                                                    (character + servers)
-     /api/arena/*  (poll, chat, create, join, leave, config, ready, start, cancel, back, invite)                       (real players: rooms, chat, matchmaking)
+     /api/arena/*  (poll, chat, create, join, leave, config, ready, start, cancel, back, invite, pm)                   (real players: rooms, chat, private messages, matchmaking)
+     /api/friends/*  (list, request, accept, decline, remove)                                                           (friend list; needs supabase_friends.sql)
    ONLINE SAVE: while you are online the game uses a SEPARATE save (profile, chips, stones, adventure...) for the character you created,
    so the Bag / Shop / Armory / Adventure show YOUR ONLINE CHARACTER, never the offline one. Leaving online puts the offline save back. */
 'use strict';
@@ -86,9 +87,21 @@ const OnlineUI = (() => {
 #onl .wlst{height:min(240px,48vh);overflow-y:auto}#onl .wlst p{margin:14px 0;font-size:14px}
 #onl .wiv{display:flex;align-items:center;gap:8px;padding:4px 6px;border-bottom:1px solid rgba(255,220,160,.12);text-align:left;font-size:14px}
 #onl .wiv img{width:30px;height:30px;object-fit:contain;flex:none}#onl .wiv b{flex:1}#onl .wiv i{color:#ffd34a;font-style:normal;font-weight:700}
+#onl .wiv{cursor:pointer}#onl .wiv.sel{background:rgba(255,211,74,.16);border-radius:8px 8px 0 0}
+#onl .wact{display:flex;gap:8px;justify-content:flex-end;align-items:center;padding:6px;background:rgba(255,211,74,.1);border-bottom:1px solid rgba(255,220,160,.12);border-radius:0 0 8px 8px}
+#onl .wact small{color:#cdb98f;font-size:13px;margin-right:auto}
+#onl .wbtn{padding:6px 12px;border-radius:9px;font:400 14px/1 var(--disp,sans-serif);cursor:pointer;color:#fff;background:linear-gradient(#e0a53a,#9a5a14);border:2px solid #ffe3a0;text-shadow:0 1px 0 #4a1f06}
+#onl .wbtn.red{background:linear-gradient(#d9503f,#8c2418);border-color:#ffb3a8}#onl .wbtn.off{background:#555;border-color:#888;color:#ccc;cursor:default;text-shadow:none}
+#olNotif{position:fixed;left:50%;top:max(10px,env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:2147483000;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;max-width:94vw}
+#olNotif .nb{pointer-events:auto;display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:14px;background:rgba(36,18,4,.95);border:3px solid #ffd34a;box-shadow:0 6px 18px rgba(0,0,0,.6);font:600 15px var(--body,sans-serif);color:#fff2da}
+#olNotif .nb button{flex:none;min-width:72px;height:34px;padding:0 12px;border-radius:9px;cursor:pointer;color:#fff;font:400 15px var(--disp,sans-serif);background:linear-gradient(#e0a53a,#9a5a14);border:2px solid #ffe3a0;text-shadow:0 1px 0 #4a1f06}
+#olNotif .nb button.off{background:linear-gradient(#6b6b6b,#3a3a3a);border-color:#aaa}
 /* chat box (bottom left) + icon bar (bottom right) */
 #onl .chat{--cw:clamp(250px,37vw,500px);position:absolute;left:max(6px,env(safe-area-inset-left,0px));bottom:max(6px,env(safe-area-inset-bottom,0px));width:var(--cw);aspect-ratio:697/350;background:url(assets/online/chat.webp) 0 0/100% 100% no-repeat;z-index:10;font-size:calc(var(--cw)/40)}
 #onl .chat .t{position:absolute;top:4%;height:14%;cursor:pointer}
+#onl .chat .ti{position:absolute;top:3.4%;height:16%;pointer-events:none;-webkit-user-drag:none}
+#onl .chat .pdot{position:absolute;left:65.5%;top:1.5%;width:3.4%;aspect-ratio:1;border-radius:50%;background:#ff3b30;border:.15em solid #fff;display:none;pointer-events:none}
+#onl .chat .log .pm{cursor:pointer}#onl .chat .log .pm b{color:#7fd0ff}
 #onl .chat .log{position:absolute;left:13.3%;right:9%;top:21%;bottom:18.5%;overflow-y:auto;line-height:1.28;color:#e6ecff;text-shadow:0 1px 2px #000;user-select:text;-webkit-user-select:text;scrollbar-width:none;word-break:break-word}
 #onl .chat .log::-webkit-scrollbar{display:none}
 #onl .chat .log div{margin:0 0 .15em}
@@ -161,24 +174,36 @@ const OnlineUI = (() => {
   }
 
   // ---------- LIVE: one poll every ~1.5 s while you are in the town / arena (heartbeat + online list + rooms + chat) ----------
-  const chatLog = [], chatDraws = [];
+  const chatLog = [], chatDraws = [], pmLog = [];
+  let pmSince = 0, chatTab = 'all', pmPeer = null, pmUnread = false, friendList = [];   // chat tab: 'all' | 'league' | 'private'; pmPeer = who your Private messages go to
+  const redrawChats = () => { for (let i = chatDraws.length - 1; i >= 0; i--) { if (!chatDraws[i].ok()) chatDraws.splice(i, 1); else chatDraws[i].draw(); } };
   const Live = (() => {
     let on = false, srv = 0, since = 0, last = null, timer = null, inflight = false;
     const subs = new Set();
     const apply = j => {
       last = j; if (j.seq < since) since = 0; else since = j.seq;
-      if (j.chat && j.chat.length) { for (const m of j.chat) chatLog.push({ who: m.who, text: m.text }); while (chatLog.length > 80) chatLog.shift(); for (let i = chatDraws.length - 1; i >= 0; i--) { if (!chatDraws[i].ok()) chatDraws.splice(i, 1); else chatDraws[i].draw(); } }
+      if (j.chat && j.chat.length) { for (const m of j.chat) chatLog.push({ who: m.who, text: m.text }); while (chatLog.length > 80) chatLog.shift(); redrawChats(); }
+      if (j.pmSeq != null && j.pmSeq < pmSince) pmSince = 0;   // the server was restarted
+      if (j.pm && j.pm.length) {   // private messages (sent to me, or sent by me: the server echoes both)
+        const myId = session && session.player && session.player.id; let got = false;
+        for (const m of j.pm) { if (m.id <= pmSince) continue; pmSince = m.id; got = true; const mine = m.from.id === myId;
+          pmLog.push({ mine, peer: mine ? m.to : m.from, text: m.text });
+          if (!mine) { if (!pmPeer) pmPeer = m.from; if (chatTab !== 'private') { pmUnread = true; toastMsg('PM from ' + m.from.name + ': ' + String(m.text).slice(0, 40)); } } }
+        while (pmLog.length > 80) pmLog.shift(); if (got) redrawChats();
+      }
+      if (j.notes && j.notes.length) { for (const n of j.notes) toastMsg(n); refreshFriends(); }
+      try { globalAlerts(j); } catch (e) { }
       subs.forEach(f => { try { f(j); } catch (e) { } });
     };
     const call = async (path, body) => {
-      const j = await api((/^adv\//.test(path) ? '/api/' : '/api/arena/') + path, Object.assign({ server: srv, since }, myInfo(), body || {}), session.token); apply(j); return j;
+      const j = await api((/^adv\//.test(path) ? '/api/' : '/api/arena/') + path, Object.assign({ server: srv, since, pmSince }, myInfo(), body || {}), session.token); apply(j); return j;
     };
     const tick = async () => {
       if (!on) return; if (!inflight) { inflight = true; try { await call('poll'); } catch (e) { if (e.status === 401) { stop(); return expired(); } } inflight = false; }
-      if (on) timer = setTimeout(tick, root && root.hidden ? 4000 : 1500);
+      if (on) timer = setTimeout(tick, root && root.hidden ? 2500 : 1500);   // slower while the Bag / Shop is open, but still fast enough to get invitations
     };
-    const start = server => { stop(); on = true; srv = server; since = 0; last = null; chatLog.length = 0; timer = setTimeout(tick, 0); };
-    const stop = () => { on = false; clearTimeout(timer); inflight = false; subs.clear(); };
+    const start = server => { stop(); on = true; srv = server; since = 0; last = null; chatLog.length = 0; pmLog.length = 0; pmSince = 0; pmPeer = null; pmUnread = false; chatTab = 'all'; friendList = []; timer = setTimeout(tick, 0); };
+    const stop = () => { on = false; clearTimeout(timer); inflight = false; subs.clear(); Notif.clear(); };
     return { start, stop, call, subscribe: f => { subs.add(f); if (last) f(last); return () => subs.delete(f); }, get last() { return last; }, get running() { return on; }, nudge: () => { if (on) { clearTimeout(timer); timer = setTimeout(tick, 0); } } };
   })();
 
@@ -194,6 +219,47 @@ const OnlineUI = (() => {
     } catch (e) { if (e.name === 'AbortError') throw new Error('The server did not answer. Try again.'); if (e instanceof TypeError) throw new Error('Cannot reach the online server. Check your internet and try again.'); throw e; }
     finally { clearTimeout(t); }
   }
+  // ---------- friends: calls + list ----------
+  const fapi = (p, b) => api('/api/friends/' + p, Object.assign({ server: session.player.server || curServer }, myInfo(), b || {}), session.token);
+  async function refreshFriends() {
+    try { const j = await fapi('list'); friendList = j.friends || []; } catch (e) { if (e.status === 401) expired(); }
+    return friendList;
+  }
+
+  // ---------- banners that show ON ANY SCREEN (invitations + friend requests): they live on the page body, not inside the arena / adventure screens ----------
+  const Notif = (() => {
+    const seen = new Set(); let box = null;
+    const el = () => { if (!box || !box.isConnected) { box = h('div', { id: 'olNotif' }); document.body.append(box); } return box; };
+    const show = (key, text, acts) => {
+      if (seen.has(key)) return; seen.add(key); if (seen.size > 300) seen.delete(seen.values().next().value);
+      const b = h('div', { class: 'nb' }, h('span', null, text), acts.map(a => h('button', { class: a.off ? 'off' : null, onclick: () => { beep(); b.remove(); if (a.fn) a.fn(); } }, a.t)));
+      el().append(b); setTimeout(() => b.remove(), 22000);
+    };
+    return { show, clear: () => { if (box) box.replaceChildren(); } };
+  })();
+  function globalAlerts(j) {   // called for every answer of the live poll, wherever the player is (town, Bag, Shop, Armory, other lobby)
+    if (!session || !root) return;
+    const fighting = (j.myRoom && (j.myRoom.state === 'vs' || j.myRoom.state === 'searching')) || (j.myAdv && (j.myAdv.state === 'starting' || j.myAdv.state === 'running'));
+    if (fighting) return;   // not in the middle of a fight / run: it shows after (the invitation lives 60 s)
+    const onScreen = c => !root.hidden && !!root.querySelector('.' + c);   // the Arena / Adventure screens show their own banner
+    for (const iv of j.fReq || []) Notif.show('f:' + iv.from.id + ':' + iv.at, iv.from.name + ' wants to be your friend', [{ t: 'Accept', fn: () => friendAct('accept', iv.from.id) }, { t: 'No', off: 1, fn: () => friendAct('decline', iv.from.id, true) }]);
+    if (!onScreen('ar')) for (const iv of j.invites || []) Notif.show('a:' + iv.from.id + ':' + iv.at, iv.from.name + ' invites you to Arena Room ' + iv.room, [{ t: 'Join', fn: () => joinInvite('arena', iv.room) }, { t: 'No', off: 1 }]);
+    if (!onScreen('av')) for (const iv of j.advInvites || []) Notif.show('v:' + iv.from.id + ':' + iv.at, iv.from.name + ' invites you to Adventure Room ' + iv.room, [{ t: 'Join', fn: () => joinInvite('adv', iv.room) }, { t: 'No', off: 1 }]);
+  }
+  async function friendAct(op, from, quiet) {
+    try { await fapi(op, { from }); if (op === 'accept') { refreshFriends(); Live.nudge(); } }
+    catch (e) { if (e.status === 401) return expired(); if (!quiet) toastMsg(e.message || 'Could not do that.'); }
+  }
+  async function joinInvite(kind, room) {   // accept an invitation from any screen: join the room on the server, then open the Arena / Adventure room
+    try { await Live.call(kind === 'arena' ? 'join' : 'adv/join', { room }); }
+    catch (e) { if (e.status === 401) return expired(); return toastMsg(e.message || 'Could not join that room.'); }
+    try { if (typeof ArenaUI !== 'undefined' && ArenaUI.close) ArenaUI.close(); } catch (e) { }
+    try { if (typeof AdvLobbyUI !== 'undefined' && AdvLobbyUI.close) AdvLobbyUI.close(); } catch (e) { }
+    const go = kind === 'arena' ? openArena : openAdventure;
+    if (fromTown) { retFn = go; try { UI.show('title'); } catch (e) { backToTown(); } }   // the Bag / Shop / Armory is open: leave it first, it brings us back to `go`
+    else { root.hidden = false; go(); }
+  }
+
   const busy = msg => set(h('div', { class: 'center' }, h('div', { class: 'box' }, h('h2', null, 'Please wait'), h('p', null, msg))));
 
   // ---------- 1. guest login ----------
@@ -297,7 +363,7 @@ const OnlineUI = (() => {
   function play(player) {
     session.player = Object.assign({}, session.player, player, { id: player.id || (session.player && session.player.id) });
     curServer = session.player.server || curServer; session.player.server = curServer;
-    activateChar(); Live.start(curServer); town();
+    activateChar(); Live.start(curServer); refreshFriends(); town();
   }
 
   // ---------- 5. TOWN ----------
@@ -336,23 +402,54 @@ const OnlineUI = (() => {
     set(h('div', { class: 'town' }, stage, top, chatBox(p), bar));
   }
 
-  // ---- chat box (design = assets/online/chat.webp, tabs All + Guild). Messages stay on this phone until the chat server exists ----
+  // ---- chat box (design = assets/online/chat.webp). Tabs: All | League | Private. The tab pictures are small PNGs drawn on top of the chat picture (inside this file, so the app needs no new images) ----
+  const CHAT_TABS = {
+    all_off: 'data:image/png;base64,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',
+    all_on: 'data:image/png;base64,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',
+    league_off: 'data:image/png;base64,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',
+    league_on: 'data:image/png;base64,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',
+    private_off: 'data:image/png;base64,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',
+    private_on: 'data:image/png;base64,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'
+  };
+  const TAB_POS = { all: [5.88, 17.93], league: [24.53, 20.8], private: [45.77, 21.52] };   // [left %, width %] on the 697x350 chat picture
   function chatBox(p) {
     const log = h('div', { class: 'log' });
-    const draw = () => { log.replaceChildren(...chatLog.map(m => h('div', null, m.sys ? h('i', null, m.text) : [h('b', null, m.who + ': '), m.text]))); log.scrollTop = log.scrollHeight; };
+    const inp = h('input', { maxlength: '120', placeholder: 'Type message...', autocomplete: 'off', spellcheck: 'false' });
+    const imgs = {}, dot = h('div', { class: 'pdot' });
+    for (const k in TAB_POS) imgs[k] = h('img', { class: 'ti', style: 'left:' + TAB_POS[k][0] + '%;width:' + TAB_POS[k][1] + '%', alt: '', draggable: 'false' });
+    const peerLine = () => h('div', null, h('i', null, pmPeer ? 'Private chat with ' + pmPeer.name + '.  Tap a name to answer someone else.' : 'Private messages. Open the Friends icon, tap a player and press PM.'));
+    const draw = () => {
+      for (const k in imgs) imgs[k].src = CHAT_TABS[k + (chatTab === k ? '_on' : '_off')];
+      dot.style.display = pmUnread && chatTab !== 'private' ? 'block' : 'none';
+      inp.placeholder = chatTab === 'private' ? (pmPeer ? 'PM to ' + pmPeer.name + '...' : 'Choose a player first...') : 'Type message...';
+      let rows;
+      if (chatTab === 'private') rows = [peerLine(), ...pmLog.map(m => h('div', { class: 'pm', onclick: () => { pmPeer = m.peer; draw(); inp.focus(); } }, m.mine ? [h('b', null, 'To ' + m.peer.name + ': '), m.text] : [h('b', null, m.peer.name + ': '), m.text]))];
+      else if (chatTab === 'league') rows = [h('div', null, h('i', null, 'League chat opens when you join a league.'))];
+      else rows = chatLog.map(m => h('div', null, m.sys ? h('i', null, m.text) : [h('b', null, m.who + ': '), m.text]));
+      log.replaceChildren(...rows); log.scrollTop = log.scrollHeight;
+    };
     chatDraws.push({ ok: () => log.isConnected, draw });
     if (!chatLog.length) chatLog.push({ sys: 1, text: 'Welcome to Server ' + (p.server || curServer) + ', ' + p.name + '!' });
-    const inp = h('input', { maxlength: '120', placeholder: 'Type message...', autocomplete: 'off', spellcheck: 'false' });
     const send = async () => {
-      const t = inp.value.trim(); if (!t) return; inp.value = '';
+      const t = inp.value.trim(); if (!t) return;
+      if (chatTab === 'league') return toastMsg('League chat opens when you join a league.');
+      if (chatTab === 'private') {
+        if (!pmPeer) return toastMsg('Open Friends, tap a player and press PM.');
+        inp.value = '';
+        try { await Live.call('pm', { to: pmPeer.id, text: t }); Live.nudge(); }
+        catch (e) { if (e.status === 401) return expired(); toastMsg(e.status === 429 ? 'Slow down a little.' : e.status === 404 ? pmPeer.name + ' is not online.' : 'Message not sent.'); }
+        return;
+      }
+      inp.value = '';
       if (!Live.running) { chatLog.push({ who: p.name, text: t }); return draw(); }
       try { await Live.call('chat', { text: t }); } catch (e) { if (e.status === 401) return expired(); toastMsg(e.status === 429 ? 'Slow down a little.' : 'Message not sent.'); }
     };
     inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') send(); };
     inp.onkeyup = inp.onkeypress = e => e.stopPropagation();
-    const box = h('div', { class: 'chat' },
-      h('div', { class: 't', style: 'left:6.4%;width:17.6%', onclick: () => { beep(); } }),
-      h('div', { class: 't', style: 'left:24.8%;width:20.6%', onclick: () => { beep(); chatLog.push({ sys: 1, text: 'Guild chat opens when you join a league.' }); draw(); } }),
+    const tab = k => () => { beep(); chatTab = k; if (k === 'private') pmUnread = false; redrawChats(); };
+    const hit = (k, l, w) => h('div', { class: 't', style: 'left:' + l + '%;width:' + w + '%', onclick: tab(k) });
+    const box = h('div', { class: 'chat' }, imgs.all, imgs.league, imgs.private, dot,
+      hit('all', 6.4, 17.6), hit('league', 24.8, 20.6), hit('private', 46, 21),
       log, h('div', { class: 'up', onclick: () => { log.scrollTop -= 40; } }), h('div', { class: 'dn', onclick: () => { log.scrollTop += 40; } }),
       inp, h('div', { class: 'em', onclick: () => { inp.value += '\u{1F642}'; inp.focus(); } }), h('div', { class: 'send', onclick: () => { beep(); send(); } }));
     draw(); return box;
@@ -364,19 +461,38 @@ const OnlineUI = (() => {
     const p = h('div', { class: 'pop', onclick: e => { if (e.target === p) p.remove(); } }, h('div', { class: 'box' }, h('h2', null, title), text ? h('p', null, text) : null, extra || null, h('p', { class: 'warn' }, 'Coming next.'), h('div', { class: 'row' }, btn('OK', () => p.remove()))));
     town_.append(p);
   }
-  function friendsPop() {   // Friend List | World with the same wood panel as the Arena and the Adventure room (World = the players inside this server right now)
-    const t = root.firstChild; if (!t) return; let tab = 'world', box = null;
+  function friendsPop() {   // Friend List | World (same wood panel as the Arena and the Adventure room). Tap a player: World = Add Friend + PM, Friend List = PM + Remove
+    const t = root.firstChild; if (!t) return; let tab = friendList.length ? 'friends' : 'world', box = null, sel = null; const sent = new Set();
+    const startPm = o => { pmPeer = { id: o.id, name: o.name }; chatTab = 'private'; pmUnread = false; box.remove(); redrawChats(); const i = root.querySelector('.chat input'); if (i) i.focus(); };
+    const abtn = (txt, fn, cls) => h('div', { class: 'wbtn' + (cls ? ' ' + cls : ''), onclick: e => { e.stopPropagation(); if (cls === 'off') return; beep(); fn(); } }, txt);
     const draw = () => {
-      if (box) box.remove();
-      const me_ = session.player, all = ((Live.last && Live.last.online) || []).filter(o => o.id !== me_.id), list = tab === 'friends' ? [] : all;
-      const rows = list.map(o => h('div', { class: 'wiv' }, h('img', { src: 'assets/robots/front/' + robotOf(o.robot).id + '.webp', alt: '' }), h('b', null, o.name), h('i', null, 'Lv ' + o.lv)));
-      const lst = h('div', { class: 'wlst' }, rows.length ? rows : h('p', null, tab === 'friends' ? 'No friends yet. The friend list is coming soon.' : 'Nobody else is online on this server.'));
-      const tabs = h('div', { class: 'watabs' }, h('div', { class: 'watb' + (tab === 'friends' ? ' on' : ''), onclick: () => { beep(); tab = 'friends'; draw(); } }, 'Friend List'),
-        h('div', { class: 'watb' + (tab === 'world' ? ' on' : ''), onclick: () => { beep(); tab = 'world'; draw(); } }, 'World (' + all.length + ')'), h('div', { class: 'watb', onclick: () => { beep(); box.remove(); } }, 'X'));
+      let sc = 0; if (box) { const old = box.querySelector('.wlst'); if (old) sc = old.scrollTop; box.remove(); }
+      const me_ = session.player, live = ((Live.last && Live.last.online) || []).filter(o => o.id !== me_.id), fs = new Set(friendList.map(f => f.id));
+      const list = tab === 'friends' ? friendList.map(f => { const lv = live.find(o => o.id === f.id); return lv ? Object.assign({}, f, lv, { online: true }) : Object.assign({}, f, { online: false }); }) : live.map(o => Object.assign({}, o, { online: true }));
+      const rows = list.map(o => {
+        const open = sel === o.id;
+        const row = h('div', { class: 'wiv' + (open ? ' sel' : ''), onclick: () => { beep(); sel = open ? null : o.id; draw(); } },
+          h('img', { src: 'assets/robots/front/' + robotOf(o.robot).id + '.webp', alt: '' }), h('b', null, (tab === 'world' && fs.has(o.id) ? '\u2605 ' : '') + o.name), h('i', null, o.online ? 'Lv ' + o.lv : 'Offline'));
+        if (!open) return row;
+        const acts = [];
+        if (tab === 'world') acts.push(fs.has(o.id) ? h('small', null, 'Already your friend') : sent.has(o.id) ? abtn('Request sent', null, 'off') : abtn('Add Friend', async () => {
+          try { const j = await fapi('request', { to: o.id }); if (j.friends) { refreshFriends().then(() => box.isConnected && draw()); toastMsg('You and ' + o.name + ' are now friends.'); } else { sent.add(o.id); toastMsg('Friend request sent to ' + o.name); } draw(); }
+          catch (e) { if (e.status === 401) return expired(); toastMsg(e.message || 'Could not send the request.'); } }));
+        if (o.online) acts.push(abtn('PM', () => startPm(o))); else acts.push(h('small', null, 'Offline: no private message'));
+        if (tab === 'friends') acts.push(abtn('Remove', async () => {
+          try { await fapi('remove', { id: o.id }); friendList = friendList.filter(f => f.id !== o.id); sel = null; toastMsg(o.name + ' was removed from your friends.'); draw(); }
+          catch (e) { if (e.status === 401) return expired(); toastMsg(e.message || 'Could not remove.'); } }, 'red'));
+        return h('div', null, row, h('div', { class: 'wact' }, acts));
+      });
+      const lst = h('div', { class: 'wlst' }, rows.length ? rows : h('p', null, tab === 'friends' ? 'No friends yet. Open World, tap a player and press Add Friend.' : 'Nobody else is online on this server.'));
+      const tabs = h('div', { class: 'watabs' }, h('div', { class: 'watb' + (tab === 'friends' ? ' on' : ''), onclick: () => { beep(); tab = 'friends'; sel = null; draw(); } }, 'Friend List (' + friendList.length + ')'),
+        h('div', { class: 'watb' + (tab === 'world' ? ' on' : ''), onclick: () => { beep(); tab = 'world'; sel = null; draw(); } }, 'World (' + live.length + ')'), h('div', { class: 'watb', onclick: () => { beep(); box.remove(); } }, 'X'));
       box = h('div', { class: 'pop wood', onclick: e => { if (e.target === box) box.remove(); } }, h('div', { class: 'wpnl' }, tabs, lst));
-      t.append(box);
+      t.append(box); lst.scrollTop = sc;
     };
     draw();
+    const tm = setInterval(async () => { if (!box || !box.isConnected) return clearInterval(tm); await refreshFriends(); if (box && box.isConnected) draw(); }, 3000);   // online / offline + new players stay fresh while the panel is open
+    refreshFriends().then(() => { if (box && box.isConnected) draw(); });
   }
   function iconPop(ic) {
     if (ic.id === 'bag') { try { return launch('profile'); } catch (e) { fromTown = false; root.hidden = false; toastMsg('Could not open the Bag.'); return; } }   // the Bag = Profile of YOUR online character, same as in the Arena and the Adventure
@@ -393,7 +509,7 @@ const OnlineUI = (() => {
       .then(code => { const s = document.createElement('script'); s.textContent = code + '\n//# sourceURL=' + file; document.head.appendChild(s); }).catch(e => { delete extraDone[file]; throw e; });
   }
   function arenaCtx() {
-    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo, fight: startFight };
+    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo, fight: startFight, friends: () => friendList };
   }
   async function startFight(match, cb) {   // ARENA FIGHT: the real battle between the players of a match (arena_fight.js, downloaded from GitHub like the arena itself)
     if (typeof MAP_RUNS === 'undefined' || !MAP_RUNS.colosseum) await loadExtra('arena_maps_runs.js');
@@ -407,14 +523,14 @@ const OnlineUI = (() => {
   }
   function advCtx() { const c = arenaCtx(); c.reopenAdv = openAdventure; c.loadExtra = loadExtra; c.session = () => session; return c; }   // (not Object.assign: it would freeze the live `player` getter)
   async function openAdventure() {   // ADVENTURE LOBBY (adventure_lobby.js, downloaded from GitHub the first time, like the Arena)
-    try {
+    refreshFriends(); try {
       if (typeof AdvLobbyUI === 'undefined') { toastMsg('Loading Adventure...'); await loadExtra('adventure_lobby.js'); }
       if (typeof AdvLobbyUI === 'undefined') throw new Error('adventure did not start');
       installReturn(); root.hidden = false; AdvLobbyUI.open(advCtx());
     } catch (e) { toastMsg('Cannot load Adventure. Check your internet.'); }
   }
   async function openArena() {
-    try {
+    refreshFriends(); try {
       if (typeof ArenaUI === 'undefined') { toastMsg('Loading Arena...'); await loadExtra('arena_maps.js'); await loadExtra('arena_v2.js'); }
       if (typeof ArenaUI === 'undefined') throw new Error('arena did not start');
       installReturn(); root.hidden = false; ArenaUI.open(arenaCtx());

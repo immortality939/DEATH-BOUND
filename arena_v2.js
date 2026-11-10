@@ -303,13 +303,13 @@ const ArenaUI = (() => {
     const stg = el.querySelector('.st'); let tab = onlyFriends ? 'friends' : 'world', pop = null;
     const draw = () => {
       if (pop) pop.remove();
-      const r = S.myRoom, p = me(), list = tab === 'friends' ? [] : S.online.filter(o => o.id !== p.id);
+      const r = S.myRoom, p = me(), list = tab === 'friends' ? ((C.friends && C.friends()) || []) : S.online.filter(o => o.id !== p.id);
       const rows = list.map(o => {
-        const inRoom = r && r.members.some(m => m.id === o.id), can = r && r.state === 'room' && r.members.length < r.slots && !inRoom;
-        const act2 = can ? h('div', { class: 'ab sm', style: 'position:static;width:74px;height:32px;flex:none', onclick: async () => { C.beep(); if (await act('invite', { to: o.id })) C.toast('Invitation sent to ' + o.name); pop.remove(); } }, 'Invite') : h('small', null, !r ? 'Create a room first' : inRoom ? 'In your room' : 'Room full');
-        return h('div', { class: 'iv' }, rimg(o.robot).cloneNode(), h('div', { class: 't' }, h('b', null, o.name), h('i', null, '  Lv ' + o.lv)), act2);
+        const inRoom = r && r.members.some(m => m.id === o.id), live = S.online.some(x => x.id === o.id), can = live && r && r.state === 'room' && r.members.length < r.slots && !inRoom;
+        const act2 = can ? h('div', { class: 'ab sm', style: 'position:static;width:74px;height:32px;flex:none', onclick: async () => { C.beep(); if (await act('invite', { to: o.id })) C.toast('Invitation sent to ' + o.name); pop.remove(); } }, 'Invite') : h('small', null, !live ? 'Offline' : !r ? 'Create a room first' : inRoom ? 'In your room' : 'Room full');
+        return h('div', { class: 'iv' }, rimg(o.robot).cloneNode(), h('div', { class: 't' }, h('b', null, o.name), h('i', null, live ? '  Lv ' + (o.lv || 1) : '')), act2);
       });
-      const lst = h('div', { style: 'height:240px;overflow-y:auto' }, rows.length ? rows : h('p', null, tab === 'friends' ? 'No friends yet. The friend list is coming soon.' : 'Nobody else is online on this server.'));
+      const lst = h('div', { style: 'height:240px;overflow-y:auto' }, rows.length ? rows : h('p', null, tab === 'friends' ? 'No friends yet. Tap a player in World (two-person icon in town) and press Add Friend.' : 'Nobody else is online on this server.'));
       const tabs = h('div', { class: 'atabs' }, h('div', { class: 'atb' + (tab === 'friends' ? ' on' : ''), onclick: () => { tab = 'friends'; draw(); } }, 'Friend List'), h('div', { class: 'atb' + (tab === 'world' ? ' on' : ''), onclick: () => { tab = 'world'; draw(); } }, 'World'), h('div', { class: 'atb', onclick: () => pop.remove() }, 'X'));
       pop = h('div', { class: 'pop2' }, h('div', { class: 'pnl' }, tabs, lst));
       pop.onclick = e => { if (e.target === pop) pop.remove(); }; stg.append(pop);
