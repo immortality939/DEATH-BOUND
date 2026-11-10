@@ -99,6 +99,15 @@ const OnlineUI = (() => {
 #onl .pcard{display:flex;gap:12px;align-items:stretch;justify-content:center;--cs:min(62px,15vh);text-align:center}
 #onl .pgrid{display:grid;grid-template-columns:repeat(4,var(--cs));grid-template-rows:repeat(4,var(--cs));gap:4px;flex:none}
 #onl .cslot{position:relative;border:2px solid rgba(255,224,160,.28);border-radius:9px;background:rgba(20,10,2,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;box-sizing:border-box;padding:9px 1px 1px;min-width:0}
+#onl .cslot.tap{cursor:pointer}#onl .cslot.tap:active{filter:brightness(1.3)}
+#onl .idet{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+#onl .idet img{width:84px;height:84px;object-fit:contain;border:2px solid var(--rc,#aab4cc);border-radius:12px;background:rgba(20,10,2,.55);padding:6px;box-sizing:content-box}
+#onl .idet .in{font:400 19px/1.1 var(--disp,sans-serif);color:#ffd34a}
+#onl .idet .in u{text-decoration:none;margin-left:6px;font:700 12px var(--body,sans-serif);padding:2px 5px;border-radius:5px;background:#b8360f;color:#fff;vertical-align:middle}
+#onl .idet small{color:var(--rc,#cdb98f);font:700 11px var(--body,sans-serif);text-transform:uppercase;letter-spacing:1px}
+#onl .idet .st{display:flex;flex-direction:column;gap:2px;font:700 13px var(--body,sans-serif)}
+#onl .idet .pos{color:#8dff9a}#onl .idet .neg{color:#ff8a7a}#onl .idet .dim{color:#cdb98f}
+#onl .idet p{margin:0;color:#e9dcc0;font:400 12px/1.35 var(--body,sans-serif)}
 #onl .cslot.has{border-color:var(--rc,#aab4cc);box-shadow:inset 0 0 8px rgba(0,0,0,.5)}
 #onl .cslot small{position:absolute;top:0;left:0;right:0;font:700 7px var(--body,sans-serif);color:#cdb98f;text-transform:uppercase;text-align:center;white-space:nowrap;overflow:hidden}
 #onl .cslot img{width:58%;height:auto;max-height:58%;object-fit:contain;pointer-events:none}
@@ -529,8 +538,30 @@ const OnlineUI = (() => {
     const L = v ? v[1] | 0 : 0; let img = it && it.img;
     if (img && it.type === 'weapon' && L && typeof wtier === 'function') { try { const tt = wtier(L); if (tt) img = img.replace('.png', '_t' + tt + '.png'); } catch (e) { } }   // weapon picture changes at +10, +11, +12 (like in the Profile)
     let col = null; try { col = it && RARITY[it.rar] && RARITY[it.rar].color; } catch (e) { }
-    return h('div', { class: 'cslot' + (it ? ' has' : ''), style: 'grid-area:' + SLOT_AREA[k] + (col ? ';--rc:' + col : '') }, h('small', null, SLOT_LABEL[k]),
+    return h('div', { class: 'cslot' + (it ? ' has tap' : ''), style: 'grid-area:' + SLOT_AREA[k] + (col ? ';--rc:' + col : ''), onclick: it ? () => { beep(); itemPop(it, L, img); } : null }, h('small', null, SLOT_LABEL[k]),
       it ? [img ? h('img', { src: img, alt: '', draggable: 'false' }) : null, h('b', null, it.name), L ? h('u', null, '+' + L) : null] : h('span', null, 'empty'));
+  }
+  function itemPop(it, L, img) {   // popup: picture, name, +level, rarity, stats (with the upgrade bonus) and description of ONE item another player wears
+    const t = root.firstChild; if (!t) return;
+    let st = {}; try { st = statsAt(it, L); } catch (e) { st = it.stats || {}; }
+    let rc = '#aab4cc', rn = ''; try { rc = RARITY[it.rar].color; rn = RARITY[it.rar].name; } catch (e) { }
+    const lines = [];
+    if (it.type === 'necklace') { lines.push(h('span', { class: 'pos' }, '+' + ((it.stats && it.stats.nhp) || 0) + '% of total Health'), h('span', { class: 'neg' }, 'Cannot be upgraded')); }
+    else {
+      for (const k in st) { const lb = STAT_LABEL[k]; if (!lb) continue; const v = st[k]; lines.push(h('span', { class: v < 0 ? 'neg' : 'pos' }, (v > 0 ? '+' : '') + fmtN(v) + lb[1] + ' ' + lb[0])); }
+      if (it.type === 'heal') { try { lines.push(h('span', { class: 'pos' }, healThrows(L) + ' throws per match')); } catch (e) { } }
+      if (!lines.length) lines.push(h('span', { class: 'dim' }, 'No stat bonus'));
+    }
+    let pop = null;
+    pop = h('div', { class: 'pop wood', style: 'z-index:60', onclick: e => { if (e.target === pop) pop.remove(); } },
+      h('div', { class: 'wpnl', style: 'width:min(330px,92vw)' }, h('div', { class: 'idet', style: '--rc:' + rc },
+        img ? h('img', { src: img, alt: '', draggable: 'false' }) : null,
+        h('div', { class: 'in' }, it.name, L ? h('u', null, '+' + L) : null),
+        h('small', null, rn + ' ' + String(it.type || '').replace(/^./, c => c.toUpperCase())),
+        h('div', { class: 'st' }, lines),
+        h('p', null, it.desc || ''),
+        h('div', { class: 'wbtn', onclick: () => { beep(); pop.remove(); } }, 'Close'))));
+    t.append(pop);
   }
   async function playerCard(id) {   // popup: front picture, everything he wears (same slots as the Profile), power, Add Friend
     const t = root.firstChild; if (!t) return; let d, card = null;
