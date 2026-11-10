@@ -921,19 +921,25 @@ const OnlineUI = (() => {
       badge: n => { mailN = n | 0; paintMailBadge(); },
       api: (p, b) => api('/api/' + p, Object.assign({ server: session.player.server || curServer }, myInfo(), b || {}), session.token) };
   }
+  function loadFail(e, what) {   // say the REAL reason instead of always blaming the internet
+    const m = String((e && e.message) || e || '');
+    if (/\b(404|403)\b/.test(m)) return 'Cannot open the ' + what + ': ' + m + ' - upload auction.js to GitHub next to online_v2.js.';
+    if (/failed to fetch|networkerror|load failed|aborted/i.test(m)) return 'Cannot open the ' + what + '. Check your internet.';
+    return 'Cannot open the ' + what + ': ' + m.slice(0, 80);
+  }
   async function openAuction() {
     try {
       if (typeof AuctionUI === 'undefined') { toastMsg('Loading Auction House...'); await loadExtra('auction.js'); }
       if (typeof AuctionUI === 'undefined') throw new Error('auction did not start');
       syncRobot(); try { goLandscape(); } catch (e) { } AuctionUI.open(auctionCtx());
-    } catch (e) { toastMsg('Cannot load the Auction House. Check your internet.'); }
+    } catch (e) { toastMsg(loadFail(e, 'Auction House')); }
   }
   async function openMail() {
     try {
       if (typeof MailUI === 'undefined') { toastMsg('Opening envelope...'); await loadExtra('auction.js'); }
       if (typeof MailUI === 'undefined') throw new Error('mail did not start');
       syncRobot(); try { goLandscape(); } catch (e) { } MailUI.open(auctionCtx());
-    } catch (e) { toastMsg('Cannot open the envelope. Check your internet.'); }
+    } catch (e) { toastMsg(loadFail(e, 'envelope')); }
   }
   // While you are ONLINE, what you buy in the Shop goes to the envelope (not straight into the Bag). Offline the Shop is untouched: this is removed when you leave online.
   function patchShop() {
