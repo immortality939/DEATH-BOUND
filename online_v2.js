@@ -306,8 +306,9 @@ const OnlineUI = (() => {
     { id: 'hall',      name: 'Hall of Fame', img: 'b_hall',      x: 450,  by: 350, w: 280, text: 'See the top leagues and the strongest players by power.' },
     { id: 'gate',      name: 'Adventure',    img: 'b_adventure', x: 836,  by: 315, w: 255 },
     { id: 'armory',    name: 'Armory',       img: 'b_armory',    x: 1290, by: 360, w: 250 },
-    { id: 'arena',     name: 'Arena',        img: 'b_arena',     x: 215,  by: 560, w: 305, text: 'Fights against other players: 1 vs 1 up to 4 vs 4.', plank: true },
-    { id: 'league',    name: 'League',       img: 'b_league',    x: 836,  by: 800, w: 255, text: 'Join a league, or create your own. League vs league fights.', plaque: [50.5, 35.8] },
+    { id: 'arena',     name: 'Arena',        img: 'b_arena',     x: 836,  by: 610, w: 305, text: 'Fights against other players: 1 vs 1 up to 4 vs 4.', plank: true },   // Arena in the middle of the town
+    { id: 'auction',   name: 'Auction House', img: 'b_auction',  x: 245,  by: 545, w: 300, text: 'Buy and sell items with other players. Coming soon.' },
+    { id: 'league',    name: 'League',       img: 'b_league',    x: 836,  by: 860, w: 255, text: 'Join a league, or create your own. League vs league fights.', plaque: [50.5, 35.8] },
     { id: 'shop',      name: 'Shop',         img: 'b_shop',      x: 1385, by: 665, w: 240 },
   ];
   const ICONS = [
