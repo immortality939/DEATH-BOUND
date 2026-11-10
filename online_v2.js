@@ -478,6 +478,9 @@ const OnlineUI = (() => {
         if (tab === 'world') acts.push(fs.has(o.id) ? h('small', null, 'Already your friend') : sent.has(o.id) ? abtn('Request sent', null, 'off') : abtn('Add Friend', async () => {
           try { const j = await fapi('request', { to: o.id }); if (j.friends) { refreshFriends().then(() => box.isConnected && draw()); toastMsg('You and ' + o.name + ' are now friends.'); } else { sent.add(o.id); toastMsg('Friend request sent to ' + o.name); } draw(); }
           catch (e) { if (e.status === 401) return expired(); toastMsg(e.message || 'Could not send the request.'); } }));
+        const lv_ = Live.last || {}, rm = lv_.myRoom && lv_.myRoom.state === 'room' ? { r: lv_.myRoom, cap: lv_.myRoom.slots, path: 'invite' } : lv_.myAdv && lv_.myAdv.state === 'room' ? { r: lv_.myAdv, cap: 4, path: 'adv/invite' } : null;   // inside a room: also Invite
+        if (rm && o.online && !rm.r.members.some(m => m.id === o.id) && rm.r.members.length < rm.cap) acts.push(abtn('Invite', async () => {
+          try { await Live.call(rm.path, { to: o.id }); toastMsg('Invitation sent to ' + o.name); } catch (e) { if (e.status === 401) return expired(); toastMsg(e.message || 'Could not invite.'); } }));
         if (o.online) acts.push(abtn('PM', () => startPm(o))); else acts.push(h('small', null, 'Offline: no private message'));
         if (tab === 'friends') acts.push(abtn('Remove', async () => {
           try { await fapi('remove', { id: o.id }); friendList = friendList.filter(f => f.id !== o.id); sel = null; toastMsg(o.name + ' was removed from your friends.'); draw(); }
@@ -509,7 +512,7 @@ const OnlineUI = (() => {
       .then(code => { const s = document.createElement('script'); s.textContent = code + '\n//# sourceURL=' + file; document.head.appendChild(s); }).catch(e => { delete extraDone[file]; throw e; });
   }
   function arenaCtx() {
-    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo, fight: startFight, friends: () => friendList };
+    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo, fight: startFight, friends: () => friendList, friendsPop };
   }
   async function startFight(match, cb) {   // ARENA FIGHT: the real battle between the players of a match (arena_fight.js, downloaded from GitHub like the arena itself)
     if (typeof MAP_RUNS === 'undefined' || !MAP_RUNS.colosseum) await loadExtra('arena_maps_runs.js');

@@ -143,7 +143,7 @@ const ArenaUI = (() => {
   function iconAction(id) {
     if (id === 'bag') {   // the bag is the Profile of YOUR ONLINE CHARACTER (online_v2.js switches the game to the online save)
       C.launch('profile', () => { C.reopenArena(); });
-    } else if (id === 'friends') invitePop(true);
+    } else if (id === 'friends') { if (C.friendsPop) C.friendsPop(); else invitePop(true); }
     else C.toast({ scroll: 'Quests: coming next', gear: 'Settings: coming next', trophy: 'Rankings: coming next', mail: 'Mail: coming next' }[id] || 'Coming next');
   }
 

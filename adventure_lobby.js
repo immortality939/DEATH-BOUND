@@ -188,7 +188,7 @@ const AdvLobbyUI = (() => {
   };
   function iconAction(id) {
     if (id === 'bag') C.launch('profile', () => { C.reopenAdv(); });   // the Bag = Profile of YOUR ONLINE character
-    else if (id === 'friends') invitePop(true);
+    else if (id === 'friends') { if (C.friendsPop) C.friendsPop(); else invitePop(true); }
     else C.toast({ scroll: 'Quests: coming next', gear: 'Settings: coming next', trophy: 'Rankings: coming next', mail: 'Mail: coming next' }[id] || 'Coming next');
   }
 
