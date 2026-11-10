@@ -450,7 +450,7 @@ function newGame(setup) {
   const seed = (Math.random() * 1e9) | 0; G.theme = setup.theme === 'random' ? ['day', 'sunset', 'night'][rint(0, 2)] : setup.theme;
   G.map = setup.map || null; G.terrain = new Terrain(G.theme, seed, G.map); if (setup.clearPath) clearPath(G.terrain);   // boss stages: flatten every hill / pillar / pit so walking bots can reach the players
   G.worms = []; G.projs = []; G.fxs = []; G.parts = []; G.pops = []; G.beams = []; G.crates = []; G.teams = []; G.round = 0; G.minionRound = 0; G.bossW = null; G.swarm = null;
-  G.adv = !!setup.adv; WATER_Y = G.adv ? WORLD_H + 90 : WORLD_H - 78; G.queue = []; G.diff = setup.diff; G.winner = null; G.turnCount = 0; G.frame = 0; G.flyMode = false; G.charge = 0; G.charging = false; G.burst = null; G.volley = null; G.flameT = 0;
+  G.adv = !!setup.adv; G.agiOrder = !!setup.wagi; WATER_Y = G.adv ? WORLD_H + 90 : WORLD_H - 78; G.queue = []; G.diff = setup.diff; G.winner = null; G.turnCount = 0; G.frame = 0; G.flyMode = false; G.charge = 0; G.charging = false; G.burst = null; G.volley = null; G.flameT = 0;
   const T = G.terrain, nT = setup.teams.length, per = setup.per;
   setup.teams.forEach((tm, i) => {
     const ammo = {}, robId = (tm.robotObj || Assets.robots.robots[tm.robot]).id; WEAPONS.forEach(w => ammo[w.id] = w.sig ? (w.sig === robId ? Infinity : 0) : w.boss ? (w.boss === robId ? Infinity : 0) : (setup.adv ? 0 : w.ammo));   // signature weapons: only your own robot has it (unlimited). Boss weapons: only that boss. ADVENTURE (setup.adv): every other weapon is locked, so you use only your inventory weapon and every enemy only its own
@@ -473,7 +473,7 @@ function newGame(setup) {
     const pk = plan ? plan[k] : null, sc = pk && pk.sc || 1, baseHp = pk && pk.hp != null ? pk.hp : 100, bhp = (G.teams[t].bonus && G.teams[t].bonus.hp) | 0;
     carveSpawn(sx, sy, sc);
     const rob = G.teams[t].robot; cnt[t]++;
-    G.worms.push({ team: t, idx: cnt[t] - 1, sc, name: (pk && pk.name) || rob.name.split(' ')[0] + ' ' + cnt[t], rob, x: sx, y: sy - 2, vx: 0, vy: 0, hp: baseHp + bhp, maxHp: baseHp + bhp, face: sx < WORLD_W / 2 ? 1 : -1, aim: 15, state: 'air', knocked: false, bounces: 0, wf: 0, fi: 8, walkAcc: 0, walking: 0, flash: 0, frozen: 0, dt: 0, fallPeak: 0 });
+    G.worms.push({ team: t, idx: cnt[t] - 1, ag: (setup.wagi && setup.wagi[t] && +setup.wagi[t][cnt[t] - 1]) || 0, sc, name: (pk && pk.name) || rob.name.split(' ')[0] + ' ' + cnt[t], rob, x: sx, y: sy - 2, vx: 0, vy: 0, hp: baseHp + bhp, maxHp: baseHp + bhp, face: sx < WORLD_W / 2 ? 1 : -1, aim: 15, state: 'air', knocked: false, bounces: 0, wf: 0, fi: 8, walkAcc: 0, walking: 0, flash: 0, frozen: 0, dt: 0, fallPeak: 0 });
   });
   G.bossW = G.worms.find(isBoss) || null; G.minionRobots = setup.minionRobots || []; G.noMinions = !!setup.noMinions; G.minionKind = setup.minionKind || null; G.rings = []; G.waves = []; G.b3fx = []; G.b3q = [];
   G.cur = (setup.first != null ? setup.first : rint(0, nT - 1)) - 1; G.cam.shake = 0; G.cam.mul = 1; G.mode = 'play'; G.phase = 'none';
@@ -488,9 +488,9 @@ function startTurn() {
   G.winner = null;
   const alive = G.teams.filter(t => teamAlive(t.idx)); if (alive.length <= 1) { endGame(alive[0]); return; }
   let w, t;
-  if (G.adv) {   // ADVENTURE turn order: every robot of every team shoots once per round, highest Agility first (a frozen robot loses its slot, then the next one in the order goes)
+  if (G.adv || G.agiOrder) {   // ADVENTURE + ARENA turn order: every robot of every team shoots once per round, highest Agility first (a frozen robot loses its slot, then the next one in the order goes)
     const live = x => x.state !== 'dead' && x.state !== 'drown'; G.queue = (G.queue || []).filter(live);
-    if (!G.queue.length) { G.round = (G.round | 0) + 1; G.queue = G.worms.filter(live).sort((a, b) => ((G.teams[b.team].bonus && G.teams[b.team].bonus.agi) || 0) - ((G.teams[a.team].bonus && G.teams[a.team].bonus.agi) || 0) || a.team - b.team || a.idx - b.idx); }
+    if (!G.queue.length) { G.round = (G.round | 0) + 1; const agiOf = x => G.agiOrder ? (x.ag || 0) : ((G.teams[x.team].bonus && G.teams[x.team].bonus.agi) || 0); G.queue = G.worms.filter(live).sort((a, b) => agiOf(b) - agiOf(a) || a.team - b.team || a.idx - b.idx); }   // Arena: every PLAYER has his own Agility (ag), highest shoots first, then the next highest, ...
     w = G.queue.shift(); t = G.teams[w.team]; G.cur = w.team; t.next++;
   } else {
     G.cur = nextAliveTeam(G.cur); t = G.teams[G.cur]; const mine = G.worms.filter(w => w.team === t.idx && w.state !== 'dead' && w.state !== 'drown');

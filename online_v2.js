@@ -106,9 +106,9 @@ const OnlineUI = (() => {
 #onl .lgstats{flex:none;display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
 #onl .lgs{display:flex;gap:6px;align-items:center;padding:2px 9px;border-radius:8px;background:rgba(20,10,2,.55);border:1px solid rgba(255,224,160,.3);font:700 12px var(--body,sans-serif)}
 #onl .lgs span{color:#cdb98f}#onl .lgs b{color:#fff}#onl .lgs.gold{border-color:#ffd34a}#onl .lgs.gold b{color:#ffd34a}
-#onl .lgdark{background:rgba(22,11,3,.86) padding-box;border:10px solid transparent;border-image:url(assets/online/ui/panel_dark.png) 30 / 10px stretch;box-sizing:border-box;min-height:0}
+#onl .lgdark{background:rgba(22,11,3,.86) padding-box;border:8px solid transparent;border-image:url(assets/online/ui/panel_dark.png) 30 / 8px stretch;box-sizing:border-box;min-height:0}
 #onl .lgmid{flex:1;min-height:0;display:flex;gap:6px}
-#onl .lgleft{flex:1.7;display:flex;flex-direction:column;min-width:0;padding:0 2px}
+#onl .lgleft{flex:1.35;display:flex;flex-direction:column;min-width:0;padding:0 2px}
 #onl .lgleft p{margin:12px;font-size:13px}
 #onl .lglist{flex:1;overflow-y:auto;min-height:0}
 #onl .lgr{display:grid;grid-template-columns:minmax(0,1fr) 34px 72px 60px;align-items:center;gap:4px;padding:3px 6px;border-bottom:1px solid rgba(255,220,160,.12);text-align:left;font-size:13px;cursor:pointer}
@@ -125,17 +125,18 @@ const OnlineUI = (() => {
 #onl .lgr.lgh2 span{color:#cdb98f;font-weight:700}
 #onl .lgr.ap{grid-template-columns:minmax(0,1fr) auto auto;cursor:default}#onl .lgr.ap .wbtn{padding:5px 8px;font-size:12px}
 #onl .lgapps{max-height:min(220px,40vh);overflow-y:auto;width:100%}
-#onl .lgright{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0}
-#onl .lgboard{flex:1;display:flex;flex-direction:column;gap:5px;padding:0 4px;overflow:hidden}
+#onl .lgright{flex:1.25;display:flex;flex-direction:column;gap:5px;min-width:0}
+#onl .lgboard{flex:1;display:flex;flex-direction:column;gap:4px;padding:0 2px;overflow:hidden;min-height:0}
 #onl .lgbh{font:400 15px var(--disp,sans-serif);color:#ffd34a;flex:none}
-#onl .lgnote{margin:0;text-align:left;font-size:13px;line-height:1.35;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:#e9dcc0}
+#onl .lgnote{flex:1;min-height:0;margin:0;text-align:left;font-size:clamp(13px,3.6vh,16px);line-height:1.4;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:#e9dcc0}
 #onl .lgta{flex:1;min-height:0;resize:none;background:#17171d;color:#fff;border:0;border-radius:6px;padding:5px;font:600 13px var(--body,sans-serif);outline:0;user-select:text;-webkit-user-select:text}
-#onl .lgbtns{flex:none;display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+#onl .lgbtns{flex:none;display:flex;flex-wrap:wrap;gap:5px;justify-content:center}#onl .lgbtns .wbtn{padding:5px 9px;font-size:13px}
 #onl .lgbot{flex:none;display:flex;gap:6px;align-items:flex-end;justify-content:space-between}
 #onl .lgib{display:flex;gap:6px;align-items:flex-end}
 #onl .lgib button{border:0;background:none;padding:0;cursor:pointer;height:clamp(34px,10vh,48px);transition:transform .1s,filter .1s}
 #onl .lgib button img{height:100%;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.55));pointer-events:none}
 #onl .lgib button:active{transform:translateY(-3px) scale(1.07);filter:brightness(1.15)}
+#onl .pop.lgtop{align-items:flex-start;padding-top:1.5vh}#onl .lgta.big{flex:none;width:100%;box-sizing:border-box;height:min(32vh,220px);font-size:15px;line-height:1.35}
 #onl .lgin{width:90%;box-sizing:border-box;background:#17171d;color:#fff;border:0;border-radius:6px;padding:8px;font:600 15px var(--body,sans-serif);outline:0;text-align:center;user-select:text;-webkit-user-select:text}
 #onl .lgmsg{margin:0;min-height:16px;color:#ff8a7a;font:700 12px var(--body,sans-serif)}
 #onl .lgc{font:700 13px var(--body,sans-serif);color:#cdb98f;display:flex;gap:5px;align-items:center;justify-content:center;flex-wrap:wrap}#onl .lgc b{color:#ffd34a}
@@ -675,7 +676,7 @@ const OnlineUI = (() => {
     const pill = (l, v, gold) => h('div', { class: 'lgs' + (gold ? ' gold' : '') }, h('span', null, l), h('b', null, v));
     const noKeys = el => { el.onkeydown = el.onkeyup = el.onkeypress = e => e.stopPropagation(); return el; };
     const title = h('div', { class: 'lgtitle' }), stats = h('div', { class: 'lgstats' }), left = h('div', { class: 'lgleft lgdark' }), right = h('div', { class: 'lgright' });
-    const chat = chatBox(session.player); chat.style.cssText = '--cw:min(300px,58vh);position:relative;left:auto;bottom:auto;flex:none';
+    const chat = chatBox(session.player); chat.style.cssText = '--cw:min(280px,50vh);position:relative;left:auto;bottom:auto;flex:none';
     const ibar = h('div', { class: 'lgib' }, ICONS.map(ic => h('button', { 'aria-label': ic.name, onclick: () => { beep(); iconGo(ic); } }, h('img', { src: 'assets/online/i_' + ic.id + '.webp', alt: ic.name }))));
     function iconGo(ic) {
       if (ic.id === 'bag') { clearInterval(tm); box.remove(); retFn = () => { town(); leaguePop(); }; return launch('profile'); }   // the Bag = Profile of your online character, then back here
@@ -699,7 +700,7 @@ const OnlineUI = (() => {
       const mine = data && data.mine, oldL = left.querySelector('.lglist'), sc = oldL ? oldL.scrollTop : 0;
       title.firstChild.textContent = mine ? mine.name : 'League House';
       stats.replaceChildren(...(mine ? [pill('Members', mine.members.length + '/' + mine.max), pill('Power', fmtL(mine.power)), pill('My Contribution', fmtL(mine.contrib), 1)] : [pill('My Chips', fmtL(chipsNow())), pill('Create a league', LG_COST + ' chips')]));
-      let lst, bar = null, board, btns = [];
+      let lst, bar = null, btns = [];
       if (!data) lst = h('p', null, err || 'Loading...');
       else if (mine) {
         lst = h('div', { class: 'lglist' }, mine.members.map(o => h('div', { class: 'lgr' + (o.id === meId ? ' me' : '') + (sel === o.id ? ' sel' : ''), onclick: () => { beep(); sel = sel === o.id ? null : o.id; draw(); } },
@@ -716,23 +717,26 @@ const OnlineUI = (() => {
           : L.full ? h('div', { class: 'wbtn off' }, 'Full') : h('div', { class: 'wbtn', onclick: () => { beep(); act(() => lapi('apply', { id: L.id }), 'Applied to ' + L.name + '. Wait for the owner.'); } }, 'Apply League'));
       }
       const head = h('div', { class: 'lgr lgh2' + (mine ? '' : ' n') }, mine ? [h('span', null, 'Name'), h('span', null, 'Lv'), h('span', null, 'Power'), h('span', null, 'Status')] : [h('span', null, 'League'), h('span', null, 'Members'), h('span', null, 'Power')]);
-      left.replaceChildren(head, lst, bar); const nl = left.querySelector('.lglist'); if (nl) nl.scrollTop = sc;
+      left.replaceChildren(...[head, lst, bar].filter(Boolean)); const nl = left.querySelector('.lglist'); if (nl) nl.scrollTop = sc;
       // right side: message board + buttons
-      let bbody;
-      if (mine && mine.owner) {
-        const ta = noKeys(h('textarea', { class: 'lgta', maxlength: '200', placeholder: 'Write a message for your members...' })); ta.value = draft != null ? draft : (mine.notice || ''); ta.oninput = () => { draft = ta.value; };
-        bbody = [ta, h('div', { class: 'wbtn', onclick: () => { beep(); const v = ta.value; draft = null; act(() => lapi('notice', { text: v }), 'Message posted.'); } }, 'Post')];
-      } else {
-        const L = mine ? mine : (sel && data && data.leagues && data.leagues.find(x => x.id === sel));
-        bbody = [h('p', { class: 'lgnote' }, L ? (L.notice || 'No message yet.') : 'Tap a league to read its message.')];
-      }
-      board = h('div', { class: 'lgboard lgdark' }, h('div', { class: 'lgbh' }, 'Message Board'), bbody);
+      const LB = mine ? mine : (sel && data && data.leagues && data.leagues.find(x => x.id === sel));
+      const board = h('div', { class: 'lgboard lgdark' }, h('div', { class: 'lgbh' }, 'Message Board'), h('div', { class: 'lgnote' }, LB ? (LB.notice || 'No message yet.') : 'Tap a league to read its message.'));
       if (mine) {
         btns.push(h('div', { class: 'wbtn', onclick: () => { beep(); shopPop(); } }, 'League Shop'));
+        if (mine.owner) btns.push(h('div', { class: 'wbtn', onclick: () => { beep(); editPop(); } }, 'Edit Message'));
         if (mine.owner) btns.push(h('div', { class: 'wbtn', onclick: () => { beep(); appsPop(); } }, 'Applications' + (mine.applicants && mine.applicants.length ? ' (' + mine.applicants.length + ')' : '')));
         btns.push(h('div', { class: 'wbtn red', onclick: () => { beep(); confirmPop('Quit League?', 'You leave ' + mine.name + ' and lose your contribution.' + (mine.owner ? ' The member who joined first becomes the owner.' : ''), 'Quit', () => { sel = null; act(() => lapi('leave'), 'You left the league.'); }); } }, 'Quit League'));
       } else btns.push(h('div', { class: 'wbtn', onclick: () => { beep(); createPop(); } }, 'Create League'));
       right.replaceChildren(board, h('div', { class: 'lgbtns' }, btns));
+    }
+    function editPop() {   // the owner writes the message here: the popup sits at the TOP, buttons above the text, so the phone keyboard never covers them
+      if (!data || !data.mine) return; let p = null;
+      const ta = noKeys(h('textarea', { class: 'lgta big', maxlength: '600', placeholder: 'Write a message for your members...' })); ta.value = data.mine.notice || '';
+      const cnt = h('small', null, ta.value.length + '/600'); ta.oninput = () => { cnt.textContent = ta.value.length + '/600'; };
+      p = h('div', { class: 'pop wood lgtop', style: 'z-index:60', onclick: e => { if (e.target === p) p.remove(); } }, h('div', { class: 'wpnl lgw', style: 'width:min(600px,96vw)' }, h('div', { class: 'idet', style: 'width:100%' },
+        h('div', { style: 'display:flex;gap:8px;align-items:center;justify-content:center;width:100%' }, h('div', { class: 'in' }, 'Message Board'), h('div', { class: 'wbtn', onclick: () => { beep(); const v = ta.value; p.remove(); act(() => lapi('notice', { text: v }), 'Message posted.'); } }, 'Post'), h('div', { class: 'wbtn red', onclick: () => { beep(); p.remove(); } }, 'Cancel')),
+        ta, cnt)));
+      t.append(p); setTimeout(() => { try { ta.focus(); } catch (e) { } }, 60);
     }
     function createPop() {
       let p = null; const inp = noKeys(h('input', { class: 'lgin', maxlength: '16', placeholder: 'League name', autocomplete: 'off', spellcheck: 'false' })), msg = h('p', { class: 'lgmsg' });
@@ -790,11 +794,12 @@ const OnlineUI = (() => {
     box = h('div', { class: 'pop wood', onclick: e => { if (e.target === box) close(); } }, h('div', { class: 'wpnl lgw lgp' }, title, stats, h('div', { class: 'lgmid' }, left, right), h('div', { class: 'lgbot' }, chat, ibar)));
     t.append(box); draw(); load();
     if (myLg) { chatTab = 'league'; redrawChats(); }
-    tm = setInterval(() => { if (!box || !box.isConnected) return clearInterval(tm); if (!busy) load(); }, 5000);
+    tm = setInterval(() => { if (!box || !box.isConnected) return clearInterval(tm); const a = document.activeElement; if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) return; if (!busy) load(); }, 5000);
   }
   function iconPop(ic) {
     if (ic.id === 'bag') { try { return launch('profile'); } catch (e) { fromTown = false; root.hidden = false; toastMsg('Could not open the Bag.'); return; } }   // the Bag = Profile of YOUR online character, same as in the Arena and the Adventure
     if (ic.id === 'friends') return friendsPop();
+    if (ic.id === 'trophy') return hallPop();   // the trophy is the Hall of Fame (town, arena, adventure, league house)
     pop(ic.name, '');
   }
 
@@ -807,7 +812,7 @@ const OnlineUI = (() => {
       .then(code => { const s = document.createElement('script'); s.textContent = code + '\n//# sourceURL=' + file; document.head.appendChild(s); }).catch(e => { delete extraDone[file]; throw e; });
   }
   function arenaCtx() {
-    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo, fight: startFight, friends: () => friendList, friendsPop };
+    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo, fight: startFight, friends: () => friendList, friendsPop, hall: hallPop };
   }
   async function startFight(match, cb) {   // ARENA FIGHT: the real battle between the players of a match (arena_fight.js, downloaded from GitHub like the arena itself)
     if (typeof MAP_RUNS === 'undefined' || !MAP_RUNS.colosseum) await loadExtra('arena_maps_runs.js');

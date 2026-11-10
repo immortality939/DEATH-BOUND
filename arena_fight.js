@@ -296,9 +296,10 @@ const ArenaFight = (() => {
     const teams = f.members.map(ids => ({ cpu: false, robot: loads[ids[0]].robot }));
     const bonuses = f.members.map(ids => loads[ids[0]].bonus || {});       // a team shares the gear (and potions) of its first player
     const names = f.members.map((ids, i) => ids.length === 1 ? loads[ids[0]].name : TN[i]);
+    const wagi = f.members.map(ids => ids.map(id => (loads[id] && loads[id].bonus && +loads[id].bonus.agi) || 0));   // each player's own Agility = turn order (highest first)
     f.rng = mulberry(((m.mapSeed | 0) * 2654435761 + 977) | 0);
     hook();
-    seeded(() => newGame({ teams, per: f.members[0].length, diff: 1, theme: f.map.bg, map: f.map, names, bonuses, first: 0 }));
+    seeded(() => newGame({ teams, per: f.members[0].length, diff: 1, theme: f.map.bg, map: f.map, names, bonuses, wagi, first: 0 }));
     G.worms.forEach(w => { const id = ownerOf(w); if (id && f.names[id]) w.name = f.names[id]; });
     try { const t = curTeam(); if (t && G.activeWorm) showBanner(t.name + ' \u00b7 ' + G.activeWorm.name, t.color); } catch (e) { }
     In.left = In.right = In.up = In.down = In.fire = In.firePressed = In.jump = In.flip = false;
