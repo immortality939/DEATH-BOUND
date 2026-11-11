@@ -161,6 +161,14 @@
 .pf-popc .pf-det .st{font-size:15px !important}
 .pf-popc .pf-det .dim{font-size:13px !important}
 .pf-x{position:absolute;top:-8px;right:-8px;z-index:3;width:30px;height:30px;border-radius:50%;border:2px solid #ffc23a;background:#2a160a;color:#ffe08a;font:800 14px/1 var(--body);cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.7)}
+/* PROFILE: no navy frame art around slots / cells / character box - the dark wood fills right to a thin gold edge */
+#profile .pf-cell::after,#profile .pf-slot::after,#profile .pf-port::after{inset:0;border:2px solid #c98f2e !important;border-image:none !important;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.6),inset 0 0 8px rgba(0,0,0,.55);opacity:1}
+#profile .pf-cell,#profile .pf-slot,#profile .pf-port{border-radius:4px}
+#profile .pf-slot.can::after{border-color:#ffc23a !important}
+#profile .pf-slot.sel::after,#profile .pf-cell.sel::after{border-color:#ffe27a !important;box-shadow:inset 0 0 0 1px rgba(0,0,0,.6),0 0 8px rgba(255,200,70,.7)}
+#profile .pf-slot.drop::after{border-color:#5fe7ff !important;box-shadow:0 0 10px rgba(95,231,255,.8)}
+#profile .pf-cell.off::after{opacity:.4}
+#profile .pf-it{background:none}
 `; document.head.appendChild(css);
 })();
 console.log('goldui.js loaded - gold/navy frames for Shop + Profile');
