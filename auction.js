@@ -190,13 +190,13 @@ const AuctionUI = (() => {
     t.append(box); draw(); load();
     tm = setInterval(() => { if (!box || !box.isConnected) return clearInterval(tm); const a = document.activeElement; if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) return; if (!busy) load(); }, 6000);
   }
-  return { open, helpers: { IT, kindOf, whyCannotAdd, addToBag, detail, fmt, noKeys, wood, fail, chipImg, ensureCss } };
+  return { open, init(c) { ctx = c; h = c.h; }, helpers: { IT, kindOf, whyCannotAdd, addToBag, detail, fmt, noKeys, wood, fail, chipImg, ensureCss } };
 })();
 
 // =============================== ENVELOPE (mail) ===============================
 const MailUI = (() => {
   function open(ctx) {
-    const h = ctx.h, H = AuctionUI.helpers, t = ctx.parent(); if (!t) return; H.ensureCss();
+    AuctionUI.init(ctx); const h = ctx.h, H = AuctionUI.helpers, t = ctx.parent(); if (!t) return; H.ensureCss();
     let mail = null, err = '', sel = null, busy = false, box = null, tm = null;
     const close = () => { clearInterval(tm); if (box) box.remove(); };
     const list = h('div', { class: 'wlst big' });
