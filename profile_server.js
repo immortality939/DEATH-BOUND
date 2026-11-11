@@ -782,18 +782,23 @@ const Shop = {
 #profile .pf-itab:first-child{flex:1.5 1 0}
 #profile .pf-itab span{margin-left:3px;font-size:10px}
 #profile .pf-cells{padding:7px 7px 4px;box-sizing:border-box}
-/* ===== PROFILE v3 (landscape): the description column on the right is gone - tapping an item pops its description up; the stats sit BESIDE the character and have the room ===== */
+/* ===== PROFILE v3 (landscape): the description column on the right is gone - tapping an item pops its description up; the stats sit BELOW the character (scroll the left column down to see them), one per line ===== */
 #profile .pf-main{grid-template-columns:auto minmax(0,1fr)}
-#profile .pf-eq{display:grid;grid-template-columns:auto minmax(172px,1fr);grid-template-areas:"nm nm" "gr ch";column-gap:10px;align-content:start;min-width:0}
-#profile .pf-eq .pf-name{grid-area:nm}
-#profile .pf-eq .pf-grid{grid-area:gr;align-self:start}
-#profile .pf-eq .pf-char{grid-area:ch;max-width:none;min-width:0;margin-top:0;align-self:start}
 #profile .pf-at{grid-template-columns:1fr;gap:1px 0}
 #profile .pf-at span{display:block}
 #profile .pf-pop{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;pointer-events:none}
 #profile .pf-popc{pointer-events:auto;width:min(78%,370px);max-height:88%;overflow:auto;box-sizing:border-box;padding:8px;border-radius:14px;background:rgba(14,20,46,.97);border:2px solid var(--accent);box-shadow:0 10px 30px rgba(0,0,0,.65);display:flex;flex-direction:column;gap:6px}
 #profile .pf-popc .pf-det{margin:0}
 #profile .pf-popc>.btn{align-self:flex-end}
+/* inventory laid out like the Shop: big tiles (picture, name, rarity), the filter tabs on ONE row you can swipe sideways, the list scrolls up / down */
+#profile .pf-tabs{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;gap:4px;-webkit-overflow-scrolling:touch}
+#profile .pf-tabs::-webkit-scrollbar{display:none}
+#profile .pf-tab{flex:0 0 auto;white-space:nowrap;padding:3px 9px;font-size:11px}
+#profile .pf-cells{grid-template-columns:repeat(auto-fill,minmax(clamp(88px,13vw,112px),1fr));grid-auto-rows:clamp(92px,28vh,118px);gap:7px}
+#profile .pf-cells .pf-it{padding:4px 3px}
+#profile .pf-cells .pf-it img{width:clamp(30px,10vh,46px);height:clamp(30px,10vh,46px);margin:0 auto 2px}
+#profile .pf-cells .pf-it b{font-size:11px}
+#profile .pf-cells .pf-it i{display:block;font-size:9px}
 `; document.head.appendChild(css);
   // FIX: show only WHOLE rows of item cells in the Profile inventory (the cell height is stretched a little so the last visible row is never cut off; scroll for more)
   Profile.fitCells = function () {
