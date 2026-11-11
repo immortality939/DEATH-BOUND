@@ -106,6 +106,14 @@ const OnlineUI = (() => {
 #onl .wbtn{padding:6px 12px;border-radius:9px;font:400 14px/1 var(--disp,sans-serif);cursor:pointer;color:#fff;background:linear-gradient(#e0a53a,#9a5a14);border:2px solid #ffe3a0;text-shadow:0 1px 0 #4a1f06}
 #onl .wbtn.red{background:linear-gradient(#d9503f,#8c2418);border-color:#ffb3a8}#onl .wbtn.off{background:#555;border-color:#888;color:#ccc;cursor:default;text-shadow:none}
 #onl .wlst.big{height:min(300px,56vh)}
+#onl .wpnl.hofp{width:min(600px,94vw)}
+#onl .wlst.big.hof{width:100%;aspect-ratio:auto;object-fit:fill;filter:none;height:min(320px,56vh)}   /* FIX: the generic ".big" picture rule (square, ~34vh wide) used to squeeze the Hall list into a narrow strip */
+#onl .hof .wiv{padding:6px 10px;font-size:15px;gap:10px}
+#onl .hof .wiv b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#onl .hof .wiv i{flex:none;font-size:15px}
+#onl .hof .wiv img,#onl .hof .wiv .lg{width:36px;height:36px}
+#onl .hof .wiv .rk{min-width:40px}
+@media (orientation:landscape) and (max-height:520px){#onl .wpnl.hofp{border-width:11px;border-image:url(assets/online/ui/panel.png) 30 / 11px stretch;padding:2px 10px 6px}#onl .hofp .hoft{font-size:17px !important;margin:0 0 3px !important}#onl .hofp .watabs{margin:0 0 5px}#onl .hofp .watb{padding:5px 14px;font-size:14px}#onl .wlst.big.hof{height:calc(100vh - 112px)}}
 #onl .wiv .rk{font-style:normal;font-weight:700;min-width:34px;color:#cdb98f}#onl .wiv .rk.r1{color:#ffd34a}#onl .wiv .rk.r2{color:#dfe6f3}#onl .wiv .rk.r3{color:#e8955a}
 #onl .wiv.me{background:rgba(127,208,255,.14);border-radius:8px}#onl .wiv small{display:block;color:#cdb98f;font-size:11px;font-weight:400}
 #onl .wiv .lg{width:30px;height:30px;flex:none;border-radius:8px;background:rgba(255,211,74,.18);border:1px solid #e0a53a;display:flex;align-items:center;justify-content:center;font-size:14px}
@@ -831,10 +839,10 @@ const OnlineUI = (() => {
       else if (tab === 'players') rows = list.map(o => h('div', { class: 'wiv' + (o.id === meId ? ' me' : ''), onclick: () => { beep(); playerCard(o.id); } },
         h('em', { class: 'rk' + (o.rank <= 3 ? ' r' + o.rank : '') }, '#' + o.rank), h('img', { src: 'assets/robots/front/' + robotOf(o.robot).id + '.webp', alt: '' }), h('b', null, o.name, h('small', null, 'Lv ' + o.lv)), h('i', null, (o.power | 0).toLocaleString())));
       else rows = list.map((o, i) => h('div', { class: 'wiv' }, h('em', { class: 'rk' + (i < 3 ? ' r' + (i + 1) : '') }, '#' + (i + 1)), h('div', { class: 'lg' }, '⚔'), h('b', null, o.name, h('small', null, (o.members | 0) + ' members')), h('i', null, (o.power | 0).toLocaleString())));
-      const lst = h('div', { class: 'wlst big' }, rows);
+      const lst = h('div', { class: 'wlst big hof' }, rows);
       const tabs = h('div', { class: 'watabs' }, h('div', { class: 'watb' + (tab === 'players' ? ' on' : ''), onclick: () => { beep(); tab = 'players'; if (!data.players) load('players'); draw(); } }, 'Top Player'),
         h('div', { class: 'watb' + (tab === 'leagues' ? ' on' : ''), onclick: () => { beep(); tab = 'leagues'; load('leagues'); draw(); } }, 'Top League'), h('div', { class: 'watb', onclick: () => { beep(); box.remove(); } }, 'X'));
-      box = h('div', { class: 'pop wood', onclick: e => { if (e.target === box) box.remove(); } }, h('div', { class: 'wpnl' }, h('div', { style: 'font:400 20px var(--disp,sans-serif);color:#ffd34a;margin:0 0 6px' }, 'Hall of Fame'), tabs, lst));
+      box = h('div', { class: 'pop wood', onclick: e => { if (e.target === box) box.remove(); } }, h('div', { class: 'wpnl hofp' }, h('div', { class: 'hoft', style: 'font:400 20px var(--disp,sans-serif);color:#ffd34a;margin:0 0 6px' }, 'Hall of Fame'), tabs, lst));
       t.append(box); lst.scrollTop = sc;
     };
     draw(); load('players');
