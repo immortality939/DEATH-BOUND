@@ -7,12 +7,12 @@
 'use strict';
 window.OnlineUI = (() => {
   const BASE = (typeof ONLINE_CODE_URL === 'string' ? ONLINE_CODE_URL : '').replace(/[^/]*$/, '');
-  let pkg = null, frame = null;
+  let frame = null;
   const say = m => { try { olToast(m); } catch (e) { } };
 
   async function get(url) {
     const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 30000);
-    try { return await fetch(url, { cache: 'no-cache', signal: ctl.signal }); } finally { clearTimeout(t); }
+    try { return await fetch(url + (url.indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now(), { cache: 'no-store', signal: ctl.signal }); } finally { clearTimeout(t); }
   }
   async function text(path) {
     let r = await get(BASE + path);
@@ -20,9 +20,8 @@ window.OnlineUI = (() => {
     if (!r.ok) throw new Error(path + ' ' + r.status);
     return r.text();
   }
-  function load() {   // downloaded once per app run (the code is kept in memory, never on the phone's disk)
-    if (pkg) return pkg;
-    return pkg = (async () => {
+  function load() {   // downloaded again EVERY time the player taps Online, so a file you just changed on GitHub is used right away (nothing is kept on the phone)
+    return (async () => {
       const doc = new DOMParser().parseFromString(await text('index_server.html'), 'text/html');
       const srcs = [];
       doc.querySelectorAll('script').forEach(s => { const src = s.getAttribute('src'); if (src) srcs.push(src.split('?')[0]); s.remove(); });
@@ -30,7 +29,7 @@ window.OnlineUI = (() => {
       const b = doc.createElement('base'); b.href = document.baseURI; doc.head.insertBefore(b, doc.head.firstChild);   // pictures: from the app's own assets folder
       const codes = await Promise.all(srcs.map(text));
       return { html: '<!doctype html>' + doc.documentElement.outerHTML, srcs, codes };
-    })().catch(e => { pkg = null; throw e; });
+    })();
   }
   function remove() { if (frame) { try { frame.remove(); } catch (e) { } frame = null; } }
 
@@ -47,7 +46,7 @@ window.OnlineUI = (() => {
     if (w.eval('typeof OnlineUI') !== 'object') throw new Error('the online code did not start');
     w.dispatchEvent(new w.Event('load'));   // the files were added after the frame finished loading: give them the load event they wait for
     try {   // small on-screen proof (6 seconds, top-left) that the online files came from GitHub
-      const m = d.createElement('div'); m.textContent = 'ONLINE FILES FROM GITHUB: ' + p.srcs.length + ' loaded (launcher v2)';
+      const m = d.createElement('div'); m.textContent = 'ONLINE FILES FROM GITHUB: ' + p.srcs.length + ' loaded (launcher v3)';
       m.style.cssText = 'position:fixed;left:6px;top:6px;z-index:2147483647;background:rgba(0,0,0,.75);color:#7CFC8A;font:700 11px sans-serif;padding:3px 7px;border-radius:5px;pointer-events:none';
       d.body.appendChild(m); setTimeout(() => { try { m.remove(); } catch (e) { } }, 6000);
     } catch (e) { }
