@@ -134,6 +134,7 @@ const AdvLobbyUI = (() => {
 #onl .av .note{position:absolute;text-align:center;font:600 12.5px/1.3 var(--body,sans-serif);color:#ffe9c4}
 #onl .av .face .wpl{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;font-size:13px;color:#ffe9c4;background:rgba(48,26,8,.55);border-radius:8px;padding:3px 10px;max-width:250px;overflow:hidden;white-space:nowrap}
 #onl .av .face .wpl img{width:26px;height:26px;object-fit:contain}
+#onl .av .ibar2.g{flex-wrap:wrap;width:124px;gap:6px}#onl .av .ibar2.g button{height:44px}
 #onl .av .rcg{position:absolute;display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;align-content:start;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#b07d45 transparent}
 #onl .av .rcg .rc{position:relative;width:auto;height:58px;flex:none}
 #onl .av .sl .rdy{top:48px;font-size:30px}
@@ -181,8 +182,8 @@ const AdvLobbyUI = (() => {
   };
   const rimg = r => C.robotImg(C.robots()[(r | 0) % nrobots()]);
   const chatBox = (x, y, w) => { const c = C.chatBox(); c.style.cssText = `--cw:${w}px;left:${x}px;bottom:auto;top:${y}px`; return c; };
-  const iconBar = (x, y, ids) => {
-    const bar = h('div', { class: 'ibar2', style: `left:${x}px;top:${y}px` });
+  const iconBar = (x, y, ids, grid) => {
+    const bar = h('div', { class: 'ibar2' + (grid ? ' g' : ''), style: `left:${x}px;top:${y}px` });
     for (const id of ids) bar.append(h('button', { onclick: () => { C.beep(); iconAction(id); } }, h('img', { src: 'assets/online/i_' + id + '.webp', alt: id })));
     return bar;
   };
@@ -240,7 +241,7 @@ const AdvLobbyUI = (() => {
     const st = stage(
       h('div', { class: 'ttl' }, 'Adventure'),
       btn('Back', 14, 12, 92, 40, () => { close(); C.back(); }, 'sm'),
-      h('div', { class: 'abs pnl', style: 'left:10px;top:92px;width:644px;height:268px' }),
+      h('div', { class: 'abs pnl', style: 'left:10px;top:92px;width:644px;height:168px' }),
       // right: my character (picture, name, level, power, weapon)
       h('div', { class: 'abs pnl', style: 'left:664px;top:92px;width:288px;height:214px' }),
       h('div', { class: 'face', style: 'left:664px;top:98px;width:288px' }, rimg(p.robot), h('b', null, p.name),
@@ -252,7 +253,7 @@ const AdvLobbyUI = (() => {
       (() => { const l = h('div', { class: 'lst', style: 'left:676px;top:342px;width:266px;height:186px' }); l.append(h('div', { class: 'it me' }, h('span', null, p.name), h('span', null, 'Lv ' + p.lv))); for (const o of others) l.append(h('div', { class: 'it', onclick: () => C.toast(o.name + '  |  Lv ' + o.lv) }, h('span', null, o.name), h('span', null, 'Lv ' + o.lv))); return l; })()
     );
     // room list: the maps the players created, with how many are inside (n/4)
-    const grid = h('div', { class: 'rcg', style: 'left:24px;top:106px;width:618px;height:240px' });
+    const grid = h('div', { class: 'rcg', style: 'left:24px;top:108px;width:618px;height:134px' });
     S.rooms.forEach(r => {
       const M = mapOf(r.map), host = hostOf(r), n = r.members.length, going = r.state !== 'room', full = n >= SLOTS || going;
       const d = r.diff | 0;
@@ -264,10 +265,10 @@ const AdvLobbyUI = (() => {
       card.onclick = () => { C.beep(); joinRoom(r); }; grid.append(card);
     });
     st.append(grid);
-    if (!S.rooms.length) st.append(h('div', { class: 'abs', style: 'left:24px;top:200px;width:618px;text-align:center;font:400 22px var(--disp,sans-serif);color:#ffe3b0' }, 'No adventure rooms yet. Tap Start or Team Up to create one.'));
-    st.append(chatBox(10, 368, 336));
-    st.append(btn('TEAM UP', 356, 392, 96, 56, teamUp, 'sm'), btn('SEARCH', 458, 392, 96, 56, () => { C.live.nudge(); C.toast('Rooms updated'); }, 'sm'), btn('START', 560, 388, 96, 62, quickStart, 'go'));
-    st.append(iconBar(356, 466, ['bag', 'friends', 'scroll', 'gear']));
+    if (!S.rooms.length) st.append(h('div', { class: 'abs', style: 'left:24px;top:156px;width:618px;text-align:center;font:400 22px var(--disp,sans-serif);color:#ffe3b0' }, 'No adventure rooms yet. Tap Start or Team Up to create one.'));
+    st.append(chatBox(10, 268, 510));   // big chat: fills the empty space under the (short) room list
+    st.append(btn('TEAM UP', 530, 270, 124, 44, teamUp, 'sm'), btn('SEARCH', 530, 318, 124, 44, () => { C.live.nudge(); C.toast('Rooms updated'); }, 'sm'), btn('START', 530, 366, 124, 54, quickStart, 'go'));
+    st.append(iconBar(530, 428, ['bag', 'friends', 'scroll', 'gear'], true));
     mount(st); S.sig = sigOf();
   }
   async function teamUp() { if (await act('create', {})) room(); }

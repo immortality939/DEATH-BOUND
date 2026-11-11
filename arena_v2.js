@@ -75,6 +75,9 @@ const ArenaUI = (() => {
 #onl .ar .ddm{position:absolute;width:170px;z-index:6;padding:6px;background:url(${U('panel_dark.png')}) center/100% 100%;box-sizing:border-box}
 #onl .ar .ddm div{padding:8px 10px;font:400 15px/1 var(--disp,sans-serif);cursor:pointer;border-radius:6px}#onl .ar .ddm div:hover{background:rgba(255,200,120,.2)}
 #onl .ar .ibar2{position:absolute;display:flex;gap:6px;z-index:4}
+#onl .ar .ibar2.g{flex-wrap:wrap;width:168px;gap:6px}#onl .ar .ibar2.g button{height:44px}
+#onl .ar .rcg{position:absolute;display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;align-content:start;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#b07d45 transparent}
+#onl .ar .rcg .rc{position:relative;width:auto;height:58px;flex:none}
 #onl .ar .ibar2 button{border:0;background:none;padding:0;cursor:pointer;height:50px;transition:transform .1s,filter .1s}
 #onl .ar .ibar2 button img{height:100%;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.55));pointer-events:none}
 #onl .ar .ibar2 button:hover{transform:translateY(-3px) scale(1.07);filter:brightness(1.15)}
@@ -133,8 +136,8 @@ const ArenaUI = (() => {
   };
   const rimg = r => C.robotImg(C.robots()[(r | 0) % nrobots()]);
   const chatBox = (x, y, w) => { const c = C.chatBox(); c.style.cssText = `--cw:${w}px;left:${x}px;bottom:auto;top:${y}px`; return c; };
-  const iconBar = (x, y, ids) => {
-    const bar = h('div', { class: 'ibar2', style: `left:${x}px;top:${y}px` });
+  const iconBar = (x, y, ids, grid) => {
+    const bar = h('div', { class: 'ibar2' + (grid ? ' g' : ''), style: `left:${x}px;top:${y}px` });
     for (const id of ids) {
       const b = h('button', { onclick: () => { C.beep(); iconAction(id); } }, h('img', { src: 'assets/online/i_' + id + '.webp', alt: id })); bar.append(b);
     }
@@ -199,21 +202,22 @@ const ArenaUI = (() => {
       // left: me + online players
       h('div', { class: 'abs pnl', style: 'left:10px;top:96px;width:232px;height:212px' }),
       h('div', { class: 'face', style: 'left:10px;top:100px;width:232px' }, rimg(p.robot), h('b', null, p.name), h('small', null, 'Lv ' + p.lv)),
-      h('div', { class: 'abs pnl', style: 'left:246px;top:92px;width:700px;height:268px' }),
+      h('div', { class: 'abs pnl', style: 'left:246px;top:92px;width:700px;height:168px' }),
       h('div', { class: 'abs ins', style: 'left:10px;top:314px;width:232px;height:218px' }),
       h('div', { class: 'abs hd', style: 'left:26px;top:324px' }, 'ONLINE PLAYERS  (' + (others.length + 1) + ')'),
       (() => { const l = h('div', { class: 'lst', style: 'left:22px;top:344px;width:210px;height:182px' }); l.append(h('div', { class: 'it me' }, h('span', null, p.name), h('span', null, 'Lv ' + p.lv))); for (const o of others) l.append(h('div', { class: 'it', onclick: () => C.toast(o.name + '  |  Lv ' + o.lv) }, h('span', null, o.name), h('span', null, 'Lv ' + o.lv))); return l; })()
     );
     // room grid (2 columns x 4 rows)
-    const shown = rooms.slice(0, 8);
+    const shown = rooms.slice(0, 30), rgrid = h('div', { class: 'rcg', style: 'left:260px;top:108px;width:672px;height:134px' });
     shown.forEach((r, i) => {
       const host = hostOf(r), n = r.members.length, fighting = r.state !== 'room', full = n >= r.slots || fighting;
-      const card = h('div', { class: 'rc' + (full ? ' full' : ''), style: `left:${258 + (i % 2) * 340}px;top:${106 + Math.floor(i / 2) * 62}px` },
+      const card = h('div', { class: 'rc' + (full ? ' full' : ''), },
         rimg(host.robot), h('div', { class: 't' }, h('b', null, host.name + "'s room"), h('small', null, 'Room ' + r.id + '  |  ' + MODES[r.mode].name + (fighting ? '  |  Fighting' : full ? '  |  Full' : '  |  Tap to join'))),
         h('div', { class: 'n' + (full ? ' f' : '') }, n + '/' + r.slots));
-      card.onclick = () => { C.beep(); joinRoom(r); }; st.append(card);
+      card.onclick = () => { C.beep(); joinRoom(r); }; rgrid.append(card);
     });
-    if (!shown.length) st.append(h('div', { class: 'abs', style: 'left:258px;top:200px;width:680px;text-align:center;font:400 22px var(--disp,sans-serif);color:#ffe3b0' }, 'No ' + MODES[S.mode].name + ' rooms yet. Tap Team Up to create one.'));
+    st.append(rgrid);
+    if (!shown.length) st.append(h('div', { class: 'abs', style: 'left:258px;top:156px;width:680px;text-align:center;font:400 22px var(--disp,sans-serif);color:#ffe3b0' }, 'No ' + MODES[S.mode].name + ' rooms yet. Tap Team Up to create one.'));
     // mode dropdown
     const dd = h('div', { class: 'dd', style: 'left:770px;top:62px' }, MODES[S.mode].name, h('span', null, '▾'));
     dd.onclick = () => {
@@ -221,9 +225,9 @@ const ArenaUI = (() => {
       const m = h('div', { class: 'ddm', style: 'left:770px;top:102px' }, ['free', 'league'].map(k => h('div', { onclick: () => { C.beep(); S.mode = k; lobby(); } }, MODES[k].name))); st.append(m);
     };
     st.append(dd);
-    st.append(chatBox(246, 366, 336));
-    st.append(btn('TEAM UP', 600, 384, 108, 56, teamUp, 'sm'), btn('SEARCH', 716, 384, 108, 56, () => { C.live.nudge(); C.toast('Rooms updated'); }, 'sm'), btn('START', 832, 380, 114, 62, quickStart, 'go'));
-    st.append(iconBar(612, 460, ['bag', 'friends', 'scroll', 'trophy', 'mail', 'gear']));
+    st.append(chatBox(246, 268, 520));   // big chat: fills the empty space under the (short) room list
+    st.append(btn('TEAM UP', 778, 272, 168, 44, teamUp, 'sm'), btn('SEARCH', 778, 320, 168, 44, () => { C.live.nudge(); C.toast('Rooms updated'); }, 'sm'), btn('START', 778, 368, 168, 56, quickStart, 'go'));
+    st.append(iconBar(778, 432, ['bag', 'friends', 'scroll', 'trophy', 'mail', 'gear'], true));
     mount(st); S.sig = sigOf();
   }
   async function teamUp() { if (await act('create', { slots: 2, mode: S.mode })) room(); }
