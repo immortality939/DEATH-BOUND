@@ -347,6 +347,7 @@ const ArenaUI = (() => {
     let res = null;
     try { res = await C.fight(r.match, { map, minShowMs: 3200, onStatus: stat, onControl: onCtl }); }
     catch (e) { C.toast('Could not start the fight' + (e && e.message ? ': ' + e.message : '.')); }
+    try { if (res && (res.win === true || res.win === false || res.draw) && !res.forfeit && C.quest) C.quest('arena', { mode: r.mode === 'league' ? 'league' : 'free', win: res.win === true }); } catch (e) { }   // QUESTS: a finished fight (win or lose) counts; leaving the fight does not
     // the fight is over (or could not start): tell the server we left the VS / fight screen, then show the room again
     S.view = null; S.sig = '';
     if (!el || !el.isConnected) return;

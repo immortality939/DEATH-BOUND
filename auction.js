@@ -141,7 +141,7 @@ const AuctionUI = (() => {
         busy = false; load();
       } }, 'Cancel sale') : chips() < l.price ? h('div', { class: 'wbtn off' }, 'Need ' + fmt(l.price - chips()) + ' more chips') : h('div', { class: 'wbtn', onclick: async () => {
         ctx.beep(); if (busy) return; if (chips() < l.price) return ctx.toast('Not enough chips.'); busy = true;
-        try { await ctx.api('auction/buy', { id: l.id }); Wallet.spend(l.price); ctx.toast(it.name + ' bought! Open the envelope to claim it.'); p.remove(); } catch (e) { fail(e); }
+        try { await ctx.api('auction/buy', { id: l.id }); Wallet.spend(l.price); try { ctx.quest && ctx.quest('auction_spend', { amount: l.price }); } catch (e) { } ctx.toast(it.name + ' bought! Open the envelope to claim it.'); p.remove(); } catch (e) { fail(e); }
         busy = false; load();
       } }, 'Buy for ' + fmt(l.price));
       p = wood(t, detail(it, l.qty, [
@@ -176,7 +176,7 @@ const AuctionUI = (() => {
             const n = k === 'mat' ? qty : 1; if (!removable(it, n)) return ctx.toast('You do not have it any more.');
             const lv = k === 'gear' ? Profile.lvl(it.id) : 0;   // read the upgrade BEFORE the item leaves the Bag
             busy = true;
-            try { await ctx.api('auction/post', { item: baseId(it.id), qty: n, price: pr, cur: 'chips', lvl: lv }); removeFromBag(it, n); ctx.toast(it.name + ' is on sale for ' + fmt(pr) + ' chips.'); p.remove(); view = 'mine'; }
+            try { await ctx.api('auction/post', { item: baseId(it.id), qty: n, price: pr, cur: 'chips', lvl: lv }); removeFromBag(it, n); try { ctx.quest && ctx.quest('auction_post'); } catch (e) { } ctx.toast(it.name + ' is on sale for ' + fmt(pr) + ' chips.'); p.remove(); view = 'mine'; }
             catch (e) { fail(e); }
             busy = false; load();
           } }, 'Post for sale'), h('div', { class: 'wbtn red', onclick: () => { ctx.beep(); pick = null; render(); } }, 'Back'))], upLv).childNodes);
@@ -221,12 +221,12 @@ const MailUI = (() => {
       const it = m.item ? H.IT(m.item) : null, open_ = sel === m.id;
       const pic = m.kind === 'chips' ? h('img', { src: 'assets/chip.png', alt: '' }) : it && it.img ? h('img', { src: it.img, alt: '' }) : h('div', { class: 'lg' }, '?');
       const r = h('div', { class: 'wiv' + (open_ ? ' sel' : ''), onclick: () => { ctx.beep(); sel = open_ ? null : m.id; draw(); } }, pic,
-        h('b', null, m.title, h('small', null, (it ? it.name + (m.lvl > 0 ? ' +' + m.lvl : '') + (m.qty > 1 ? ' ×' + H.fmt(m.qty) : '') : 'Unknown item') + (m.note ? ' · ' + m.note : ''))),
+        h('b', null, m.title, h('small', null, (it ? it.name + (m.lvl > 0 ? ' +' + m.lvl : '') + (m.qty > 1 ? ' ×' + H.fmt(m.qty) : '') : m.kind === 'chips' ? 'Chips' : 'Unknown item') + (m.note ? ' · ' + m.note : ''))),
         h('i', null, m.kind === 'chips' ? '+' + H.fmt(m.chips) : '×' + H.fmt(m.qty)));
       if (!open_) return h('div', { class: 'au-mrow' }, r);
       const claimBtn = h('div', { class: 'wbtn', onclick: () => { ctx.beep(); claim(m); } }, m.kind === 'chips' ? 'Claim ' + H.fmt(m.chips) + ' chips' : 'Claim');
       const det = m.kind === 'chips'
-        ? h('div', { class: 'idet' }, h('img', { src: 'assets/chip.png', alt: '', draggable: 'false' }), h('div', { class: 'in' }, H.fmt(m.chips) + ' chips'), h('p', null, (it ? it.name + (m.qty > 1 ? ' ×' + H.fmt(m.qty) : '') : 'Your item') + ' was sold. ' + (m.note || '')), h('div', { class: 'au-acts' }, claimBtn))
+        ? h('div', { class: 'idet' }, h('img', { src: 'assets/chip.png', alt: '', draggable: 'false' }), h('div', { class: 'in' }, H.fmt(m.chips) + ' chips'), h('p', null, (m.title && /^Quest/.test(m.title) ? '' : (it ? it.name + (m.qty > 1 ? ' ×' + H.fmt(m.qty) : '') : 'Your item') + ' was sold. ') + (m.note || '')), h('div', { class: 'au-acts' }, claimBtn))
         : it ? H.detail(it, m.qty, [h('p', { class: 'note' }, m.note || ''), h('div', { class: 'au-acts' }, claimBtn)], m.lvl) : h('div', { class: 'idet' }, h('p', null, 'This item is not in this version of the game yet.'));
       return h('div', { class: 'au-mrow' }, r, h('div', { class: 'au-mdet' }, det));
     }

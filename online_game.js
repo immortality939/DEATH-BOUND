@@ -211,12 +211,12 @@ const OnlineUI = (() => {
   const robotImg = (r, cls) => h('img', { src: 'assets/robots/front/' + r.id + '.webp', alt: '', class: cls || null });
 
   // ---------- separate ONLINE save (keys are prefixed while you are online) ----------
-  const GAME_KEYS = ['profile', 'chips', 'stones', 'amu', 'adv', 'wins', 'sup1', 'setup'];
+  const GAME_KEYS = ['profile', 'chips', 'stones', 'amu', 'adv', 'wins', 'sup1', 'setup', 'quests'];
   let ns = null, setupBackup = null, storePatched = false;
 
   // ---------- CLOUD SAVE: a copy of this character's progress lives on the server, tied to your code ----------
   // Items, chips, stones, level / XP and Adventure progress are uploaded while you play and loaded again when you log in on a new phone / after a re-install.
-  const CLOUD_KEYS = ['profile', 'chips', 'stones', 'sup1', 'adv', 'wins', 'stones2', 'stones3', 'stones4', 'stones5', 'amu1', 'amu2', 'amu3'];
+  const CLOUD_KEYS = ['profile', 'chips', 'stones', 'sup1', 'adv', 'wins', 'stones2', 'stones3', 'stones4', 'stones5', 'amu1', 'amu2', 'amu3', 'quests'];
   const Cloud = (() => {
     let ready = false, dirty = false, timer = 0, gen = 0, retry = 0, waiting = null;
     const tKey = () => 'rwo_cloudt_' + ns;
@@ -292,7 +292,7 @@ const OnlineUI = (() => {
     } catch (e) { }
   }
   function deactivateChar() {   // back to the OFFLINE save
-    if (!ns) return; Cloud.flush(true); ns = null; unpatchShop();
+    if (!ns) return; Cloud.flush(true); try { Quests.stop(); } catch (e) { } ns = null; unpatchShop();
     try { Profile.data = null; Profile.load(); if (setupBackup) UI.setup = JSON.parse(setupBackup); } catch (e) { } setupBackup = null;
   }
   function myInfo() {   // level + weapon + equipment, shown to other players
@@ -329,7 +329,7 @@ const OnlineUI = (() => {
           if (!mine) { if (!pmPeer) pmPeer = m.from; if (chatTab !== 'private') { pmUnread = true; toastMsg('PM from ' + m.from.name + ': ' + String(m.text).slice(0, 40)); } } }
         while (pmLog.length > 80) pmLog.shift(); if (got) redrawChats();
       }
-      if (j.notes && j.notes.length) { for (const n of j.notes) toastMsg(n); refreshFriends(); }
+      if (j.notes && j.notes.length) { for (const n of j.notes) { toastMsg(n); if (/^League contribution \+/.test(n)) questEv('league_contrib'); } refreshFriends(); }
       try { globalAlerts(j); } catch (e) { }
       subs.forEach(f => { try { f(j); } catch (e) { } });
     };
@@ -509,7 +509,7 @@ const OnlineUI = (() => {
     busy('Loading your saved progress...');
     const c = await Cloud.wait();   // a new phone / re-install gets its items, chips and level back from the server here
     if (!c.ok && !c.had) { toastMsg('Could not load your saved progress. Check your internet and try again.'); return serverList(); }   // never start a fresh empty save over a real one
-    mailN = 0; Live.start(curServer); refreshFriends(); town();
+    mailN = 0; Live.start(curServer); refreshFriends(); try { Quests.start(questCtx()); } catch (e) { } town();
   }
 
   // ---------- 5. TOWN ----------
@@ -546,6 +546,7 @@ const OnlineUI = (() => {
       btn('Exit', leave, 'alt sm'));
     const bar = h('div', { class: 'ibar' }, ICONS.map(ic => h('button', { 'aria-label': ic.name, onclick: () => { beep(); iconPop(ic); } }, h('img', { src: 'assets/online/i_' + ic.id + '.webp', alt: ic.name }))));
     set(h('div', { class: 'town' }, stage, top, chatBox(p), bar));
+    try { Quests.paint(); } catch (e) { }   // red number on the scroll icon when a quest is finished
   }
 
   // ---- chat box (design = assets/online/chat.webp). Tabs: All | League | Private. The tab pictures are small PNGs drawn on top of the chat picture (inside this file, so the app needs no new images) ----
@@ -849,7 +850,7 @@ const OnlineUI = (() => {
           h('div', { style: 'display:flex;gap:8px' },
             own ? h('div', { class: 'wbtn off' }, 'Already in your Bag') : can ? h('div', { class: 'wbtn', onclick: async () => {
               beep(); if (busy) return; busy = true;
-              try { const j = await lapi('buy', { item: pick }); Profile.data || Profile.load(); Profile.addCopy(pick); Profile.save(); if (data && data.mine) data.mine.contrib = j.contrib; toastMsg(it.name + ' is in your Bag!'); pick = null; busy = false; render(); draw(); load(); }
+              try { const j = await lapi('buy', { item: pick }); Profile.data || Profile.load(); Profile.addCopy(pick); Profile.save(); if (data && data.mine) data.mine.contrib = j.contrib; toastMsg(it.name + ' is in your Bag!'); questEv('league_shop'); pick = null; busy = false; render(); draw(); load(); }
               catch (e) { busy = false; if (e.status === 401) return expired(); toastMsg(e.message || 'Could not buy.'); }
             } }, 'Pay for contribution') : h('div', { class: 'wbtn off' }, 'Need ' + fmtL(cost - have()) + ' more'),
             h('div', { class: 'wbtn red', onclick: () => { beep(); pick = null; render(); } }, 'Cancel')));
@@ -867,6 +868,7 @@ const OnlineUI = (() => {
     if (ic.id === 'friends') return friendsPop();
     if (ic.id === 'mail') return openMail();   // the envelope: bought items / sale money wait here until you tap Claim
     if (ic.id === 'trophy') return hallPop();   // the trophy is the Hall of Fame (town, arena, adventure, league house)
+    if (ic.id === 'scroll') return openQuests();   // the scroll = Quests (quests_server.js)
     pop(ic.name, '');
   }
 
@@ -879,7 +881,7 @@ const OnlineUI = (() => {
       .then(code => { const s = document.createElement('script'); s.textContent = code + '\n//# sourceURL=' + file; document.head.appendChild(s); }).catch(e => { delete extraDone[file]; throw e; });
   }
   function arenaCtx() {
-    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo, fight: startFight, friends: () => friendList, friendsPop, hall: hallPop };
+    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo, fight: startFight, friends: () => friendList, friendsPop, hall: hallPop, quest: questEv };
   }
   async function startFight(match, cb) {   // ARENA FIGHT: the real battle between the players of a match (arena_fight.js, downloaded from GitHub like the arena itself)
     if (typeof MAP_RUNS === 'undefined' || !MAP_RUNS.colosseum) await loadExtra('arena_maps_runs.js');
@@ -918,9 +920,16 @@ const OnlineUI = (() => {
       i.textContent = mailN > 99 ? '99+' : String(mailN);
     });
   }
+  // ---- Quests (quests_server.js): the scroll icon. The Quests file watches the game (arena, adventure, forge, shop, auction, league) and sends the rewards to the envelope ----
+  function questCtx() {
+    return { h, beep, toast: toastMsg, expired, parent: () => root && root.firstChild, inLeague: () => !!myLg, nudge: () => { try { Live.nudge(); } catch (e) { } },
+      api: (p, b) => api('/api/' + p, Object.assign({ server: session.player.server || curServer }, b || {}), session.token) };
+  }
+  const questEv = (n, d) => { try { Quests.event(n, d); } catch (e) { } };
+  function openQuests() { try { Quests.open(); } catch (e) { toastMsg('Could not open the Quests.'); } }
   function auctionCtx() {
     return { h, beep, toast: toastMsg, expired, parent: () => root.firstChild, player: () => session.player,
-      badge: n => { mailN = n | 0; paintMailBadge(); },
+      badge: n => { mailN = n | 0; paintMailBadge(); }, quest: questEv,
       api: (p, b) => api('/api/' + p, Object.assign({ server: session.player.server || curServer }, myInfo(), b || {}), session.token) };
   }
   function loadFail(e, what) {   // say the REAL reason instead of always blaming the internet
@@ -954,7 +963,7 @@ const OnlineUI = (() => {
       if (!Wallet.spend(price)) { Snd.play('dud'); return; }
       this.msg = 'Sending ' + it.name + ' to your envelope...'; this.render();
       api('/api/mail/shop', { server: session.player.server || curServer, item: it.id, qty }, session.token)
-        .then(() => { Snd.play('win'); self.msg = 'Bought ' + it.name + (qty > 1 ? ' ×' + qty : '') + '! It is waiting in your envelope (Mail icon in the town).'; self.render(); Live.nudge(); })
+        .then(() => { Snd.play('win'); self.msg = 'Bought ' + it.name + (qty > 1 ? ' ×' + qty : '') + '! It is waiting in your envelope (Mail icon in the town).'; self.render(); Live.nudge(); questEv('shop_spend', { amount: price }); })
         .catch(e => { Wallet.add(price); Snd.play('dud'); self.msg = (e && e.message) || 'Could not send it. Your chips are back.'; self.render(); });
     };
   }
