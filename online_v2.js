@@ -46,6 +46,11 @@ window.OnlineUI = (() => {
     p.srcs.forEach((name, i) => { const s = d.createElement('script'); s.textContent = p.codes[i] + '\n//# sourceURL=' + name; d.head.appendChild(s); });
     if (w.eval('typeof OnlineUI') !== 'object') throw new Error('the online code did not start');
     w.dispatchEvent(new w.Event('load'));   // the files were added after the frame finished loading: give them the load event they wait for
+    try {   // small on-screen proof (6 seconds, top-left) that the online files came from GitHub
+      const m = d.createElement('div'); m.textContent = 'ONLINE FILES FROM GITHUB: ' + p.srcs.length + ' loaded (launcher v2)';
+      m.style.cssText = 'position:fixed;left:6px;top:6px;z-index:2147483647;background:rgba(0,0,0,.75);color:#7CFC8A;font:700 11px sans-serif;padding:3px 7px;border-radius:5px;pointer-events:none';
+      d.body.appendChild(m); setTimeout(() => { try { m.remove(); } catch (e) { } }, 6000);
+    } catch (e) { }
   }
 
   window.addEventListener('message', e => {   // online_game.js sends this when the player leaves online mode
