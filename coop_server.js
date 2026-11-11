@@ -17,9 +17,9 @@
      in    clock -> all   : my buttons / actions, stamped with a frame number
      hb    clock -> all   : "I am at frame F" (+ fingerprint)
      retry guest -> host / again host -> all : restart the stage after a defeat
-   TUNE: COOP_ENEMY_HP_PER_PLAYER below. */
+   TUNE: COOP_HP_FULL in adventure_server.js. */
 'use strict';
-const COOP_ENEMY_HP_PER_PLAYER = 1 / 3;   // offline you bring 3 robots, online each player brings 1. Enemy HP is scaled by (players x this), so 3 players = same as offline. Set to 0 to keep the offline HP.
+// Enemy and boss HP is FIXED in online Adventure: always COOP_HP_FULL (4 / 3 = the 4-player value, defined in adventure_server.js) x the table HP, whether 1, 2, 3 or 4 players are in the room.
 const COOP_COLORS = ['#4da3ff', '#5be37a', '#ffd24a', '#d38bff'];
 const COOP_STEP_MS = 1000 / 60;
 const COOP_GRACE = 36;   // frames at the start of every turn where the player cannot act yet (same on every phone): the phone that just finished its shot can keep going instead of waiting for the next player's phone
@@ -144,11 +144,11 @@ const Coop = (() => {
   function coopNewGame(setup, my, realNew) {
     const n = my.members.length, enemyIdx = n;
     const xs = setup.plan.filter(p => p.team === 0).map(p => p.x), enemies = setup.plan.filter(p => p.team === 1);
-    const scale = Math.max(0.2, n * COOP_ENEMY_HP_PER_PLAYER) || 1;
+    const scale = (typeof COOP_HP_FULL === 'number' && COOP_HP_FULL > 0) ? COOP_HP_FULL : 4 / 3;   // same HP for every room size
     const x0 = xs.length ? xs : [500, 620, 740];
     setup.teams = my.members.map(m => ({ cpu: false, robot: m.robot | 0 })).concat([setup.teams[1]]);
     setup.plan = my.members.map((m, k) => ({ team: k, x: k < x0.length ? x0[k] : x0[x0.length - 1] + 120 * (k - x0.length + 1), name: m.name }))
-      .concat(enemies.map(p => Object.assign({}, p, { team: enemyIdx, hp: COOP_ENEMY_HP_PER_PLAYER > 0 ? Math.max(1, Math.round(p.hp * scale)) : p.hp })));
+      .concat(enemies.map(p => Object.assign({}, p, { team: enemyIdx, hp: Math.max(1, Math.round(p.hp * scale)) })));
     setup.names = my.members.map(m => m.name).concat([setup.names[1]]);
     setup.colors = my.members.map((m, k) => COOP_COLORS[k % COOP_COLORS.length]).concat([setup.colors[1]]);
     setup.bonuses = my.members.map(m => m.bonus || null).concat([setup.bonuses[1]]);

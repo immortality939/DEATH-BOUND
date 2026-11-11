@@ -28,7 +28,7 @@ const AdvLobbyUI = (() => {
   const portraitOf = bs => { const k = bs && ((bs.sheet || '').match(/boss_(\w+?)_hold/) || [])[1]; return k ? 'assets/adventure/portrait/' + k + '.webp' : ''; };
   const myPower = () => { try { return Adventure.myPower() | 0; } catch (e) { return 0; } };
   const needOf = (M, d) => { try { return withDiff(d, () => Adventure.needPower(M)) | 0; } catch (e) { return 0; } };
-  const bossLine = (M, d) => { const bs = bossOf(M, d); if (!bs) return ''; try { return withDiff(d, () => 'Boss: ' + bs.bossName + '  |  ' + eHp(bs).toLocaleString() + ' HP  |  ' + (bs.def || 0) + '% armor'); } catch (e) { return 'Boss: ' + (bs.bossName || ''); } };
+  const bossLine = (M, d) => { const bs = bossOf(M, d); if (!bs) return ''; try { return withDiff(d, () => 'Boss: ' + bs.bossName + '  |  ' + Math.round(eHp(bs) * COOP_HP_FULL).toLocaleString() + ' HP  |  ' + (bs.def || 0) + '% armor'); } catch (e) { return 'Boss: ' + (bs.bossName || ''); } };
   function lootCell(e) {   // one loot picture (same data as the offline Adventure reward row)
     let img = '', nm = '', col = '#aab4cc';
     try {
