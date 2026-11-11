@@ -190,6 +190,7 @@ const OnlineUI = (() => {
 #olNotif .nb button.off{background:linear-gradient(#6b6b6b,#3a3a3a);border-color:#aaa}
 /* chat box (bottom left) + icon bar (bottom right) */
 #onl .chat{--cw:clamp(250px,37vw,500px);position:absolute;left:max(6px,env(safe-area-inset-left,0px));bottom:max(6px,env(safe-area-inset-bottom,0px));width:var(--cw);aspect-ratio:697/350;background:url(assets/online/chat.webp) 0 0/100% 100% no-repeat;z-index:10;font-size:calc(var(--cw)/40)}
+#onl.nochat .town .chat{display:none !important}   /* Settings: Chat box OFF */
 #onl .chat .t{position:absolute;top:4%;height:14%;cursor:pointer}
 #onl .chat .ti{position:absolute;top:3.4%;height:16%;pointer-events:none;-webkit-user-drag:none}
 #onl .chat .pdot{position:absolute;left:65.5%;top:1.5%;width:3.4%;aspect-ratio:1;border-radius:50%;background:#ff3b30;border:.15em solid #fff;display:none;pointer-events:none}
@@ -668,6 +669,7 @@ const OnlineUI = (() => {
       btn('Servers', serverList, 'alt sm'),
       btn('Exit', leave, 'alt sm'));
     const bar = h('div', { class: 'ibar' }, ICONS.map(ic => h('button', { 'aria-label': ic.name, onclick: () => { beep(); iconPop(ic); } }, h('img', { src: 'assets/online/i_' + ic.id + '.webp', alt: ic.name }))));
+    applyPrefs(true);   // Settings: volume, vibration, chat box, keep screen on
     set(h('div', { class: 'town' }, stage, top, chatBox(p), bar));
     try { Quests.paint(); } catch (e) { }   // red number on the scroll icon when a quest is finished
   }
@@ -991,6 +993,7 @@ const OnlineUI = (() => {
     if (ic.id === 'friends') return friendsPop();
     if (ic.id === 'mail') return openMail();   // the envelope: bought items / sale money wait here until you tap Claim
     if (ic.id === 'trophy') return hallPop();   // the trophy is the Hall of Fame (town, arena, adventure, league house)
+    if (ic.id === 'gear') return openSettings();   // Settings (settings.js)
     if (ic.id === 'scroll') return openQuests();   // the scroll = Quests (quests_server.js)
     pop(ic.name, '');
   }
@@ -1057,9 +1060,43 @@ const OnlineUI = (() => {
   }
   function loadFail(e, what) {   // say the REAL reason instead of always blaming the internet
     const m = String((e && e.message) || e || '');
-    if (/\b(404|403)\b/.test(m)) return 'Cannot open the ' + what + ': ' + m + ' - upload auction.js to GitHub next to online_v2.js.';
+    if (/\b(404|403)\b/.test(m)) return 'Cannot open the ' + what + ': ' + m + ' - upload the new .js files (auction.js, settings.js) to GitHub next to online_v2.js.';
     if (/failed to fetch|networkerror|load failed|aborted/i.test(m)) return 'Cannot open the ' + what + '. Check your internet.';
     return 'Cannot open the ' + what + ': ' + m.slice(0, 80);
+  }
+  // ---- Settings (settings.js, the gear icon). Saved on this phone; applied every time you enter online (town) and undone when you leave ----
+  const PREF_DEF = { vol: 50, vib: true, chat: true, awake: false };
+  const prefs = () => Object.assign({}, PREF_DEF, store.get('oprefs', {}) || {});
+  let volK = 1, vibOrig = null, sndWrapped = false, wake = null, wakeOn = false;
+  const setGain = () => { try { if (Snd.master) Snd.master.gain.value = Snd.muted ? 0 : 0.5 * volK; } catch (e) { } };
+  function applyPrefs(on) {   // on=false: back to the normal offline values
+    const p = on ? prefs() : PREF_DEF;
+    try {
+      if (!sndWrapped && typeof Snd !== 'undefined') { sndWrapped = true; const i0 = Snd.init.bind(Snd), m0 = Snd.setMute.bind(Snd); Snd.init = () => { i0(); setGain(); }; Snd.setMute = m => { m0(m); setGain(); }; }
+      volK = on ? Math.max(0, Math.min(100, +p.vol)) / 50 : 1; setGain();
+    } catch (e) { }
+    try { if (!vibOrig && navigator.vibrate) vibOrig = navigator.vibrate.bind(navigator); if (vibOrig) navigator.vibrate = p.vib ? vibOrig : () => false; } catch (e) { }
+    try { if (root) root.classList.toggle('nochat', on && !p.chat); } catch (e) { }
+    wakeOn = !!(on && p.awake);
+    try {
+      if (wakeOn && 'wakeLock' in navigator) { if (!wake) navigator.wakeLock.request('screen').then(l => { wake = l; l.addEventListener('release', () => { if (wake === l) wake = null; }); if (!wakeOn) { l.release(); } }).catch(() => { }); }
+      else if (wake) { wake.release(); wake = null; }
+    } catch (e) { }
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && wakeOn && !wake) applyPrefs(true); });
+  function settingsCtx() {
+    const c = auctionCtx(), p = session && session.player, r = p ? robotOf(p.robot) : null;
+    c.prefs = { get: prefs, set: (k, v) => { const o = prefs(); o[k] = v; store.set('oprefs', o); applyPrefs(true); } };
+    c.inTown = view === 'town'; c.actions = { code: () => showCode(store.get('ocode', 'Not saved on this phone - use your written copy'), false), servers: serverList, exit: leave };
+    c.me = p ? { name: p.name, server: p.server || curServer, img: r ? 'assets/robots/front/' + r.id + '.webp' : '', line: (r ? r.name + '  |  ' : '') + 'Power ' + (p.power || 0) } : null;
+    return c;
+  }
+  async function openSettings() {
+    try {
+      if (typeof SettingsUI === 'undefined') { toastMsg('Opening settings...'); await loadExtra('settings.js'); }
+      if (typeof SettingsUI === 'undefined') throw new Error('settings did not start');
+      SettingsUI.open(settingsCtx());
+    } catch (e) { toastMsg(loadFail(e, 'Settings')); }
   }
   async function openAuction() {
     try {
@@ -1125,7 +1162,7 @@ const OnlineUI = (() => {
     pop(b.name, b.text);
   }
   function expired() { Live.stop(); deactivateChar(); session = null; store.set('otoken', ''); welcome('Your session ended. Log in with your code.'); }
-  function close() { root.hidden = true; view = null; Live.stop(); deactivateChar(); restoreOfflineChar(); }
+  function close() { applyPrefs(false); root.hidden = true; view = null; Live.stop(); deactivateChar(); restoreOfflineChar(); }
   function leave() { close(); try { if (window.parent && window.parent !== window) window.parent.postMessage({ deathboundOnline: 'close' }, '*'); } catch (e) { } }   // this code runs inside its own frame (opened by online_v2.js): tell the app to remove the frame and show its menu again
 
   async function open() {
