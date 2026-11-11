@@ -56,6 +56,17 @@ const OnlineUI = (() => {
 #onl .sv .mine{display:flex;align-items:center;gap:6px;color:#fff;font-size:14px;max-width:100%}
 #onl .sv .mine img{width:30px;height:30px;object-fit:contain}
 #onl .sv .mine span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* server list = landscape scene: row of server cards on top of an animated chase (werewolf chasing robots on flat ground) */
+#onl .svscene{position:relative;width:100%;height:100%;overflow:hidden;background:#0a0814}
+#onl .svscene canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#onl .svui{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:clamp(6px,1.8vh,14px);padding:max(2.2vh,env(safe-area-inset-top,0px)) 12px 8px;box-sizing:border-box;pointer-events:none}
+#onl .svui > *{pointer-events:auto}
+#onl .svui h2{text-shadow:0 3px 0 #5a2a00,0 0 22px rgba(255,170,60,.55);font-size:clamp(22px,5.4vh,38px)}
+#onl .svui .sub{text-shadow:0 2px 6px #000;font-size:clamp(12px,2.8vh,17px)}
+#onl .svui .servers{grid-template-columns:repeat(5,1fr);width:min(96vw,1100px);gap:clamp(6px,1.4vw,14px)}
+#onl .svui .sv{background:rgba(14,12,34,.78);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);min-height:0;padding:clamp(8px,2.2vh,16px) 6px;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+#onl .svui .row{margin-top:0}
+@media (orientation:portrait){#onl .svui .servers{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}}
 /* robot picker */
 #onl .robots{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;width:min(96vw,900px)}
 #onl .rb{background:rgba(22,31,56,.92);border:2px solid rgba(255,255,255,.14);border-radius:12px;padding:6px 4px;cursor:pointer;text-align:center;color:#fff}
@@ -436,6 +447,107 @@ const OnlineUI = (() => {
       h('div', { class: 'row' }, btn('Copy code', cp, 'alt'), btn(first ? 'I saved it - continue' : 'Close', first ? serverList : (back === 'town' ? town : serverList))))));
   }
 
+
+  // ---------- server-list background: Shadow Werewolf chasing robots on a flat floor (canvas, uses the app's own pictures, stops by itself when the screen is left) ----------
+  const ChaseScene = (() => {
+    const WW = { CW: 320, CH: 240, AX: 150, FY: 226, COLS: 5, RUN: 4, DBL: 10 }, RB = { CELL: 192, COLS: 4, N: 8 };
+    const imgs = {}, load = src => imgs[src] || (imgs[src] = new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; }));
+    const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+    const feetOf = (img, cell, cols) => { try { const c = document.createElement('canvas'); c.width = c.height = cell; const x = c.getContext('2d'); x.drawImage(img, 0, 0, cell, cell, 0, 0, cell, cell); const d = x.getImageData(0, 0, cell, cell).data; for (let y = cell - 1; y >= 0; y--) for (let xx = 0; xx < cell; xx++) if (d[(y * cell + xx) * 4 + 3] > 40) return y; } catch (e) { } return cell * .85; };
+    let token = 0;
+    async function start(cv, robots) {
+      const my = ++token, ctx = cv.getContext('2d');
+      const pick = robots.map((r, i) => i).sort(() => Math.random() - .5).slice(0, 6);
+      const [wwI, sky, far, ...rbI] = await Promise.all([load('assets/adventure/boss_werewolf_act.webp'), load('assets/bg/b3_prism_sky.webp'), load('assets/bg/b3_prism_far.webp'), ...pick.map(i => load('assets/' + robots[i].sheet))]);
+      if (my !== token || !cv.isConnected) return;
+      const feet = rbI.map(im => im ? feetOf(im, RB.CELL) : 160);
+      let W = 0, H = 0, dpr = 1, u = 1, groundY = 0;
+      const fit = () => { dpr = Math.min(window.devicePixelRatio || 1, 1.5); const r = cv.getBoundingClientRect(); W = Math.max(2, r.width); H = Math.max(2, r.height); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); u = H / 886; groundY = H * .70; };
+      fit(); window.addEventListener('resize', fit);
+      // actors: x = ground position, ln = depth lane 0 (back) .. 1 (front)
+      const L = n => groundY + (H - groundY) * (.30 + .62 * n);
+      const bots = pick.map((ri, k) => ({ img: rbI[k], feet: feet[k], x: rnd(.35, .75) * W, dir: 1, sp: rnd(150, 200), ln: Math.random(), ln2: Math.random(), ph: rnd(0, 8), hop: 0, hopT: 0 }));
+      const wolf = { x: .15 * W, dir: 1, ph: 0, ln: .55, sp: 215, claw: -1, cool: 0, turnCd: 0, v: 0 };
+      const dust = []; const fogs = [{ x: .2, y: .55, s: 1 }, { x: .7, y: .62, s: 1.3 }];
+      let last = performance.now(), t0 = last;
+      function drawBg(t) {
+        const g = ctx.createLinearGradient(0, 0, 0, groundY); g.addColorStop(0, '#0d0a1e'); g.addColorStop(1, '#2a1740'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, groundY + 2);
+        if (sky) { ctx.globalAlpha = .85; ctx.drawImage(sky, 0, 0, sky.width, sky.height, 0, 0, W, groundY); ctx.globalAlpha = 1; }
+        const mg = ctx.createRadialGradient(W * .78, groundY * .32, 0, W * .78, groundY * .32, H * .5); mg.addColorStop(0, 'rgba(190,150,255,.55)'); mg.addColorStop(.25, 'rgba(120,80,210,.22)'); mg.addColorStop(1, 'rgba(80,40,160,0)'); ctx.fillStyle = mg; ctx.fillRect(0, 0, W, groundY);
+        ctx.fillStyle = '#e9ddff'; ctx.globalAlpha = .9; ctx.beginPath(); ctx.arc(W * .78, groundY * .32, H * .045, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+        if (far) { const fh = groundY * .5, fw = fh * far.width / far.height, off = (t * 4) % fw; ctx.globalAlpha = .9; for (let x = -off; x < W; x += fw) ctx.drawImage(far, x, groundY - fh + 3, fw, fh); ctx.globalAlpha = 1; }
+        // far rocky hills (drawn, so it works even if the picture is missing)
+        ctx.fillStyle = '#1a1030'; ctx.beginPath(); ctx.moveTo(0, groundY); for (let x = 0; x <= W; x += 20) ctx.lineTo(x, groundY - H * (.05 + .035 * Math.sin(x * .011) + .02 * Math.sin(x * .031 + 1))); ctx.lineTo(W, groundY); ctx.fill();
+        fogs.forEach((f, i) => { const fx = ((f.x + t * .004 * (i + 1)) % 1.4 - .2) * W, fy = groundY - H * .02, r = H * .35 * f.s, fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, r); fg.addColorStop(0, 'rgba(150,100,230,.16)'); fg.addColorStop(1, 'rgba(150,100,230,0)'); ctx.fillStyle = fg; ctx.fillRect(fx - r, fy - r, r * 2, r * 2); });
+        // flat floor
+        const fl = ctx.createLinearGradient(0, groundY, 0, H); fl.addColorStop(0, '#3a2a52'); fl.addColorStop(.08, '#241936'); fl.addColorStop(1, '#0d0816'); ctx.fillStyle = fl; ctx.fillRect(0, groundY, W, H - groundY);
+        ctx.fillStyle = 'rgba(190,150,255,.55)'; ctx.fillRect(0, groundY, W, Math.max(2, 3 * u));   // lit edge
+        ctx.save(); ctx.beginPath(); ctx.rect(0, groundY, W, H - groundY); ctx.clip();
+        ctx.lineCap = 'round'; for (let i = 0; i < 26; i++) { const sx = ((i * 197.3) % 1) * 0 + (i * 0.0382 % 1) * W, sy = groundY + ((i * 0.6180339) % 1) * (H - groundY), len = 40 * u + (i % 5) * 18 * u, pul = .5 + .5 * Math.sin(t * 1.4 + i); ctx.strokeStyle = 'rgba(255,' + (110 + (i % 3) * 25) + ',40,' + (.18 + .22 * pul).toFixed(3) + ')'; ctx.lineWidth = (1.5 + (i % 3)) * u; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + len * .5, sy + 5 * u); ctx.lineTo(sx + len, sy - 3 * u); ctx.stroke(); }
+        ctx.restore();
+      }
+      function shadow(x, y, w) { ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(x, y, w, w * .16, 0, 0, 7); ctx.fill(); }
+      function puff(x, y, d) { if (Math.random() < .5) dust.push({ x: x - d * 14 * u, y: y - 3 * u, vx: -d * rnd(10, 40), vy: -rnd(10, 30), a: .35, r: rnd(4, 9) * u }); }
+      function drawBot(b, y, sc) {
+        if (!b.img) return; const f = Math.floor(b.ph) % RB.N, cx = (f % RB.COLS) * RB.CELL, cy = Math.floor(f / RB.COLS) * RB.CELL, s = sc * u * 1.05, d = RB.CELL * s;
+        ctx.save(); ctx.translate(b.x, y - b.hop); if (b.dir < 0) ctx.scale(-1, 1); ctx.drawImage(b.img, cx, cy, RB.CELL, RB.CELL, -d / 2, -b.feet * s, d, d); ctx.restore();
+      }
+      function drawWolf(y) {
+        if (!wwI) return; const f = wolf.claw >= 0 ? WW.DBL + Math.min(5, Math.floor(wolf.claw * 6)) : WW.RUN + Math.floor(wolf.ph) % 6, cx = (f % WW.COLS) * WW.CW, cy = Math.floor(f / WW.COLS) * WW.CH, s = 1.12 * u;
+        ctx.save(); ctx.translate(wolf.x, y); if (wolf.dir < 0) ctx.scale(-1, 1); ctx.drawImage(wwI, cx, cy, WW.CW, WW.CH, -WW.AX * s, -WW.FY * s, WW.CW * s, WW.CH * s); ctx.restore();
+      }
+      function frame(now) {
+        if (my !== token || !cv.isConnected) { window.removeEventListener('resize', fit); return; }
+        requestAnimationFrame(frame); if (document.hidden) { last = now; return; }
+        const dt = Math.min(.05, (now - last) / 1000); last = now; const t = (now - t0) / 1000, k = u * 1;
+        const m = W * .06;
+        // robots flee from the wolf; at the edge they turn around, change lane and run back past him
+        let near = null, nd = 1e9;
+        bots.forEach(b => {
+          const away = Math.sign(b.x - wolf.x) || 1, edgeL = b.x < m, edgeR = b.x > W - m;
+          b.turnCd = (b.turnCd || 0) - dt;
+          if (b.turnCd <= 0) {
+            if ((edgeR && b.dir > 0) || (edgeL && b.dir < 0)) { b.dir = -b.dir; b.turnCd = 1.2; b.ln2 = Math.random(); }
+            else if (Math.abs(b.x - wolf.x) < W * .3 && b.dir !== away && !(edgeL || edgeR)) { b.dir = away; b.turnCd = 1.0; }
+          }
+          b.ln += (b.ln2 - b.ln) * dt * 1.2;
+          const sprint = 1 + .25 * Math.max(0, 1 - Math.abs(b.x - wolf.x) / (W * .25));
+          const v = b.sp * k * sprint; b.x += b.dir * v * dt; b.ph += v * dt / (34 * k) * 1; b.ph = b.ph % 8;
+          if (b.hopT > 0) { b.hopT -= dt; b.hop = Math.sin(clamp(1 - b.hopT / .5, 0, 1) * Math.PI) * 60 * k; } else b.hop = 0;
+          const d = Math.abs(b.x - wolf.x); if (d < nd) { nd = d; near = b; }
+          if (d < 140 * k && b.hopT <= 0 && wolf.claw >= 0) b.hopT = .5;
+          if (Math.random() < dt * 14) puff(b.x, L(b.ln), b.dir);
+        });
+        // wolf: always runs at the closest robot, turns with a short delay, claws when close
+        wolf.turnCd -= dt; wolf.cool -= dt;
+        if (near) {
+          const dx = near.x - wolf.x, want = Math.sign(dx) || wolf.dir;
+          if (want !== wolf.dir && wolf.turnCd <= 0 && Math.abs(dx) > 60 * k) { wolf.dir = want; wolf.turnCd = .7; }
+          wolf.ln += (near.ln - wolf.ln) * dt * 2;
+          if (wolf.claw >= 0) { wolf.claw += dt / .5; if (wolf.claw >= 1) wolf.claw = -1; }
+          else if (Math.abs(dx) < 170 * k && wolf.cool <= 0 && want === wolf.dir) { wolf.claw = 0; wolf.cool = 2.2; }
+          const surge = .5 + .5 * Math.sin(t * .8), tv = wolf.claw >= 0 ? wolf.sp * .45 : wolf.sp * (.9 + .35 * surge);
+          wolf.v += (tv - wolf.v) * Math.min(1, dt * 4);
+          if (!(Math.abs(dx) < 50 * k && wolf.claw < 0)) wolf.x += wolf.dir * wolf.v * k * dt;
+          wolf.ph = (wolf.ph + wolf.v * k * dt / (450 * k) * 6) % 6;
+        }
+        wolf.x = clamp(wolf.x, -W * .05, W * 1.05);
+        for (let i = dust.length - 1; i >= 0; i--) { const p = dust[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.a -= dt * .6; p.r += dt * 8 * k; if (p.a <= 0) dust.splice(i, 1); }
+        if (Math.random() < dt * 20 && wolf.claw < 0) puff(wolf.x, L(wolf.ln), wolf.dir);
+        // draw
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H); drawBg(t);
+        const list = bots.map(b => ({ y: L(b.ln), z: b.ln, b })); list.push({ y: L(wolf.ln), z: wolf.ln, w: 1 }); list.sort((a, b) => a.y - b.y);
+        list.forEach(o => { if (o.w) { shadow(wolf.x, o.y, 90 * k); drawDustBefore(); drawWolf(o.y); } else { shadow(o.b.x, o.y, 42 * k * (.85 + .15 * o.z)); drawBot(o.b, o.y, .85 + .15 * o.z); } });
+        function drawDustBefore() { }
+        dust.forEach(p => { ctx.fillStyle = 'rgba(190,160,230,' + clamp(p.a, 0, 1).toFixed(3) + ')'; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill(); });
+        // vignette so the cards and title stay readable
+        const vg = ctx.createLinearGradient(0, 0, 0, H * .55); vg.addColorStop(0, 'rgba(5,3,14,.55)'); vg.addColorStop(1, 'rgba(5,3,14,0)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H * .55);
+      }
+      requestAnimationFrame(frame);
+    }
+    return { start };
+  })();
+
   // ---------- 2. Server 1 .. 5 ----------
   // The server answers {servers:[{id,players,mine:{name,robot}|null}]}. If the server does not have /api/servers yet, 5 plain servers are shown.
   const localChars = () => store.get('ochars', {});
@@ -452,9 +564,12 @@ const OnlineUI = (() => {
         h('div', { class: 'on' }, 'Online: ', h('b', null, s.players != null ? s.players : '--')),
         st ? h('div', { class: 'st', style: 'color:' + st[1] }, h('i', { style: 'background:' + st[1] }), st[0]) : null);
     });
-    set(h('div', { class: 'center' }, h('h2', { style: 'margin:0' }, 'Choose a server'), h('p', { class: 'sub' }, 'Each server has its own players. A new server means a new character.  (v2)'),
+    const cv = h('canvas');
+    set(h('div', { class: 'svscene' }, cv, h('div', { class: 'svui' }, h('h2', { style: 'margin:0' }, 'Choose a server'), h('p', { class: 'sub' }, 'Each server has its own players. A new server means a new character.  (v2)'),
       h('div', { class: 'servers' }, cells), h('div', { class: 'err' }, err || ''),
-      h('div', { class: 'row' }, btn('My code', () => showCode(store.get('ocode', 'Not saved on this phone - use your written copy'), false), 'alt'), btn('Back', leave, 'alt'))));
+      h('div', { class: 'row' }, btn('My code', () => showCode(store.get('ocode', 'Not saved on this phone - use your written copy'), false), 'alt'), btn('Back', leave, 'alt')))));
+    try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => { }); } catch (e) { }
+    ChaseScene.start(cv, robots());
   }
   async function pickServer(s) {
     curServer = s.id;
