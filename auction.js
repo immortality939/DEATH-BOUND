@@ -116,7 +116,7 @@ const AuctionUI = (() => {
     const mine = () => ((data && data.listings) || []).filter(l => l.mine);
     function draw() {
       const sc = list.scrollTop;
-      stats.replaceChildren(h('div', { class: 'lgs gold' }, h('span', null, 'My Chips'), h('b', null, fmt(chips()))), h('div', { class: 'lgs' }, h('span', null, 'On sale'), h('b', null, mine().length + '/' + ((data && data.max) || 10))));
+      stats.replaceChildren(h('div', { class: 'lgs gold' }, h('span', null, 'My Chips'), h('b', null, fmt(chips()))), h('div', { class: 'lgs' }, h('span', null, 'On sale'), h('b', null, mine().length + '/' + ((data && data.max) || 30))));
       tabs.replaceChildren(h('div', { class: 'wbtn' + (tab === 'chips' ? ' on' : ''), onclick: () => { ctx.beep(); tab = 'chips'; draw(); } }, 'Chips'),
         h('div', { class: 'wbtn off', onclick: () => { ctx.beep(); ctx.toast('Coins are coming soon.'); } }, 'Coins (soon)'));
       sub.replaceChildren(h('div', { class: 'wbtn' + (view === 'buy' ? ' on' : ''), onclick: () => { ctx.beep(); view = 'buy'; draw(); } }, 'Buy'),
