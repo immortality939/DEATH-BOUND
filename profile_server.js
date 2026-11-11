@@ -127,7 +127,7 @@ const SHOP_WEAPON_ITEMS = WEAPONS.filter(w => w.shop).map(w => ({ id: w.shop, im
 // ---- 80 extra Shop gear pieces (20 helmets, 20 armors, 20 rings, 20 shoes). Sold in the Shop only: they never drop from Adventure loot. ----
 const SHOP_GEAR_ITEMS = [
   { id: 'h_ironpot', img: 'assets/items/h_ironpot.png', name: "Crusader Helm", type: 'helmet', rar: 'common', stats: { hp: 4, def: 2 }, desc: "A golden cross down the visor.", shop: true },
-  { id: 'h_scrapcrest', img: 'assets/items/h_scrapcrest.png', name: "Spartan Helm", type: 'helmet', rar: 'common', stats: { hp: 7, def: 2, agi: 2 }, desc: "Red crest and a golden face guard.", shop: true },
+  { id: 'h_scrapcrest', img: 'assets/items/h_scrapcrest.png', name: "Spartan Helm", type: 'helmet', rar: 'common', stats: { hp: 10, def: 2, agi: 2 }, desc: "Red crest and a golden face guard.", shop: true },
   { id: 'h_ragcowl', img: 'assets/items/h_ragcowl.png', name: "Ronin Straw Hat", type: 'helmet', rar: 'common', stats: { hp: 4, def: 2 }, desc: "Wide straw hat and a grey face wrap.", shop: true },
   { id: 'h_boneguard', img: 'assets/items/h_boneguard.png', name: "Bone Guard", type: 'helmet', rar: 'common', stats: { hp: 4, def: 3 }, desc: "Rattles when you run. Intimidating.", shop: true },
   { id: 'h_oneeyed', img: 'assets/items/h_oneeyed.png', name: "Robo Visor Helm", type: 'helmet', rar: 'common', stats: { hp: 4, def: 2 }, desc: "White plating with a glowing blue visor.", shop: true },
@@ -318,7 +318,7 @@ const Stones = {   // 5 kinds of upgrade stones (STONE_TYPES): Adventure loot ca
 };
 
 const Profile = {
-  data: null, sel: null, tab: 'equip', filter: 'all', msg: null, stoneSel: 1, mode: 'main', pickSel: 0, pickKind: 'first', after: null,   // sel = selected item id; filter = inventory tab; mode = 'main' | 'pick' (character select)
+  data: null, sel: null, pop: false, tab: 'equip', filter: 'all', msg: null, stoneSel: 1, mode: 'main', pickSel: 0, pickKind: 'first', after: null,   // sel = selected item id; filter = inventory tab; mode = 'main' | 'pick' (character select)
   load() {
     const raw = store.get('profile', null), d = raw || {};
     const fresh = !Array.isArray(d.owned) && !d.lootV;   // brand-new save: start with 4 basic items, buy or win the rest
@@ -459,7 +459,7 @@ const Profile = {
     const root = $('profile'); if (this.mode === 'pick') { this.renderPick(root); return; }
     const D = this.data, R = Assets.robots.robots, rob = R[D.char], eq = this.eqOf(rob.id);
     const worn = new Set(Object.values(this.data.eq).flatMap(o => Object.values(o)));
-    const selIt = this.sel ? itemById(this.sel) : null;
+    const selIt = this.sel ? itemById(this.sel) : null; const n1 = v => String(Math.round((+v || 0) * 10) / 10);
     const tot = this.bonuses(D.char), lv = this.level(), xpN = lv >= LVL_MAX ? 0 : xpNeed(lv), xpPct = lv >= LVL_MAX ? 100 : Math.round((D.xp | 0) / xpN * 100);
     const wIt = itemById(eq.weapon), wL = wIt ? this.lvl(wIt.id) : 0, wDmg = wIt ? fmtN(statsAt(wIt, wL).dmg) : '-';
     const slotHTML = key => {
@@ -480,7 +480,7 @@ const Profile = {
     const itotal = Math.max(INV_CELLS, Math.ceil(mats.length / 4) * 4); let icells = '';
     for (let i = 0; i < itotal; i++) { const o = mats[i]; icells += o ? `<div class="pf-cell${o.it.id === this.sel ? ' sel' : ''}" data-item="${o.it.id}">${this.itemTile(o.it, `<s class="cnt">×${cnt(o.n)}</s>`)}</div>` : '<div class="pf-cell off"></div>'; }
     // right column: details of the selected item (upgrading is done in the Forge)
-    let side = '<div class="pf-det"><p class="dim">Tap an item to see it. Equip it here: drag it onto its slot, or double-tap it. To upgrade it, tap the Forge anvil at the top.</p></div>';
+    let side = '';
     if (selIt && selIt.type === 'mat') {
       const n = Mats.get(selIt);
       side = `<div class="pf-det" style="--rc:${selIt.col}"><img class="big" src="${selIt.img}" alt="" draggable="false"><h3>${selIt.name} <i>${selIt.tag}</i></h3><div class="st"><span class="pos">${selIt.line}</span></div><p class="dim">${selIt.desc}</p><p class="dim">You have <b>${n.toLocaleString()}</b>. Buy more in the Shop.</p><div class="row"><button class="btn sm" data-act="forge">Open Forge</button></div></div>`;
@@ -502,25 +502,26 @@ const Profile = {
         <div class="pf-eq"><div class="pf-name">${rob.name}<small>Lv ${lv} · weapon ${wDmg} dmg${wL ? ' (+' + wL + ')' : ''}</small><span class="pf-pw">Power: <b>${powerOf(tot)}</b></span></div>
           <div class="pf-grid">${slotHTML('helmet')}${slotHTML('armor')}${slotHTML('shoes')}<div class="pf-port g-port">${frontSVG(rob.id)}</div>${slotHTML('ring1')}${slotHTML('ring2')}${slotHTML('weapon')}${slotHTML('heal')}${slotHTML('wings')}${slotHTML('neck')}${slotHTML('glove')}</div>
           <div class="pf-tot pf-char"><div class="pf-lv"><b>Level ${lv}${lv >= LVL_MAX ? ' (MAX)' : ''}</b><span>${lv >= LVL_MAX ? '' : (D.xp | 0) + ' / ' + xpN + ' XP'}</span></div><div class="pf-xpbar"><i style="width:${xpPct}%"></i></div>
-            <small>Attributes (+${PTS_PER_LVL} each level, gear included)</small><div class="pf-at"><span>Vitality <b>${tot.vit}</b></span><span>Agility <b>${tot.agi}</b></span><span>Dexterity <b>${tot.dex}</b></span><span>Luck <b>${tot.luk}</b></span></div>
-            <small>Stats</small><div class="pf-at"><span>Health <b>${100 + tot.hp}</b></span><span>Damage <b>${fmtN(tot.dmg)}</b></span><span>Defense <b>${tot.def}</b> <small>(${defPct(tot).toFixed(1)}% blocked)</small></span><span>Crit Damage <b>${tot.cdm}%</b></span><span>Crit Chance <b>${tot.crt}%</b></span></div></div></div>
+            <small>Attributes (+${PTS_PER_LVL} each level, gear included)</small><div class="pf-list">${[['Vitality', tot.vit], ['Agility', tot.agi], ['Dexterity', tot.dex], ['Luck', tot.luk]].map(r => `<div class="pf-row"><span>${r[0]}</span><b>${n1(r[1])}</b></div>`).join('')}</div>
+            <small>Stats</small><div class="pf-list"><div class="pf-row"><span>Health</span><b>${n1(100 + tot.hp)}</b></div><div class="pf-row"><span>Damage</span><b>${fmtN(tot.dmg)}</b></div><div class="pf-row"><span>Defense <em>(${defPct(tot).toFixed(1)}% blocked)</em></span><b>${n1(tot.def)}</b></div><div class="pf-row"><span>Crit Damage</span><b>${n1(tot.cdm)}%</b></div><div class="pf-row"><span>Crit Chance</span><b>${n1(tot.crt)}%</b></div></div></div></div></div>
         <div class="pf-inv"><div class="pf-itabs"><button class="pf-itab${this.tab === 'equip' ? ' on' : ''}" data-itab="equip">Equipment <span>${owned.length}/${allOwned.length}</span></button><button class="pf-itab${this.tab === 'items' ? ' on' : ''}" data-itab="items">Items <span>${mats.length}</span></button></div>${inv}<div class="pf-foot">${Wallet.badge()}</div></div>
-        <div class="pf-side">${side}</div>
-      </div></div>`;
-    $('bPfBack').onclick = () => { this.msg = null; UI.show('title'); };
+      </div>${side && this.pop ? `<div class="pf-pop" id="pfPop"><div class="pf-popc"><button class="pf-x" id="pfX" aria-label="Close">&#10005;</button>${side}</div></div>` : ''}</div>`;
+    $('bPfBack').onclick = () => { this.msg = null; this.pop = false; UI.show('title'); };
+    const closePop = () => { this.pop = false; this.sel = null; this.render(); };
+    if ($('pfPop')) { $('pfPop').onclick = e => { if (e.target === $('pfPop')) closePop(); }; $('pfX').onclick = closePop; }
     $('pfHammer').onclick = () => { Snd.play('beep'); Forge.open(selIt && selIt.type !== 'mat' && !selIt.potion && !selIt.noUp ? selIt.id : null); };
-    root.querySelectorAll('[data-itab]').forEach(e => e.onclick = () => { this.tab = e.dataset.itab; this.sel = null; this.render(); });
+    root.querySelectorAll('[data-itab]').forEach(e => e.onclick = () => { this.tab = e.dataset.itab; this.sel = null; this.pop = false; this.render(); });
     root.querySelectorAll('[data-tab]').forEach(e => e.onclick = () => { this.filter = e.dataset.tab; this.render(); });
     // inventory cells: tap = select, double-tap = equip, drag onto a slot = equip (all handled by initDrag below)
     root.querySelectorAll('[data-slot]').forEach(e => e.onclick = () => {
       const key = e.dataset.slot, cur = eq[key], s = SLOTS.find(x => x.key === key);
-      if (selIt && selIt.type === s.type && s.type !== 'weapon' && cur !== selIt.id) { this.equip(selIt.id, key); }
-      else if (cur) { this.sel = this.sel === cur ? null : cur; this.tab = 'equip'; this.msg = null; }
+      if (selIt && selIt.type === s.type && s.type !== 'weapon' && cur !== selIt.id) { this.equip(selIt.id, key); this.pop = false; }
+      else if (cur) { this.sel = cur; this.pop = true; this.tab = 'equip'; this.msg = null; }
       this.render();
     });
-    root.querySelectorAll('[data-act]').forEach(e => e.onclick = () => { const a = e.dataset.act; if (a === 'sell') { this.doSell(); this.render(); return; } if (a === 'forge') { Forge.open(selIt && selIt.type !== 'mat' ? selIt.id : null); return; } if (a === 'eq') this.equip(this.sel); else if (a === 'un') this.unequip(this.sel); this.render(); });
+    root.querySelectorAll('[data-act]').forEach(e => e.onclick = () => { const a = e.dataset.act; if (a === 'sell') { this.doSell(); this.pop = !!this.sel; this.render(); return; } if (a === 'forge') { Forge.open(selIt && selIt.type !== 'mat' ? selIt.id : null); return; } if (a === 'eq') { this.equip(this.sel); this.pop = false; } else if (a === 'un') { this.unequip(this.sel); this.pop = false; } this.render(); });
   },
-  open() { this.load(); this.mode = 'main'; this.sel = null; this.msg = null; this.render(); UI.show('profile'); },
+  open() { this.load(); this.mode = 'main'; this.sel = null; this.pop = false; this.msg = null; this.render(); UI.show('profile'); },
   // ---- inventory: tap = select, double-tap = equip in its own slot, drag onto a slot = equip there (one set of listeners; the screen is re-drawn often) ----
   initDrag() {
     const root = $('profile'); let st = null, last = { id: '', t: 0 };
@@ -555,15 +556,15 @@ const Profile = {
         if (t && t.classList.contains('pf-port')) ok = true;
         else if (t) { const d = SLOTS.find(x => x.key === t.dataset.slot); if (d && d.type === it.type) { ok = true; key = d.key; } }
         if (ok) { this.equip(it.id, key); this.sel = it.id; Snd.play('pick'); } else if (t) Snd.play('dud');
-        this.msg = null; this.render(); return;
+        this.msg = null; this.pop = false; this.render(); return;
       }
       if (s.moved) return;
       const now = performance.now();
       if (last.id === s.id && now - last.t < 380) {   // double-tap: equip in the designated slot (rings take the free ring slot)
-        last = { id: '', t: 0 }; const w = this.wornBy(s.id);
+        clearTimeout(this._pt); this.pop = false; last = { id: '', t: 0 }; const w = this.wornBy(s.id);
         if (s.can && !(w && w.rid === this.charId())) { this.equip(s.id); Snd.play('pick'); }
         this.sel = s.id;
-      } else { last = { id: s.id, t: now }; this.sel = this.sel === s.id ? null : s.id; }
+      } else { last = { id: s.id, t: now }; this.sel = s.id; clearTimeout(this._pt); this._pt = setTimeout(() => { if (this.sel === s.id && this.mode === 'main') { this.pop = true; this.render(); } }, 340); }   // single tap: the item's stats + description pop up
       this.msg = null; this.render();
     });
     window.addEventListener('pointercancel', () => clear());

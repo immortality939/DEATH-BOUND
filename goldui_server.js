@@ -117,13 +117,50 @@
 #forge .fg-slot.big{border-color:#ffc23a;box-shadow:inset 0 0 22px rgba(255,170,40,.3),0 0 22px rgba(255,150,30,.45),0 0 0 3px rgba(8,8,26,.85)}
 #forge .fg-cell.sel{box-shadow:0 0 0 2px #ffc23a,0 0 12px rgba(255,170,40,.85)}
 
-/* ---------- SHOP screen: plain dark wood floor + dark wood borders (assets/online/ui/wood_dark_tile.png, frame_wood_dark.png) ---------- */
-#shop{background:url(assets/online/ui/wood_dark_tile.png) 0 0/256px 256px repeat #140c08}
-#shop .panel.shop{border-radius:12px;clip-path:none;background:linear-gradient(rgba(10,6,4,.35),rgba(10,6,4,.5)),url(assets/online/ui/wood_dark_tile.png) 0 0/256px 256px repeat;
+/* ---------- SHOP + PROFILE: plain dark wood floor + dark wood borders (assets/online/ui/wood_dark_tile.png, frame_wood_dark.png); cells / slots / portrait = brown wood (wood_tile.png) ---------- */
+#shop,#profile{background:url(assets/online/ui/wood_dark_tile.png) 0 0/256px 256px repeat #140c08}
+#shop .panel.shop,#profile .panel.pf{border-radius:12px;clip-path:none;background:linear-gradient(rgba(10,6,4,.35),rgba(10,6,4,.5)),url(assets/online/ui/wood_dark_tile.png) 0 0/256px 256px repeat;
   box-shadow:0 8px 30px rgba(0,0,0,.65)}
-#shop .panel.shop::after{border-image:url(assets/online/ui/frame_wood_dark.png) 30 / 22px stretch}
-#shop .pf-det,#shop .pf-up,#shop .pf-tot{border-radius:8px;clip-path:none;background:linear-gradient(rgba(8,5,3,.55),rgba(8,5,3,.72)),url(assets/online/ui/wood_dark_tile.png) 0 0/256px 256px repeat}
-#shop .pf-det::after,#shop .pf-up::after,#shop .pf-tot::after{border-image:url(assets/online/ui/frame_wood_dark.png) 30 / 12px stretch}
+#shop .panel.shop::after,#profile .panel.pf::after{border-image:url(assets/online/ui/frame_wood_dark.png) 30 / 22px stretch}
+#shop .pf-det,#shop .pf-up,#shop .pf-tot,#profile .pf-det,#profile .pf-up,#profile .pf-tot{border-radius:8px;clip-path:none;background:linear-gradient(rgba(8,5,3,.55),rgba(8,5,3,.72)),url(assets/online/ui/wood_dark_tile.png) 0 0/256px 256px repeat}
+#shop .pf-det::after,#shop .pf-up::after,#shop .pf-tot::after,#profile .pf-det::after,#profile .pf-up::after,#profile .pf-tot::after{border-image:url(assets/online/ui/frame_wood_dark.png) 30 / 12px stretch}
+/* brown wood behind every item cell, equipment slot and the character (no more light blue) */
+#shop .pf-cell,#shop .pf-slot,#profile .pf-cell,#profile .pf-slot,#profile .pf-port{
+  background:linear-gradient(rgba(22,11,5,.10),rgba(22,11,5,.34)),url(assets/online/ui/wood_tile.png) 0 0/170px 170px repeat !important}
+#profile .pf-port{background:radial-gradient(circle at 50% 42%,rgba(255,214,140,.28),rgba(22,11,5,.0) 70%),linear-gradient(rgba(22,11,5,.05),rgba(22,11,5,.30)),url(assets/online/ui/wood_tile.png) 0 0/170px 170px repeat !important}
+#shop .pf-cell.sel,#profile .pf-cell.sel,#profile .pf-slot.sel{background:linear-gradient(rgba(255,196,70,.34),rgba(255,150,30,.14)),url(assets/online/ui/wood_tile.png) 0 0/170px 170px repeat !important}
+#profile .pf-slot.can{background:linear-gradient(rgba(255,196,70,.26),rgba(255,150,30,.10)),url(assets/online/ui/wood_tile.png) 0 0/170px 170px repeat !important}
+#shop .pf-cell.off,#profile .pf-cell.off{background:linear-gradient(rgba(10,5,2,.62),rgba(10,5,2,.62)),url(assets/online/ui/wood_tile.png) 0 0/170px 170px repeat !important}
+#shop .pf-it,#profile .pf-it{background:rgba(24,12,6,.30)}
+#shop .pf-it b,#profile .pf-it b{text-shadow:0 1px 2px #000,0 0 4px rgba(0,0,0,.7)}
+#profile .pf-slot>small{color:#fff0c8;text-shadow:0 1px 2px #000}
+#shop .pf-it .lv,#profile .pf-it .lv,#shop .pf-it .cnt,#profile .pf-it .cnt,#profile .pf-cell .cnt{background:#1b0f08}
+
+/* ---------- PROFILE layout: stats one per line, inventory wide like the Shop, item details in a popup ---------- */
+#profile .pf-main{grid-template-columns:auto minmax(0,1fr)}
+#profile .pf-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+#profile .pf-tabs::-webkit-scrollbar{display:none}
+#profile .pf-tab{flex:0 0 auto;white-space:nowrap}
+#profile .pf-cells{grid-template-columns:repeat(auto-fill,minmax(clamp(92px,13vw,120px),1fr));grid-auto-rows:clamp(100px,29vh,124px);gap:8px;overflow-y:auto;overflow-x:hidden}
+#profile .pf-cell .pf-it img{width:clamp(38px,11.5vh,56px);height:clamp(38px,11.5vh,56px)}
+#profile .pf-cell .pf-it b{font-size:11px}
+.pf-list{display:flex;flex-direction:column;margin:2px 0 6px}
+.pf-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:3px 2px;border-bottom:1px solid rgba(255,214,140,.16);font-size:13px;color:#ead9b8}
+.pf-row:last-child{border-bottom:0}
+.pf-row b{color:#fff;font-weight:800;text-align:right}
+.pf-row em{font-style:normal;font-size:10px;color:#b89c6e;margin-left:4px}
+#profile .pf-tot small{color:#e0b860}
+.pf-pop{position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.62);padding:10px;box-sizing:border-box;animation:pfpop .15s ease-out both}
+@keyframes pfpop{from{opacity:0}to{opacity:1}}
+.pf-popc{position:relative;width:min(88%,470px);max-height:100%;overflow-y:auto;box-sizing:border-box;border-radius:10px;
+  background:linear-gradient(rgba(8,5,3,.5),rgba(8,5,3,.7)),url(assets/online/ui/wood_dark_tile.png) 0 0/256px 256px repeat;border:14px solid transparent;border-image:url(assets/online/ui/frame_wood_dark.png) 30 / 14px stretch;box-shadow:0 10px 40px rgba(0,0,0,.8)}
+.pf-popc .pf-det{background:none !important;margin:0;padding:4px 8px 6px;clip-path:none}
+.pf-popc .pf-det::after{display:none}
+.pf-popc .pf-det .big{width:76px !important;height:76px !important}
+.pf-popc .pf-det h3{font-size:18px !important}
+.pf-popc .pf-det .st{font-size:15px !important}
+.pf-popc .pf-det .dim{font-size:13px !important}
+.pf-x{position:absolute;top:-8px;right:-8px;z-index:3;width:30px;height:30px;border-radius:50%;border:2px solid #ffc23a;background:#2a160a;color:#ffe08a;font:800 14px/1 var(--body);cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.7)}
 `; document.head.appendChild(css);
 })();
 console.log('goldui.js loaded - gold/navy frames for Shop + Profile');
