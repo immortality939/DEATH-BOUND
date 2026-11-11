@@ -127,7 +127,7 @@ const SHOP_WEAPON_ITEMS = WEAPONS.filter(w => w.shop).map(w => ({ id: w.shop, im
 // ---- 80 extra Shop gear pieces (20 helmets, 20 armors, 20 rings, 20 shoes). Sold in the Shop only: they never drop from Adventure loot. ----
 const SHOP_GEAR_ITEMS = [
   { id: 'h_ironpot', img: 'assets/items/h_ironpot.png', name: "Crusader Helm", type: 'helmet', rar: 'common', stats: { hp: 4, def: 2 }, desc: "A golden cross down the visor.", shop: true },
-  { id: 'h_scrapcrest', img: 'assets/items/h_scrapcrest.png', name: "Spartan Helm", type: 'helmet', rar: 'common', stats: { hp: 7, def: 2, agi: 2 }, desc: "Red crest and a golden face guard.", shop: true },
+  { id: 'h_scrapcrest', img: 'assets/items/h_scrapcrest.png', name: "Spartan Helm", type: 'helmet', rar: 'common', stats: { hp: 10, def: 2, agi: 2 }, desc: "Red crest and a golden face guard.", shop: true },
   { id: 'h_ragcowl', img: 'assets/items/h_ragcowl.png', name: "Ronin Straw Hat", type: 'helmet', rar: 'common', stats: { hp: 4, def: 2 }, desc: "Wide straw hat and a grey face wrap.", shop: true },
   { id: 'h_boneguard', img: 'assets/items/h_boneguard.png', name: "Bone Guard", type: 'helmet', rar: 'common', stats: { hp: 4, def: 3 }, desc: "Rattles when you run. Intimidating.", shop: true },
   { id: 'h_oneeyed', img: 'assets/items/h_oneeyed.png', name: "Robo Visor Helm", type: 'helmet', rar: 'common', stats: { hp: 4, def: 2 }, desc: "White plating with a glowing blue visor.", shop: true },
