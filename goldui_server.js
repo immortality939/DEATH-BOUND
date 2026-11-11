@@ -95,6 +95,27 @@
 .chipbal{border-color:rgba(255,194,58,.8);background:linear-gradient(#1c2b50,#0b1226)}
 /* seg / misc */
 .cs-bar .btn{min-width:110px}
+
+/* ---------- FORGE screen: forging-shop picture behind, gold frame (same frame_panel / frame_btn pictures as Shop + Profile) ---------- */
+#forge{background:url(assets/forge/forge_bg.png) center/cover no-repeat #0a0a1e}
+#forge .fg{position:relative;--s:clamp(28px,8.8vh,54px);padding:16px 24px 16px;border:0;border-radius:0;
+  background:linear-gradient(180deg,rgba(16,20,48,.30),rgba(6,8,24,.40));box-shadow:none;
+  clip-path:polygon(0 10.4px,10.4px 0,calc(100% - 10.4px) 0,100% 10.4px,100% calc(100% - 10.4px),calc(100% - 10.4px) 100%,10.4px 100%,0 calc(100% - 10.4px))}
+#forge .fg::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;border:22px solid transparent;border-image:url(assets/ui/frame_panel.png) 90 / 22px stretch}
+#forge .fg-top h2{color:var(--gold2);letter-spacing:2px;text-shadow:0 0 12px rgba(255,170,40,.55),0 2px 0 rgba(0,0,0,.6)}
+#forge .fg-pan,#forge .fg-info{position:relative;border:0;border-radius:0;background:linear-gradient(180deg,rgba(30,46,82,.62),rgba(6,9,26,.78));
+  clip-path:polygon(0 7px,7px 0,calc(100% - 7px) 0,100% 7px,100% calc(100% - 7px),calc(100% - 7px) 100%,7px 100%,0 calc(100% - 7px))}
+#forge .fg-pan{padding:9px 12px 8px}#forge .fg-info{padding:7px 12px}
+#forge .fg-pan::after,#forge .fg-info::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:4;border:12px solid transparent;border-image:url(assets/ui/frame_panel.png) 90 / 12px stretch}
+#forge .fg-ph b,#forge .fg-pan b{color:var(--gold2)}
+#forge .fg-top .btn{color:#fff4d0;text-shadow:0 1px 2px rgba(0,0,0,.8);background:none;border:8px solid transparent;border-radius:0;box-shadow:none;
+  border-image:url(assets/ui/frame_btn.png) 36 fill / 8px stretch;padding:2px 16px;transition:filter .12s}
+#forge .fg-top .btn:active{transform:translateY(2px);box-shadow:none}
+#forge .fg-go{border:0;color:#2a1500;text-shadow:0 1px 0 rgba(255,240,170,.55);background:linear-gradient(#ffe27a,#ff9a1a);box-shadow:0 4px 0 #8a4a00,0 0 22px rgba(255,150,30,.45)}
+#forge .fg-go[disabled]{color:#cdbf9a;background:linear-gradient(#5d5a6e,#3a3850);box-shadow:0 4px 0 #1e1d2c}
+#forge .fg-slot,#forge .fg-cell{border-color:rgba(255,194,58,.55)}
+#forge .fg-slot.big{border-color:#ffc23a;box-shadow:inset 0 0 22px rgba(255,170,40,.3),0 0 22px rgba(255,150,30,.45),0 0 0 3px rgba(8,8,26,.85)}
+#forge .fg-cell.sel{box-shadow:0 0 0 2px #ffc23a,0 0 12px rgba(255,170,40,.85)}
 `; document.head.appendChild(css);
 })();
 console.log('goldui.js loaded - gold/navy frames for Shop + Profile');
