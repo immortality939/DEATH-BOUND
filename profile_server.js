@@ -298,7 +298,7 @@ const XP_NEED_MUL = 6;   // XP needed per level is multiplied by this (3 = level
 const xpNeed = L => (40 + 12 * L) * XP_NEED_MUL;   // XP needed to go from level L to L+1
 const XP_MULT = .5;   // every XP reward (matches + Adventure stages) is multiplied by this: .5 = half the XP. Change it to rebalance levelling.
 const charStats = (lvl, g, wmul = 1, wlvl = 0) => {   // g = totals from gear {hp, def, dmg, xdmg, vit, agi, dex, luk, crt, cdm}  (dmg = all gear Damage incl. the weapon, xdmg = Damage from non-weapon gear = the flat bonus added to hits)
-  const pts = lvl * PTS_PER_LVL, vit = pts + (g.vit || 0), agi = pts + (g.agi || 0), dex = pts + (g.dex || 0), luk = pts + (g.luk || 0), r1 = n => Math.round(n * 10) / 10;
+  const pts = lvl * PTS_PER_LVL, vit = Math.round(pts + (g.vit || 0)), agi = Math.round(pts + (g.agi || 0)), dex = Math.round(pts + (g.dex || 0)), luk = Math.round(pts + (g.luk || 0)), r1 = n => Math.round(n * 10) / 10;
   return { lvl, vit, agi, dex, luk, hp: Math.round((g.hp || 0) + vit * VIT_HP + dex * DEX_HP), def: r1((g.def || 0) + dex * DEX_DEF), dmg: r1((g.dmg || 0) + agi * AGI_DMG), xdmg: r1((g.xdmg || 0) + agi * AGI_DMG), crt: r1(CRIT_BASE + (g.crt || 0) + luk * LUK_CRT), cdm: r1(CRITDMG_BASE + (g.cdm || 0) + agi * AGI_CDM), wmul, wlvl };
 };
 // ---- POWER: one number for how strong your robot is (shown in Profile, compared with the boss on the Adventure map) ----
@@ -480,7 +480,7 @@ const Profile = {
     const itotal = Math.max(INV_CELLS, Math.ceil(mats.length / 4) * 4); let icells = '';
     for (let i = 0; i < itotal; i++) { const o = mats[i]; icells += o ? `<div class="pf-cell${o.it.id === this.sel ? ' sel' : ''}" data-item="${o.it.id}">${this.itemTile(o.it, `<s class="cnt">×${cnt(o.n)}</s>`)}</div>` : '<div class="pf-cell off"></div>'; }
     // right column: details of the selected item (upgrading is done in the Forge)
-    let side = '<div class="pf-det"><p class="dim">Tap an item to see it. Equip it here: drag it onto its slot, or double-tap it. To upgrade it, tap the Forge anvil at the top.</p></div>';
+    let side = '';   // the description of the tapped item pops up over the Profile (no more column on the right)
     if (selIt && selIt.type === 'mat') {
       const n = Mats.get(selIt);
       side = `<div class="pf-det" style="--rc:${selIt.col}"><img class="big" src="${selIt.img}" alt="" draggable="false"><h3>${selIt.name} <i>${selIt.tag}</i></h3><div class="st"><span class="pos">${selIt.line}</span></div><p class="dim">${selIt.desc}</p><p class="dim">You have <b>${n.toLocaleString()}</b>. Buy more in the Shop.</p><div class="row"><button class="btn sm" data-act="forge">Open Forge</button></div></div>`;
@@ -505,9 +505,10 @@ const Profile = {
             <small>Attributes (+${PTS_PER_LVL} each level, gear included)</small><div class="pf-at"><span>Vitality <b>${tot.vit}</b></span><span>Agility <b>${tot.agi}</b></span><span>Dexterity <b>${tot.dex}</b></span><span>Luck <b>${tot.luk}</b></span></div>
             <small>Stats</small><div class="pf-at"><span>Health <b>${100 + tot.hp}</b></span><span>Damage <b>${fmtN(tot.dmg)}</b></span><span>Defense <b>${tot.def}</b> <small>(${defPct(tot).toFixed(1)}% blocked)</small></span><span>Crit Damage <b>${tot.cdm}%</b></span><span>Crit Chance <b>${tot.crt}%</b></span></div></div></div>
         <div class="pf-inv"><div class="pf-itabs"><button class="pf-itab${this.tab === 'equip' ? ' on' : ''}" data-itab="equip">Equipment <span>${owned.length}/${allOwned.length}</span></button><button class="pf-itab${this.tab === 'items' ? ' on' : ''}" data-itab="items">Items <span>${mats.length}</span></button></div>${inv}<div class="pf-foot">${Wallet.badge()}</div></div>
-        <div class="pf-side">${side}</div>
+        ${side ? `<div class="pf-pop"><div class="pf-popc">${side}<button class="btn sm alt" id="pfClose">Close</button></div></div>` : ''}
       </div></div>`;
     $('bPfBack').onclick = () => { this.msg = null; UI.show('title'); };
+    const pfc = $('pfClose'); if (pfc) pfc.onclick = () => { this.sel = null; this.render(); };
     $('pfHammer').onclick = () => { Snd.play('beep'); Forge.open(selIt && selIt.type !== 'mat' && !selIt.potion && !selIt.noUp ? selIt.id : null); };
     root.querySelectorAll('[data-itab]').forEach(e => e.onclick = () => { this.tab = e.dataset.itab; this.sel = null; this.render(); });
     root.querySelectorAll('[data-tab]').forEach(e => e.onclick = () => { this.filter = e.dataset.tab; this.render(); });
@@ -554,7 +555,7 @@ const Profile = {
         const it = itemById(s.id), t = slotAt(e.clientX, e.clientY); let ok = false, key;
         if (t && t.classList.contains('pf-port')) ok = true;
         else if (t) { const d = SLOTS.find(x => x.key === t.dataset.slot); if (d && d.type === it.type) { ok = true; key = d.key; } }
-        if (ok) { this.equip(it.id, key); this.sel = it.id; Snd.play('pick'); } else if (t) Snd.play('dud');
+        if (ok) { this.equip(it.id, key); this.sel = null; Snd.play('pick'); } else if (t) Snd.play('dud');
         this.msg = null; this.render(); return;
       }
       if (s.moved) return;
@@ -781,6 +782,18 @@ const Shop = {
 #profile .pf-itab:first-child{flex:1.5 1 0}
 #profile .pf-itab span{margin-left:3px;font-size:10px}
 #profile .pf-cells{padding:7px 7px 4px;box-sizing:border-box}
+/* ===== PROFILE v3 (landscape): the description column on the right is gone - tapping an item pops its description up; the stats sit BESIDE the character and have the room ===== */
+#profile .pf-main{grid-template-columns:auto minmax(0,1fr)}
+#profile .pf-eq{display:grid;grid-template-columns:auto minmax(172px,1fr);grid-template-areas:"nm nm" "gr ch";column-gap:10px;align-content:start;min-width:0}
+#profile .pf-eq .pf-name{grid-area:nm}
+#profile .pf-eq .pf-grid{grid-area:gr;align-self:start}
+#profile .pf-eq .pf-char{grid-area:ch;max-width:none;min-width:0;margin-top:0;align-self:start}
+#profile .pf-at{grid-template-columns:1fr;gap:1px 0}
+#profile .pf-at span{display:block}
+#profile .pf-pop{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;pointer-events:none}
+#profile .pf-popc{pointer-events:auto;width:min(78%,370px);max-height:88%;overflow:auto;box-sizing:border-box;padding:8px;border-radius:14px;background:rgba(14,20,46,.97);border:2px solid var(--accent);box-shadow:0 10px 30px rgba(0,0,0,.65);display:flex;flex-direction:column;gap:6px}
+#profile .pf-popc .pf-det{margin:0}
+#profile .pf-popc>.btn{align-self:flex-end}
 `; document.head.appendChild(css);
   // FIX: show only WHOLE rows of item cells in the Profile inventory (the cell height is stretched a little so the last visible row is never cut off; scroll for more)
   Profile.fitCells = function () {
