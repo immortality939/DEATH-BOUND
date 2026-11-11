@@ -1004,7 +1004,7 @@ const OnlineUI = (() => {
       .then(code => { const s = document.createElement('script'); s.textContent = code + '\n//# sourceURL=' + file; document.head.appendChild(s); }).catch(e => { delete extraDone[file]; throw e; });
   }
   function arenaCtx() {
-    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, live: Live, info: myInfo, fight: startFight, friends: () => friendList, friendsPop, hall: hallPop, quest: questEv };
+    return { root, get player() { return session.player; }, h, beep, toast: toastMsg, robots, robotImg, chatBox: () => chatBox(session.player), back: town, launch: (kind, ret) => { retFn = ret; launch(kind); }, reopenArena: openArena, openIcon: id => iconPop({ id, name: id }), live: Live, info: myInfo, fight: startFight, friends: () => friendList, friendsPop, hall: hallPop, quest: questEv };
   }
   async function startFight(match, cb) {   // ARENA FIGHT: the real battle between the players of a match (arena_fight.js, downloaded from GitHub like the arena itself)
     if (typeof MAP_RUNS === 'undefined' || !MAP_RUNS.colosseum) await loadExtra('arena_maps_runs.js');

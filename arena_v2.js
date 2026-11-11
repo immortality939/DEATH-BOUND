@@ -145,6 +145,8 @@ const ArenaUI = (() => {
       C.launch('profile', () => { C.reopenArena(); });
     } else if (id === 'friends') { if (C.friendsPop) C.friendsPop(); else invitePop(true); }
     else if (id === 'trophy' && C.hall) C.hall();
+    else if (id === 'scroll' && C.openIcon) C.openIcon('scroll');   // same Quests screen as the scroll icon in the town
+    else if (id === 'mail' && C.openIcon) C.openIcon('mail');   // same Envelope as the town
     else C.toast({ scroll: 'Quests: coming next', gear: 'Settings: coming next', trophy: 'Rankings: coming next', mail: 'Mail: coming next' }[id] || 'Coming next');
   }
 

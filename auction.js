@@ -88,6 +88,14 @@ const AuctionUI = (() => {
 #onl .au-mdet{padding:6px 4px 10px;background:rgba(255,211,74,.08);border-radius:0 0 8px 8px}
 #onl .au-mdet .note{color:#cdb98f;font:700 12px var(--body,sans-serif)}
 #onl .au-new{color:#ff6a5a;font-weight:700}
+#onl .au-mlist{width:100%;max-width:none;aspect-ratio:auto;filter:none;height:min(300px,56vh);overflow-y:auto;box-sizing:border-box}
+#onl .au-mlist .wiv{font-size:16px;gap:12px;padding:8px 10px}
+#onl .au-mlist .wiv img,#onl .au-mlist .wiv .lg{width:40px;height:40px}
+#onl .au-mlist .wiv b{min-width:0;line-height:1.25}
+#onl .au-mlist .wiv b small{font-size:13px}
+#onl .au-mlist .wiv i{flex:none;font-size:17px;white-space:nowrap}
+#onl .au-mhint{margin:4px;font-size:14px;color:#e6d3a8}
+@media (orientation:landscape) and (max-height:520px){#onl .au-mlist{height:calc(100vh - 118px)}#onl .au-mhint{font-size:13px;margin:2px}}
 #onl .au-c{max-height:94vh;overflow-y:auto;box-sizing:border-box}
 #onl .au-c .idet{gap:3px}
 #onl .au-c .idet img{width:52px;height:52px;padding:3px}
@@ -199,7 +207,7 @@ const MailUI = (() => {
     AuctionUI.init(ctx); const h = ctx.h, H = AuctionUI.helpers, t = ctx.parent(); if (!t) return; H.ensureCss();
     let mail = null, err = '', sel = null, busy = false, box = null, tm = null;
     const close = () => { clearInterval(tm); if (box) box.remove(); };
-    const list = h('div', { class: 'wlst big' });
+    const list = h('div', { class: 'wlst au-mlist' });   // NOT 'big': the generic .big picture rule squeezed this list into a narrow strip
     const load = async () => {
       try { const j = await ctx.api('mail/list'); mail = j.mail || []; err = ''; ctx.badge(mail.length); } catch (e) { if (e.status === 401) return ctx.expired(); err = e.message || 'Could not open the envelope.'; }
       if (sel && mail && !mail.some(m => m.id === sel)) sel = null;
@@ -236,8 +244,8 @@ const MailUI = (() => {
       list.scrollTop = sc;
     }
     const title = h('div', { class: 'lgtitle' }, h('span', null, 'Envelope'), h('div', { class: 'lgx wbtn', onclick: () => { ctx.beep(); close(); } }, 'X'));
-    box = h('div', { class: 'pop wood', style: 'z-index:65', onclick: e => { if (e.target === box) close(); } }, h('div', { class: 'wpnl lgw au-c', style: 'width:min(460px,96vw)' }, title,
-      h('p', { style: 'margin:4px;font-size:12px;color:#cdb98f' }, 'Bought items, sale money and returned items. Tap one, then Claim.'), list));
+    box = h('div', { class: 'pop wood', style: 'z-index:65', onclick: e => { if (e.target === box) close(); } }, h('div', { class: 'wpnl lgw au-c', style: 'width:min(640px,96vw)' }, title,
+      h('p', { class: 'au-mhint' }, 'Bought items, sale money and returned items. Tap one, then Claim.'), list));
     t.append(box); draw(); load();
     tm = setInterval(() => { if (!box || !box.isConnected) return clearInterval(tm); if (!busy) load(); }, 8000);
   }
