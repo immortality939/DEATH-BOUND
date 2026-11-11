@@ -116,6 +116,14 @@
 #forge .fg-slot,#forge .fg-cell{border-color:rgba(255,194,58,.55)}
 #forge .fg-slot.big{border-color:#ffc23a;box-shadow:inset 0 0 22px rgba(255,170,40,.3),0 0 22px rgba(255,150,30,.45),0 0 0 3px rgba(8,8,26,.85)}
 #forge .fg-cell.sel{box-shadow:0 0 0 2px #ffc23a,0 0 12px rgba(255,170,40,.85)}
+
+/* ---------- SHOP screen: plain dark wood floor + dark wood borders (assets/online/ui/wood_dark_tile.png, frame_wood_dark.png) ---------- */
+#shop{background:url(assets/online/ui/wood_dark_tile.png) 0 0/256px 256px repeat #140c08}
+#shop .panel.shop{border-radius:12px;clip-path:none;background:linear-gradient(rgba(10,6,4,.35),rgba(10,6,4,.5)),url(assets/online/ui/wood_dark_tile.png) 0 0/256px 256px repeat;
+  box-shadow:0 8px 30px rgba(0,0,0,.65)}
+#shop .panel.shop::after{border-image:url(assets/online/ui/frame_wood_dark.png) 30 / 22px stretch}
+#shop .pf-det,#shop .pf-up,#shop .pf-tot{border-radius:8px;clip-path:none;background:linear-gradient(rgba(8,5,3,.55),rgba(8,5,3,.72)),url(assets/online/ui/wood_dark_tile.png) 0 0/256px 256px repeat}
+#shop .pf-det::after,#shop .pf-up::after,#shop .pf-tot::after{border-image:url(assets/online/ui/frame_wood_dark.png) 30 / 12px stretch}
 `; document.head.appendChild(css);
 })();
 console.log('goldui.js loaded - gold/navy frames for Shop + Profile');
