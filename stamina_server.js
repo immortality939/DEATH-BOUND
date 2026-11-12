@@ -1,21 +1,26 @@
 // ---- STAMINA: thin green bar under the JUMP button (touch screens) ----
-// Walking drains it slowly, JUMP / FLIP cost a chunk, it refills while you stand still and is full again at the start of every turn.
+// SHORT RANGE: the whole bar = STAM_RANGE pixels of walking. It does NOT regenerate during a turn; when it is empty the player cannot walk or jump
+// until the next turn, where it is full again. JUMP / FLIP also use a part of the bar.
 // Only human players use stamina (bots / CPU are untouched). Set STAM_GATE = false to show the bar without blocking moves.
 (function () {
-  const STAM_MAX = 100, STAM_WALK = 0.12, STAM_JUMP = 12, STAM_FLIP = 18, STAM_REGEN = 0.35, STAM_GATE = true;
+  const STAM_MAX = 100, STAM_RANGE = 260 /* px the player can walk with a full bar - lower = shorter range */, STAM_JUMP = 20, STAM_FLIP = 20, STAM_GATE = true;
   const human = w => { try { const t = w && G.teams[w.team]; return !!(t && !t.cpu); } catch (e) { return false; } };
   const st = w => { if (w.stam == null) w.stam = STAM_MAX; return w.stam; };
 
   // --- wrap movement ---
   const _walk = window.walkWorm, _jump = window.jumpWorm;
   if (typeof _walk === 'function') window.walkWorm = function (w, dir) {
-    if (human(w)) { if (STAM_GATE && st(w) <= 0) return; w.stam = Math.max(0, st(w) - STAM_WALK); w.stamIdle = 0; }
-    return _walk.apply(this, arguments);
+    if (!human(w)) return _walk.apply(this, arguments);
+    if (STAM_GATE && st(w) <= 0) return;                       // empty: cannot walk, only shoot / end the turn
+    if (typeof In !== 'undefined' && (In.fire || G.charging)) return;   // holding FIRE (charging a shot): the player cannot walk
+    const x0 = w.x, r = _walk.apply(this, arguments);
+    w.stam = Math.max(0, st(w) - Math.abs(w.x - x0) / STAM_RANGE * STAM_MAX);   // cost = real distance walked
+    return r;
   };
   if (typeof _jump === 'function') window.jumpWorm = function (w, back) {
     if (human(w)) {
       const c = back ? STAM_FLIP : STAM_JUMP;
-      if (w.state === 'ground' && !(w.frozen > 0)) { if (STAM_GATE && st(w) < c) return; w.stam = Math.max(0, st(w) - c); w.stamIdle = 0; }
+      if (w.state === 'ground' && !(w.frozen > 0)) { if (STAM_GATE && st(w) < c) return; w.stam = Math.max(0, st(w) - c); }
     }
     return _jump.apply(this, arguments);
   };
@@ -45,8 +50,6 @@
       const w = G && G.activeWorm;
       if (w && human(w)) {
         const v = st(w);
-        if (w.walking > 0 || w.state !== 'ground') w.stamIdle = 0; else w.stamIdle = (w.stamIdle | 0) + 1;
-        if (w.stamIdle > 20 && w.stam < STAM_MAX) w.stam = Math.min(STAM_MAX, w.stam + STAM_REGEN);
         const p = Math.max(0, Math.min(100, v / STAM_MAX * 100));
         fill.style.width = p + '%'; bar.classList.toggle('low', p < 30 && p > 0); bar.classList.toggle('out', p <= 0);
       }
