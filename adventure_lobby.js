@@ -61,7 +61,7 @@ const AdvLobbyUI = (() => {
 #onl .av .pnl{background:url(${U('wood_tile.png')}) padding-box;border:16px solid transparent;border-image:url(${U('panel.png')}) 30 / 16px stretch;background-clip:padding-box;box-sizing:border-box}
 #onl .av .ins{background:#2a190b url(${U('bg_wood.jpg')}) padding-box;border:14px solid transparent;border-image:url(${U('panel_dark.png')}) 26 / 14px stretch;background-clip:padding-box;box-sizing:border-box}
 #onl .av .ttl{position:absolute;left:270px;top:2px;width:420px;height:96px;background:url(${U('banner.png')}) 0 0/100% 100%;display:flex;align-items:center;justify-content:center;font:400 44px/1 var(--disp,sans-serif);color:#ffd34a;-webkit-text-stroke:2px #4a1f06;paint-order:stroke fill;text-shadow:0 3px 0 #4a1f06;letter-spacing:2px}
-#onl .av .ttl.sm{left:300px;width:330px;height:70px;font-size:34px}
+#onl .av .ttl.sm{left:315px;top:0;width:330px;height:62px;font-size:30px}
 #onl .av .ab{position:absolute;display:flex;align-items:center;justify-content:center;cursor:pointer;background:url(${U('btn_wood.png')}) 0 0/100% 100%;font:400 19px/1 var(--disp,sans-serif);color:#fff;-webkit-text-stroke:1.5px #5a2d08;paint-order:stroke fill;text-shadow:0 2px 0 #5a2d08;letter-spacing:.5px;-webkit-tap-highlight-color:transparent;transition:transform .1s,filter .1s}
 #onl .av .ab:hover{filter:brightness(1.12)}#onl .av .ab:active{transform:scale(.96)}
 #onl .av .ab.go{background-image:url(${U('btn_start.png')});font-size:26px}
@@ -89,7 +89,7 @@ const AdvLobbyUI = (() => {
 #onl .av .ddm{position:absolute;width:170px;z-index:6;padding:6px;background:url(${U('panel_dark.png')}) center/100% 100%;box-sizing:border-box}
 #onl .av .ddm div{padding:8px 10px;font:400 15px/1 var(--disp,sans-serif);cursor:pointer;border-radius:6px}#onl .av .ddm div:hover{background:rgba(255,200,120,.2)}
 #onl .av .ibar2{position:absolute;display:flex;gap:6px;z-index:4}
-#onl .av .ibar2 button{border:0;background:none;padding:0;cursor:pointer;height:50px;transition:transform .1s,filter .1s}
+#onl .av .ibar2 button{border:0;background:none;padding:0;cursor:pointer;height:40px;transition:transform .1s,filter .1s}
 #onl .av .ibar2 button img{height:100%;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.55));pointer-events:none}
 #onl .av .ibar2 button:hover{transform:translateY(-3px) scale(1.07);filter:brightness(1.15)}
 /* room */
@@ -134,6 +134,7 @@ const AdvLobbyUI = (() => {
 #onl .av .note{position:absolute;text-align:center;font:600 12.5px/1.3 var(--body,sans-serif);color:#ffe9c4}
 #onl .av .face .wpl{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;font-size:13px;color:#ffe9c4;background:rgba(48,26,8,.55);border-radius:8px;padding:3px 10px;max-width:250px;overflow:hidden;white-space:nowrap}
 #onl .av .face .wpl img{width:26px;height:26px;object-fit:contain}
+#onl .av .ibar2.s{gap:3px}#onl .av .ibar2.s button{height:32px}
 #onl .av .ibar2.g{flex-wrap:wrap;width:124px;gap:6px}#onl .av .ibar2.g button{height:44px}
 #onl .av .rcg{position:absolute;display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;align-content:start;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#b07d45 transparent}
 #onl .av .rcg .rc{position:relative;width:auto;height:58px;flex:none}
@@ -182,8 +183,9 @@ const AdvLobbyUI = (() => {
   };
   const rimg = r => C.robotImg(C.robots()[(r | 0) % nrobots()]);
   const chatBox = (x, y, w) => { const c = C.chatBox(); c.style.cssText = `--cw:${w}px;left:${x}px;bottom:auto;top:${y}px`; return c; };
-  const iconBar = (x, y, ids, grid) => {
-    const bar = h('div', { class: 'ibar2' + (grid ? ' g' : ''), style: `left:${x}px;top:${y}px` });
+  const ICON_IDS = ['bag', 'friends', 'scroll', 'trophy', 'mail'];
+  const iconBar = (x, y, ids, grid, small) => {
+    const bar = h('div', { class: 'ibar2' + (grid ? ' g' : '') + (small ? ' s' : ''), style: `left:${x}px;top:${y}px` });
     for (const id of ids) bar.append(h('button', { onclick: () => { C.beep(); iconAction(id); } }, h('img', { src: 'assets/online/i_' + id + '.webp', alt: id })));
     return bar;
   };
@@ -218,7 +220,7 @@ const AdvLobbyUI = (() => {
   const sigOf = () => {
     const r = S.my, mem = m => [m.id, m.lv, m.power, m.ready ? 1 : 0, m.host ? 1 : 0, m.robot, m.weapon && m.weapon.name].join(':');
     if (S.view === 'lobby') return JSON.stringify([S.online.map(o => o.id + ':' + o.lv), S.rooms.slice(0, 30).map(x => [x.id, x.map, x.diff, x.state, x.members.map(mem)])]);
-    if (S.view === 'room' && r) return JSON.stringify([r.id, r.map, r.diff, r.state, r.hostId, r.next && r.next.stage, r.members.map(mem)]);
+    if (S.view === 'room' && r) return JSON.stringify([r.id, r.map, r.diff, r.state, r.hostId, r.next && r.next.stage, r.members.map(mem), S.online.map(o => o.id + ':' + o.lv)]);
     return '';
   };
   function repaint() { const s = sigOf(); if (s && s !== S.sig) { if (S.view === 'lobby') lobby(); else if (S.view === 'room') room(); } }
@@ -239,21 +241,21 @@ const AdvLobbyUI = (() => {
   function lobby() {
     S.view = 'lobby'; const p = myMember(), others = S.online.filter(o => o.id !== p.id);
     const st = stage(
-      h('div', { class: 'ttl' }, 'Adventure'),
-      btn('Back', 14, 12, 92, 40, () => { close(); C.back(); }, 'sm'),
-      h('div', { class: 'abs pnl', style: 'left:10px;top:92px;width:644px;height:168px' }),
+      h('div', { class: 'ttl sm' }, 'Adventure'),
+      btn('Back', 861, 489, 82, 32, () => { close(); C.back(); }, 'sm'),   // Back: bottom right, next to the icon row (like the picture)
+      h('div', { class: 'abs pnl', style: 'left:10px;top:66px;width:609px;height:210px' }),
       // right: my character (picture, name, level, power, weapon)
-      h('div', { class: 'abs pnl', style: 'left:664px;top:92px;width:288px;height:214px' }),
-      h('div', { class: 'face', style: 'left:664px;top:98px;width:288px' }, rimg(p.robot), h('b', null, p.name),
+      h('div', { class: 'abs pnl', style: 'left:629px;top:66px;width:323px;height:210px' }),
+      h('div', { class: 'face', style: 'left:629px;top:72px;width:323px' }, rimg(p.robot), h('b', null, p.name),
         h('small', null, 'Lv ' + p.lv + '   |   Power ' + p.power.toLocaleString()),
         h('div', { class: 'wpl' }, p.weapon.img ? h('img', { src: p.weapon.img, alt: '' }) : null, h('span', null, p.weapon.name))),
       // below it: the empty black list = who is online
-      h('div', { class: 'abs ins', style: 'left:664px;top:312px;width:288px;height:222px' }),
-      h('div', { class: 'abs hd', style: 'left:680px;top:322px' }, 'ONLINE PLAYERS  (' + (others.length + 1) + ')'),
-      (() => { const l = h('div', { class: 'lst', style: 'left:676px;top:342px;width:266px;height:186px' }); l.append(h('div', { class: 'it me' }, h('span', null, p.name), h('span', null, 'Lv ' + p.lv))); for (const o of others) l.append(h('div', { class: 'it', onclick: () => C.toast(o.name + '  |  Lv ' + o.lv) }, h('span', null, o.name), h('span', null, 'Lv ' + o.lv))); return l; })()
+      h('div', { class: 'abs ins', style: 'left:638px;top:284px;width:314px;height:194px' }),
+      h('div', { class: 'abs hd', style: 'left:654px;top:293px' }, 'ONLINE PLAYERS  (' + (others.length + 1) + ')'),
+      (() => { const l = h('div', { class: 'lst', style: 'left:650px;top:312px;width:292px;height:160px' }); l.append(h('div', { class: 'it me' }, h('span', null, p.name), h('span', null, 'Lv ' + p.lv))); for (const o of others) l.append(h('div', { class: 'it', onclick: () => C.toast(o.name + '  |  Lv ' + o.lv) }, h('span', null, o.name), h('span', null, 'Lv ' + o.lv))); return l; })()
     );
     // room list: the maps the players created, with how many are inside (n/4)
-    const grid = h('div', { class: 'rcg', style: 'left:24px;top:108px;width:618px;height:134px' });
+    const grid = h('div', { class: 'rcg', style: 'left:22px;top:84px;width:584px;height:180px' });
     S.rooms.forEach(r => {
       const M = mapOf(r.map), host = hostOf(r), n = r.members.length, going = r.state !== 'room', full = n >= SLOTS || going;
       const d = r.diff | 0;
@@ -265,10 +267,10 @@ const AdvLobbyUI = (() => {
       card.onclick = () => { C.beep(); joinRoom(r); }; grid.append(card);
     });
     st.append(grid);
-    if (!S.rooms.length) st.append(h('div', { class: 'abs', style: 'left:24px;top:156px;width:618px;text-align:center;font:400 22px var(--disp,sans-serif);color:#ffe3b0' }, 'No adventure rooms yet. Tap Start or Team Up to create one.'));
-    st.append(chatBox(10, 268, 510));   // big chat: fills the empty space under the (short) room list
-    st.append(btn('TEAM UP', 530, 270, 124, 44, teamUp, 'sm'), btn('SEARCH', 530, 318, 124, 44, () => { C.live.nudge(); C.toast('Rooms updated'); }, 'sm'), btn('START', 530, 366, 124, 54, quickStart, 'go'));
-    st.append(iconBar(530, 428, ['bag', 'friends', 'scroll', 'gear'], true));
+    if (!S.rooms.length) st.append(h('div', { class: 'abs', style: 'left:22px;top:150px;width:584px;text-align:center;font:400 22px var(--disp,sans-serif);color:#ffe3b0' }, 'No adventure rooms yet. Tap Start or Team Up to create one.'));
+    st.append(chatBox(10, 290, 480));   // chat under the room list
+    st.append(btn('TEAM UP', 517, 384, 104, 38, teamUp, 'sm'), btn('SEARCH', 517, 429, 104, 38, () => { C.live.nudge(); C.toast('Rooms updated'); }, 'sm'), btn('START', 517, 474, 104, 50, quickStart, 'go'));
+    st.append(iconBar(640, 486, ICON_IDS));   // bag, friends, quests, rankings, envelope (the Settings gear is only outside, in the town)
     mount(st); S.sig = sigOf();
   }
   async function teamUp() { if (await act('create', {})) room(); }
@@ -283,10 +285,10 @@ const AdvLobbyUI = (() => {
   function room() {
     S.view = 'room'; const r = S.my; if (!r) return lobby();
     const host = amHost(), mm = r.members, mine = mm.find(amMember), M = mapOf(r.map), d = r.diff | 0;
-    const st = stage(h('div', { class: 'ttl sm' }, 'Adventure'), btn('Leave', 14, 12, 92, 40, async () => { S.view = 'lobby'; await act('leave'); lobby(); }, 'sm'));
+    const st = stage(h('div', { class: 'ttl sm' }, 'Adventure'), btn('Back', 888, 490, 64, 30, async () => { S.view = 'lobby'; await act('leave'); lobby(); }, 'sm'));   // Back (leave the room): bottom right like the picture
     // left: the 4 players (picture, name, level, power, weapon)
     for (let i = 0; i < SLOTS; i++) {
-      const x = 12 + (i % 2) * 220, y = 70 + Math.floor(i / 2) * 146, m = mm[i]; let slot;
+      const x = 12 + (i % 2) * 220, y = 64 + Math.floor(i / 2) * 140, m = mm[i]; let slot;
       if (m) {
         slot = h('div', { class: 'sl' + (amMember(m) ? ' mine' : ''), style: `left:${x}px;top:${y}px` },
           rimg(m.robot).cloneNode(), h('div', { class: 'nm' }, m.name), h('div', { class: 'lv' }, 'Lv ' + m.lv + (m.host ? '  ★ HOST' : '')), h('div', { class: 'pw' }, 'Power ' + (m.power || 0).toLocaleString()),
@@ -330,15 +332,18 @@ const AdvLobbyUI = (() => {
       }; st.append(buy);
     });
     st.append(h('div', { class: 'abs', style: 'left:716px;top:298px;width:236px;text-align:center;font:700 13px var(--body,sans-serif);color:#ffd34a' }, 'Chips: ' + Wallet.get().toLocaleString()));
-    st.append(chatBox(12, 368, 340));
-    st.append(btn('INVITE', 716, 322, 112, 54, () => invitePop(false)));
-    if (host) st.append(btn('START', 836, 316, 118, 62, async () => {
+    st.append(chatBox(12, 346, 372));
+    st.append(btn('INVITE', 458, 462, 100, 56, () => invitePop(false)));
+    if (host) st.append(btn('START', 570, 458, 138, 64, async () => {
       if (!M) { C.toast('Select an adventure map first.'); return picker(); }   // (mid-adventure the map is fixed: Start plays the next stage)
       if (mm.some(m => !m.host && !m.ready)) return C.toast('Everyone must press Ready first.');
       if (await act('start', { total: stagesOf(M, d).length })) route();
     }, 'go'));
-    else st.append(btn(mine && mine.ready ? 'CANCEL' : 'READY', 836, 316, 118, 62, () => { if (!M) return C.toast('Wait for the host to choose a map.'); act('ready', { ready: !(mine && mine.ready) }); }, mine && mine.ready ? '' : 'rd'));
-    st.append(iconBar(716, 392, ['bag', 'friends', 'scroll', 'gear']));
+    else st.append(btn(mine && mine.ready ? 'CANCEL' : 'READY', 570, 458, 138, 64, () => { if (!M) return C.toast('Wait for the host to choose a map.'); act('ready', { ready: !(mine && mine.ready) }); }, mine && mine.ready ? '' : 'rd'));
+    // ONLINE PLAYERS (same list as the lobby) + the icon row under it
+    st.append(h('div', { class: 'abs ins', style: 'left:712px;top:318px;width:240px;height:160px' }), h('div', { class: 'abs hd', style: 'left:726px;top:326px' }, 'ONLINE PLAYERS  (' + S.online.length + ')'));
+    { const l = h('div', { class: 'lst', style: 'left:722px;top:346px;width:222px;height:126px' }); for (const o of S.online) l.append(h('div', { class: 'it' + (o.id === me().id ? ' me' : ''), onclick: () => { if (o.id !== me().id) C.toast(o.name + '  |  Lv ' + o.lv); } }, h('span', null, o.name), h('span', null, 'Lv ' + o.lv))); st.append(l); }
+    st.append(iconBar(712, 490, ICON_IDS, false, true));
     mount(st); S.sig = sigOf();
   }
 

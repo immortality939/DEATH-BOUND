@@ -47,7 +47,7 @@ const ArenaUI = (() => {
 #onl .ar .pnl{background:url(${U('wood_tile.png')}) padding-box;border:16px solid transparent;border-image:url(${U('panel.png')}) 30 / 16px stretch;background-clip:padding-box;box-sizing:border-box}
 #onl .ar .ins{background:#2a190b url(${U('bg_wood.jpg')}) padding-box;border:14px solid transparent;border-image:url(${U('panel_dark.png')}) 26 / 14px stretch;background-clip:padding-box;box-sizing:border-box}
 #onl .ar .ttl{position:absolute;left:270px;top:2px;width:420px;height:96px;background:url(${U('banner.png')}) 0 0/100% 100%;display:flex;align-items:center;justify-content:center;font:400 44px/1 var(--disp,sans-serif);color:#ffd34a;-webkit-text-stroke:2px #4a1f06;paint-order:stroke fill;text-shadow:0 3px 0 #4a1f06;letter-spacing:2px}
-#onl .ar .ttl.sm{left:300px;width:330px;height:70px;font-size:34px}
+#onl .ar .ttl.sm{left:315px;top:0;width:330px;height:62px;font-size:30px}
 #onl .ar .ab{position:absolute;display:flex;align-items:center;justify-content:center;cursor:pointer;background:url(${U('btn_wood.png')}) 0 0/100% 100%;font:400 19px/1 var(--disp,sans-serif);color:#fff;-webkit-text-stroke:1.5px #5a2d08;paint-order:stroke fill;text-shadow:0 2px 0 #5a2d08;letter-spacing:.5px;-webkit-tap-highlight-color:transparent;transition:transform .1s,filter .1s}
 #onl .ar .ab:hover{filter:brightness(1.12)}#onl .ar .ab:active{transform:scale(.96)}
 #onl .ar .ab.go{background-image:url(${U('btn_start.png')});font-size:26px}
@@ -75,10 +75,11 @@ const ArenaUI = (() => {
 #onl .ar .ddm{position:absolute;width:170px;z-index:6;padding:6px;background:url(${U('panel_dark.png')}) center/100% 100%;box-sizing:border-box}
 #onl .ar .ddm div{padding:8px 10px;font:400 15px/1 var(--disp,sans-serif);cursor:pointer;border-radius:6px}#onl .ar .ddm div:hover{background:rgba(255,200,120,.2)}
 #onl .ar .ibar2{position:absolute;display:flex;gap:6px;z-index:4}
+#onl .ar .ibar2.s{gap:3px}#onl .ar .ibar2.s button{height:32px}
 #onl .ar .ibar2.g{flex-wrap:wrap;width:168px;gap:6px}#onl .ar .ibar2.g button{height:44px}
 #onl .ar .rcg{position:absolute;display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;align-content:start;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#b07d45 transparent}
 #onl .ar .rcg .rc{position:relative;width:auto;height:58px;flex:none}
-#onl .ar .ibar2 button{border:0;background:none;padding:0;cursor:pointer;height:50px;transition:transform .1s,filter .1s}
+#onl .ar .ibar2 button{border:0;background:none;padding:0;cursor:pointer;height:40px;transition:transform .1s,filter .1s}
 #onl .ar .ibar2 button img{height:100%;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.55));pointer-events:none}
 #onl .ar .ibar2 button:hover{transform:translateY(-3px) scale(1.07);filter:brightness(1.15)}
 /* room */
@@ -136,8 +137,9 @@ const ArenaUI = (() => {
   };
   const rimg = r => C.robotImg(C.robots()[(r | 0) % nrobots()]);
   const chatBox = (x, y, w) => { const c = C.chatBox(); c.style.cssText = `--cw:${w}px;left:${x}px;bottom:auto;top:${y}px`; return c; };
-  const iconBar = (x, y, ids, grid) => {
-    const bar = h('div', { class: 'ibar2' + (grid ? ' g' : ''), style: `left:${x}px;top:${y}px` });
+  const ICON_IDS = ['bag', 'friends', 'scroll', 'trophy', 'mail'];   // the Settings gear is only outside, in the town
+  const iconBar = (x, y, ids, grid, small) => {
+    const bar = h('div', { class: 'ibar2' + (grid ? ' g' : '') + (small ? ' s' : ''), style: `left:${x}px;top:${y}px` });
     for (const id of ids) {
       const b = h('button', { onclick: () => { C.beep(); iconAction(id); } }, h('img', { src: 'assets/online/i_' + id + '.webp', alt: id })); bar.append(b);
     }
@@ -176,7 +178,7 @@ const ArenaUI = (() => {
   const sigOf = () => {
     const r = S.myRoom, mem = m => [m.id, m.lv, m.ready ? 1 : 0, m.host ? 1 : 0, m.robot, m.weapon && m.weapon.name].join(':');
     if (S.view === 'lobby') return JSON.stringify([S.mode, S.online.map(o => o.id + ':' + o.lv), S.rooms.filter(x => x.mode === S.mode).slice(0, 8).map(x => [x.id, x.state, x.slots, x.members.map(mem)])]);
-    if (S.view === 'room' && r) return JSON.stringify([r.id, r.slots, r.mode, r.state, r.hostId, r.members.map(mem)]);
+    if (S.view === 'room' && r) return JSON.stringify([r.id, r.slots, r.mode, r.state, r.hostId, r.members.map(mem), S.online.map(o => o.id + ':' + o.lv)]);
     return '';
   };
   function repaint() { const s = sigOf(); if (s && s !== S.sig) { if (S.view === 'lobby') lobby(); else if (S.view === 'room') room(); } }
@@ -197,18 +199,19 @@ const ArenaUI = (() => {
     S.view = 'lobby'; const p = myMember();
     const rooms = S.rooms.filter(r => r.mode === S.mode), others = S.online.filter(o => o.id !== p.id);
     const st = stage(
-      h('div', { class: 'ttl' }, 'Arena'),
-      btn('Back', 14, 12, 92, 40, async () => { close(); C.back(); }, 'sm'),
-      // left: me + online players
-      h('div', { class: 'abs pnl', style: 'left:10px;top:96px;width:232px;height:212px' }),
-      h('div', { class: 'face', style: 'left:10px;top:100px;width:232px' }, rimg(p.robot), h('b', null, p.name), h('small', null, 'Lv ' + p.lv)),
-      h('div', { class: 'abs pnl', style: 'left:246px;top:92px;width:700px;height:168px' }),
-      h('div', { class: 'abs ins', style: 'left:10px;top:314px;width:232px;height:218px' }),
-      h('div', { class: 'abs hd', style: 'left:26px;top:324px' }, 'ONLINE PLAYERS  (' + (others.length + 1) + ')'),
-      (() => { const l = h('div', { class: 'lst', style: 'left:22px;top:344px;width:210px;height:182px' }); l.append(h('div', { class: 'it me' }, h('span', null, p.name), h('span', null, 'Lv ' + p.lv))); for (const o of others) l.append(h('div', { class: 'it', onclick: () => C.toast(o.name + '  |  Lv ' + o.lv) }, h('span', null, o.name), h('span', null, 'Lv ' + o.lv))); return l; })()
+      h('div', { class: 'ttl sm' }, 'Arena'),
+      btn('Back', 868, 487, 80, 32, async () => { close(); C.back(); }, 'sm'),   // Back: bottom right, next to the icon row (like the picture)
+      // big room list on the left
+      h('div', { class: 'abs pnl', style: 'left:6px;top:62px;width:606px;height:258px' }),
+      // right: me, then who is online
+      h('div', { class: 'abs pnl', style: 'left:636px;top:66px;width:316px;height:226px' }),
+      h('div', { class: 'face', style: 'left:636px;top:74px;width:316px' }, rimg(p.robot), h('b', null, p.name), h('small', null, 'Lv ' + p.lv)),
+      h('div', { class: 'abs ins', style: 'left:636px;top:300px;width:316px;height:178px' }),
+      h('div', { class: 'abs hd', style: 'left:652px;top:309px' }, 'ONLINE PLAYERS  (' + (others.length + 1) + ')'),
+      (() => { const l = h('div', { class: 'lst', style: 'left:648px;top:328px;width:294px;height:142px' }); l.append(h('div', { class: 'it me' }, h('span', null, p.name), h('span', null, 'Lv ' + p.lv))); for (const o of others) l.append(h('div', { class: 'it', onclick: () => C.toast(o.name + '  |  Lv ' + o.lv) }, h('span', null, o.name), h('span', null, 'Lv ' + o.lv))); return l; })()
     );
     // room grid (2 columns x 4 rows)
-    const shown = rooms.slice(0, 30), rgrid = h('div', { class: 'rcg', style: 'left:260px;top:108px;width:672px;height:134px' });
+    const shown = rooms.slice(0, 30), rgrid = h('div', { class: 'rcg', style: 'left:20px;top:96px;width:578px;height:214px' });
     shown.forEach((r, i) => {
       const host = hostOf(r), n = r.members.length, fighting = r.state !== 'room', full = n >= r.slots || fighting;
       const card = h('div', { class: 'rc' + (full ? ' full' : ''), },
@@ -217,17 +220,17 @@ const ArenaUI = (() => {
       card.onclick = () => { C.beep(); joinRoom(r); }; rgrid.append(card);
     });
     st.append(rgrid);
-    if (!shown.length) st.append(h('div', { class: 'abs', style: 'left:258px;top:156px;width:680px;text-align:center;font:400 22px var(--disp,sans-serif);color:#ffe3b0' }, 'No ' + MODES[S.mode].name + ' rooms yet. Tap Team Up to create one.'));
+    if (!shown.length) st.append(h('div', { class: 'abs', style: 'left:20px;top:176px;width:578px;text-align:center;font:400 22px var(--disp,sans-serif);color:#ffe3b0' }, 'No ' + MODES[S.mode].name + ' rooms yet. Tap Team Up to create one.'));
     // mode dropdown
-    const dd = h('div', { class: 'dd', style: 'left:770px;top:62px' }, MODES[S.mode].name, h('span', null, '▾'));
+    const dd = h('div', { class: 'dd', style: 'left:470px;top:58px;width:140px;height:32px' }, MODES[S.mode].name, h('span', null, '▾'));
     dd.onclick = () => {
       C.beep(); const old = st.querySelector('.ddm'); if (old) return old.remove();
-      const m = h('div', { class: 'ddm', style: 'left:770px;top:102px' }, ['free', 'league'].map(k => h('div', { onclick: () => { C.beep(); S.mode = k; lobby(); } }, MODES[k].name))); st.append(m);
+      const m = h('div', { class: 'ddm', style: 'left:440px;top:94px' }, ['free', 'league'].map(k => h('div', { onclick: () => { C.beep(); S.mode = k; lobby(); } }, MODES[k].name))); st.append(m);
     };
     st.append(dd);
-    st.append(chatBox(246, 268, 520));   // big chat: fills the empty space under the (short) room list
-    st.append(btn('TEAM UP', 778, 272, 168, 44, teamUp, 'sm'), btn('SEARCH', 778, 320, 168, 44, () => { C.live.nudge(); C.toast('Rooms updated'); }, 'sm'), btn('START', 778, 368, 168, 56, quickStart, 'go'));
-    st.append(iconBar(778, 432, ['bag', 'friends', 'scroll', 'trophy', 'mail', 'gear'], true));
+    st.append(chatBox(8, 328, 404));   // chat under the room list
+    st.append(btn('TEAM UP', 424, 326, 198, 52, teamUp, 'sm'), btn('SEARCH', 424, 386, 198, 52, () => { C.live.nudge(); C.toast('Rooms updated'); }, 'sm'), btn('START', 424, 446, 198, 70, quickStart, 'go'));
+    st.append(iconBar(638, 484, ICON_IDS));
     mount(st); S.sig = sigOf();
   }
   async function teamUp() { if (await act('create', { slots: 2, mode: S.mode })) room(); }
@@ -244,10 +247,10 @@ const ArenaUI = (() => {
   function room() {
     S.view = 'room'; const r = S.myRoom; if (!r) return lobby();
     const host = amHost(), mm = r.members, mine = mm.find(amMember), busyRoom = r.state !== 'room';
-    const st = stage(h('div', { class: 'ttl sm' }, 'Room ' + r.id), btn('Leave', 14, 12, 92, 40, async () => { await act('leave'); lobby(); }, 'sm'));
+    const st = stage(h('div', { class: 'ttl sm' }, 'Room ' + r.id), btn('Leave', 888, 490, 64, 30, async () => { await act('leave'); lobby(); }, 'sm'));   // Leave: bottom right like the picture
     // 4 slots (2 x 2)
     for (let i = 0; i < 4; i++) {
-      const x = 12 + (i % 2) * 220, y = 70 + Math.floor(i / 2) * 146, m = mm[i];
+      const x = 12 + (i % 2) * 220, y = 64 + Math.floor(i / 2) * 140, m = mm[i];
       let slot;
       if (m) {
         slot = h('div', { class: 'sl' + (amMember(m) ? ' mine' : ''), style: `left:${x}px;top:${y}px` },
@@ -292,17 +295,19 @@ const ArenaUI = (() => {
     });
     st.append(h('div', { class: 'abs', style: 'left:716px;top:298px;width:236px;text-align:center;font:700 13px var(--body,sans-serif);color:#ffd34a' }, 'Chips: ' + Wallet.get().toLocaleString()));
     // chat + buttons + icons
-    st.append(chatBox(12, 366, 340));
-    st.append(btn('INVITE', 716, 322, 112, 54, () => invitePop(false)));
-    if (host) st.append(btn('START', 836, 316, 118, 62, async () => {
+    st.append(chatBox(12, 346, 372));
+    st.append(btn('INVITE', 508, 428, 144, 44, () => invitePop(false)));   // INVITE and START stacked in the middle column (like the picture)
+    if (host) st.append(btn('START', 504, 476, 152, 56, async () => {
       if (busyRoom) return C.toast('Wait until the other players leave the VS screen.');
       if (mm.some(m => !m.host && !m.ready)) return C.toast('Everyone must press Ready first.');
       if (await act('start')) route();   // searching -> search screen, already matched -> VS screen
     }, busyRoom ? 'go off' : 'go'));
-    else st.append(btn(mine && mine.ready ? 'CANCEL' : 'READY', 836, 316, 118, 62, () => { if (busyRoom) return C.toast('Wait until the other players leave the VS screen.'); act('ready', { ready: !(mine && mine.ready) }); }, mine && mine.ready ? '' : 'rd'));
-    st.append(iconBar(716, 392, ['bag', 'friends', 'scroll', 'gear']));
+    else st.append(btn(mine && mine.ready ? 'CANCEL' : 'READY', 504, 476, 152, 56, () => { if (busyRoom) return C.toast('Wait until the other players leave the VS screen.'); act('ready', { ready: !(mine && mine.ready) }); }, mine && mine.ready ? '' : 'rd'));
+    st.append(h('div', { class: 'abs ins', style: 'left:712px;top:318px;width:240px;height:160px' }), h('div', { class: 'abs hd', style: 'left:726px;top:326px' }, 'ONLINE PLAYERS  (' + S.online.length + ')'));
+    { const l = h('div', { class: 'lst', style: 'left:722px;top:346px;width:222px;height:126px' }); for (const o of S.online) l.append(h('div', { class: 'it' + (o.id === me().id ? ' me' : ''), onclick: () => { if (o.id !== me().id) C.toast(o.name + '  |  Lv ' + o.lv); } }, h('span', null, o.name), h('span', null, 'Lv ' + o.lv))); st.append(l); }
+    st.append(iconBar(712, 490, ICON_IDS, false, true));
     const hostName = hostOf(r).name;
-    st.append(h('div', { class: 'note', style: 'left:372px;top:410px;width:330px' }, busyRoom ? 'The last fight of this room is still on the VS screen of some players.' : host ? (mm.length > 1 ? 'Waiting for your team to press READY. START finds a team of ' + mm.length + ' to fight.' : 'START finds a real opponent for your ' + mm.length + ' player' + (mm.length > 1 ? 's' : '') + '.') : 'Press READY. ' + hostName + ' starts the search.'));
+    st.append(h('div', { class: 'note', style: 'left:458px;top:398px;width:250px' }, busyRoom ? 'The last fight of this room is still on the VS screen of some players.' : host ? (mm.length > 1 ? 'Waiting for your team to press READY. START finds a team of ' + mm.length + ' to fight.' : 'START finds a real opponent for your ' + mm.length + ' player' + (mm.length > 1 ? 's' : '') + '.') : 'Press READY. ' + hostName + ' starts the search.'));
     mount(st); S.sig = sigOf();
   }
 

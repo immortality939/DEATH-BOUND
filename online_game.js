@@ -155,6 +155,13 @@ const OnlineUI = (() => {
 #onl .lgcl{flex:1.05;display:flex;flex-direction:column;gap:5px;min-width:0;min-height:0}
 #onl .lgcl .lgleft{flex:1;min-height:0}
 #onl .lgcl .lgib{justify-content:center}
+#onl .lgfoot{flex:none;display:flex;gap:6px}
+#onl .lgfoot.n{flex-direction:row;align-items:center;justify-content:space-between}
+#onl .lgfoot.m{flex-direction:column;align-items:stretch}
+#onl .lgfoot.m .lgbtns{display:grid;grid-auto-flow:column;grid-template-rows:auto auto;justify-content:space-between;gap:5px 10px}
+#onl .lgfoot .lgbtns .wbtn{text-align:center;white-space:nowrap;padding:6px 12px;font-size:clamp(13px,3.8vh,17px)}
+#onl .lgfoot.n .lgbtns .wbtn{padding:8px 16px;font-size:clamp(14px,4.4vh,20px)}
+#onl .lgfoot .lgib{justify-content:flex-start}
 #onl .lgcr{flex:1.2;display:flex;flex-direction:column;gap:5px;min-width:0;min-height:0}
 #onl .lgcr .lgright{flex:1;min-height:52px}
 #onl .lgbot{flex:none;display:flex;gap:6px;align-items:flex-end;justify-content:space-between}
@@ -873,8 +880,9 @@ const OnlineUI = (() => {
     const pill = (l, v, gold) => h('div', { class: 'lgs' + (gold ? ' gold' : '') }, h('span', null, l), h('b', null, v));
     const noKeys = el => { el.onkeydown = el.onkeyup = el.onkeypress = e => e.stopPropagation(); return el; };
     const title = h('div', { class: 'lgtitle' }), stats = h('div', { class: 'lgstats' }), left = h('div', { class: 'lgleft lgdark' }), right = h('div', { class: 'lgright' }), btnRow = h('div', { class: 'lgbtns' });
-    const chat = chatBox(session.player); chat.style.cssText = '--cw:min(48vw,calc((min(97vh,500px) - 150px)*1.99));position:relative;left:auto;bottom:auto;flex:none;align-self:center;font-size:calc(var(--cw)/33)';
-    const ibar = h('div', { class: 'lgib' }, ICONS.map(ic => h('button', { 'aria-label': ic.name, onclick: () => { beep(); iconGo(ic); } }, h('img', { src: 'assets/online/i_' + ic.id + '.webp', alt: ic.name }))));
+    const chat = chatBox(session.player); chat.style.cssText = '--cw:min(calc(min(98vw,900px)*.44),calc((min(97vh,500px) - 236px)*1.99));position:relative;left:auto;bottom:auto;flex:none;align-self:flex-start;font-size:calc(var(--cw)/33)';
+    const foot = h('div', { class: 'lgfoot n' });   // under the message board: the buttons + the icon row (like the picture)
+    const ibar = h('div', { class: 'lgib' }, ICONS.filter(ic => ic.id !== 'gear').map(ic => h('button', { 'aria-label': ic.name, onclick: () => { beep(); iconGo(ic); } }, h('img', { src: 'assets/online/i_' + ic.id + '.webp', alt: ic.name }))));
     function iconGo(ic) {
       if (ic.id === 'bag') { clearInterval(tm); box.remove(); retFn = () => { town(); leaguePop(); }; return launch('profile'); }   // the Bag = Profile of your online character, then back here
       if (ic.id === 'friends') return friendsPop();
@@ -920,11 +928,11 @@ const OnlineUI = (() => {
       const board = h('div', { class: 'lgboard lgdark' }, h('div', { class: 'lgbh' }, 'Message Board'), h('div', { class: 'lgnote' }, LB ? (LB.notice || 'No message yet.') : 'Tap a league to read its message.'));
       if (mine) {
         btns.push(h('div', { class: 'wbtn', onclick: () => { beep(); shopPop(); } }, 'League Shop'));
-        if (mine.owner) btns.push(h('div', { class: 'wbtn', onclick: () => { beep(); editPop(); } }, 'Edit Message'));
         if (mine.owner) btns.push(h('div', { class: 'wbtn', onclick: () => { beep(); appsPop(); } }, 'Applications' + (mine.applicants && mine.applicants.length ? ' (' + mine.applicants.length + ')' : '')));
+        if (mine.owner) btns.push(h('div', { class: 'wbtn', onclick: () => { beep(); editPop(); } }, 'Edit Message'));
         btns.push(h('div', { class: 'wbtn red', onclick: () => { beep(); confirmPop('Quit League?', 'You leave ' + mine.name + ' and lose your contribution.' + (mine.owner ? ' The member who joined first becomes the owner.' : ''), 'Quit', () => { sel = null; act(() => lapi('leave'), 'You left the league.'); }); } }, 'Quit League'));
       } else btns.push(h('div', { class: 'wbtn', onclick: () => { beep(); createPop(); } }, 'Create League'));
-      right.replaceChildren(board); btnRow.replaceChildren(...btns);
+      right.replaceChildren(board); btnRow.replaceChildren(...btns); foot.className = 'lgfoot ' + (mine ? 'm' : 'n');
     }
     function editPop() {   // the owner writes the message here: the popup sits at the TOP, buttons above the text, so the phone keyboard never covers them
       if (!data || !data.mine) return; let p = null;
@@ -987,8 +995,9 @@ const OnlineUI = (() => {
       };
       p = h('div', { class: 'pop wood', style: 'z-index:60', onclick: e => { if (e.target === p) p.remove(); } }, h('div', { class: 'wpnl lgw', style: 'width:min(400px,96vw)' }, body)); render(); t.append(p);
     }
+    foot.append(btnRow, ibar);
     title.append(h('span', null, 'League House'), h('div', { class: 'lgx wbtn', onclick: () => { beep(); close(); } }, 'X'));
-    box = h('div', { class: 'pop wood', onclick: e => { if (e.target === box) close(); } }, h('div', { class: 'wpnl lgw lgp' }, title, stats, h('div', { class: 'lgmid' }, h('div', { class: 'lgcl' }, left, btnRow, ibar), h('div', { class: 'lgcr' }, right, chat))));
+    box = h('div', { class: 'pop wood', onclick: e => { if (e.target === box) close(); } }, h('div', { class: 'wpnl lgw lgp' }, title, stats, h('div', { class: 'lgmid' }, h('div', { class: 'lgcl' }, left, chat), h('div', { class: 'lgcr' }, right, foot))));
     t.append(box); draw(); load();
     if (myLg) { chatTab = 'league'; redrawChats(); }
     tm = setInterval(() => { if (!box || !box.isConnected) return clearInterval(tm); const a = document.activeElement; if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) return; if (!busy) load(); }, 5000);
