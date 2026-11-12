@@ -11,7 +11,10 @@
   const _walk = window.walkWorm, _jump = window.jumpWorm;
   if (typeof _walk === 'function') window.walkWorm = function (w, dir) {
     if (!human(w)) return _walk.apply(this, arguments);
-    if (STAM_GATE && st(w) <= 0) return;                       // empty: cannot walk, only shoot / end the turn
+    if (STAM_GATE && st(w) <= 0) {                             // empty: cannot move, but can still turn left / right to aim behind
+      if (w.state === 'ground' && !(w.frozen > 0) && w.hp > 0 && !(typeof In !== 'undefined' && (In.fire || G.charging))) w.face = dir;
+      return;
+    }
     if (typeof In !== 'undefined' && (In.fire || G.charging)) return;   // holding FIRE (charging a shot): the player cannot walk
     const x0 = w.x, r = _walk.apply(this, arguments);
     w.stam = Math.max(0, st(w) - Math.abs(w.x - x0) / STAM_RANGE * STAM_MAX);   // cost = real distance walked
