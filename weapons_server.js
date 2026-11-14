@@ -76,7 +76,7 @@ Object.assign(SIG_WMETA, {"S21_Cinder_Pot":{"muzzle":[388,128],"bbox":[90,20,470
 const SHOPW = (n, name, rar, desc, look, dmg, blast, hit, hs, snd, knock, trail, x = {}) => {
   const proj = { spr: 'sig', look, ss: 1, speed: CHARGE_SPEED, g: WEAPON_G, wind: WEAPON_WIND, dmg, blast, hit, hs, snd, knock, trail: !!trail };
   if (x.freeze) proj.freeze = true; if (x.homing) { proj.homing = true; proj.homeRange = 200; proj.life = 2400; } if (x.bomblet) proj.bomblet = x.bomblet; if (x.clusterSpread) proj.clusterSpread = x.clusterSpread; if (x.clusterSpd) proj.clusterSpd = x.clusterSpd; if (x.miniFuse) proj.miniFuse = x.miniFuse; if (x.miniImpact !== undefined) proj.miniImpact = x.miniImpact;
-  if (x.hitT) proj.hitT = x.hitT; if (x.noKnock) proj.noKnock = true;   // hitT: own hit effect per upgrade look [+0..+9, +10, +11, +12] (null = the normal hit); noKnock: blast never pushes anyone
+  if (x.hitT) proj.hitT = x.hitT; if (x.noKnock) proj.noKnock = true; if (x.hitSnd) proj.hitSnd = x.hitSnd;   // hitT: own hit effect per upgrade look [+0..+9, +10, +11, +12] (null = the normal hit); noKnock: blast never pushes anyone
   const w = { id: n, name, desc, ammo: Infinity, type: 'shot', charge: true, shop: 'w_' + n.slice(4).toLowerCase(), rar, proj };
   if (x.vol) w.volley = x.vol; if (x.cluster) w.cluster = x.cluster; return w;
 };
@@ -121,7 +121,7 @@ WEAPONS.push(
 // Looks: +0..+9 black cannonball, +10 same but bigger, +11 black ball with spikes, +12 gold ball with spikes (same size as +10). Drawn in render.js (look k:'cball').
 // Fixed stats (see TITAN_STATS in profile.js): Damage 300 (incl. the legendary bonus), Dex 20, Vit 10, Agi 3, Luck 3, Defense 20.
 WEAPONS.push(
-  SHOPW('S31_Titan_Cannon', "Titan Cannon", 'legendary', "One huge cannonball with a giant blast. No skill, only power.", { k: 'cball', c1: '#8a93a3', c2: '#323946' }, 247, 70, 'explosion_big', 0.85, 'shotgun', 8, true, { hitT: ['titan_hit_t0', 'titan_hit_t1', 'titan_hit_t2', 'titan_hit_t3'] }),   // own red fire-smoke hit effect per upgrade look (+0..+9, +10, +11, +12)
+  SHOPW('S31_Titan_Cannon', "Titan Cannon", 'legendary', "One huge cannonball with a giant blast. No skill, only power.", { k: 'cball', c1: '#8a93a3', c2: '#323946' }, 247, 70, 'explosion_big', 0.85, 'mp3_titan_fire', 8, true, { hitT: ['titan_hit_t0', 'titan_hit_t1', 'titan_hit_t2', 'titan_hit_t3'] }),   // own red fire-smoke hit effect per upgrade look (+0..+9, +10, +11, +12)
 );
 
 // ===== SHURIKEN (legendary Shop weapon): ONE fast-spinning shot, no knockback, no skill. The shot IS the weapon picture (4 looks: normal, +10, +11, +12) =====
@@ -140,7 +140,7 @@ const SHURIKEN_FX = {   // hit effect sprite sheets for +10 / +11 / +12 (assets/
   shuriken_hit_t3: { file: 'fx/shuriken_hit_t3.webp', frames: 12, cols: 6, fw: 192, fh: 192, fps: 20, loop: false },
 };
 WEAPONS.push(
-  SHOPW('S32_Shuriken', 'Shuriken', 'legendary', 'A legendary throwing star. One fast-spinning shot, no knockback, no skill.', { k: 'shur', c1: '#ffffff', c2: '#c8ccd8' }, 297, 40, 'explosion_small', 1.4, 'plasma', 0, false, { hitT: [null, 'shuriken_hit_t1', 'shuriken_hit_t2', 'shuriken_hit_t3'], noKnock: true }),
+  SHOPW('S32_Shuriken', 'Shuriken', 'legendary', 'A legendary throwing star. One fast-spinning shot, no knockback, no skill.', { k: 'shur', c1: '#ffffff', c2: '#c8ccd8' }, 297, 40, 'explosion_small', 1.4, 'mp3_shuriken_shoot', 0, false, { hitT: [null, 'shuriken_hit_t1', 'shuriken_hit_t2', 'shuriken_hit_t3'], noKnock: true, hitSnd: 'shuriken_hit' }),
 );
 
 // ===== TEMPEST ARC (legendary Shop weapon): fires ONE crackling bolt of lightning (a short, jagged electric line, not a ball), bursts into an electric hit effect =====
@@ -155,7 +155,7 @@ const VOLT_FX = {   // electric hit effect sheets (12 frames of 192x192), drawn 
   volt_hit_t3: { file: 'fx/volt_hit_t3.webp', frames: 12, cols: 6, fw: 192, fh: 192, fps: 24, loop: false },
 };
 WEAPONS.push(
-  SHOPW('S33_Tempest_Arc', 'Tempest Arc', 'legendary', 'Electric arc cannon. Fires a crackling bolt of lightning that bursts into sparks.', { k: 'volt', c1: '#ffffff', c2: '#40d8ff' }, 267, 44, 'energy_hit', 1, 'plasma', 3.2, false, { hitT: ['volt_hit_t0', 'volt_hit_t1', 'volt_hit_t2', 'volt_hit_t3'] }),
+  SHOPW('S33_Tempest_Arc', 'Tempest Arc', 'legendary', 'Electric arc cannon. Fires a crackling bolt of lightning that bursts into sparks.', { k: 'volt', c1: '#ffffff', c2: '#40d8ff' }, 267, 44, 'energy_hit', 1, 'mp3_tempest_shoot', 3.2, false, { hitT: ['volt_hit_t0', 'volt_hit_t1', 'volt_hit_t2', 'volt_hit_t3'], hitSnd: 'tempest_hit' }),
 );
 
 // ===== BOSS WEAPONS (Adventure only) =====
@@ -201,7 +201,7 @@ const CBOSS_W = (id, boss, name, desc, o) => {
   return wp;
 };
 WEAPONS.push(
-  CBOSS_W('C01_Gutrot_Spear', 'boss_gutrot', "Gutrot's Spear", "One huge spear hurled hard and flat.", { dmg: 62, blast: 40, knock: 10, ss: .95, g: .09, hit: 'explosion_big', hs: .8 }),
+  CBOSS_W('C01_Gutrot_Spear', 'boss_gutrot', "Gutrot's Spear", "One huge spear hurled hard and flat.", { dmg: 62, blast: 40, knock: 10, ss: .95, g: .09, hit: 'explosion_big', hs: .8, snd: 'mp3_orc_spear' }),
   CBOSS_W('C02_Frost_Breath', 'boss_frostwyrm', "Frost Breath", "Three icy fireballs that freeze whoever they hit.", { dmg: 30, blast: 40, knock: 6, ss: 1, vol: { count: 3, gap: 14, recoil: 1.2, spread: 3 }, freeze: true, hit: 'ice_hit', hs: 1.0, snd: 'freeze', glow: '#7fd6ff', add: true }),
   CBOSS_W('C03_Storm_Skull', 'boss_stormbone', "Storm Skull", "A crackling skull that bursts into 3 bone bombs.", { dmg: 46, blast: 52, knock: 8, ss: 1, spin: .22, cluster: 3, clusterSpread: 1.25, clusterSpd: [3, 8], miniFuse: [40, 90], miniImpact: true, bomblet: { dmg: 14, blast: 32 }, hit: 'energy_hit', hs: .95, glow: '#5be0ff' }),
   CBOSS_W('C04_Inferno_Breath', 'boss_cinderdrake', "Inferno Breath", "A long burst of 6 fireballs from the dragon's mouth.", { dmg: 18, blast: 32, knock: 4, ss: 1, vol: { count: 6, gap: 7, recoil: .8, spread: 4 }, hit: 'explosion_small', hs: .85, glow: '#ff8a30', add: true, trail: true }),

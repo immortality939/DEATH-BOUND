@@ -133,14 +133,15 @@ const BOSS3 = {
     return S.e > 22;
   },
   s_zbolt(w, S) {   // zeus: a lightning bolt straight into one player; it jumps on to every other player that stands close
-    if (S.t === 1) { const fs = this.foes(w); if (!fs.length) return true; S.tg = fs[rint(0, fs.length - 1)]; w.face = S.tg.x >= w.x ? 1 : -1; showBanner('⚡ ' + w.name + ' strikes ' + S.tg.name + '! (spread out)', '#9fe4ff'); Snd.play('freeze', .6); }
+    if (S.t === 1) { const fs = this.foes(w); if (!fs.length) return true; S.tg = fs[rint(0, fs.length - 1)]; w.face = S.tg.x >= w.x ? 1 : -1; showBanner('⚡ ' + w.name + ' strikes ' + S.tg.name + '! (spread out)', '#9fe4ff'); if (!Snd.has('zeus_attack')) Snd.play('freeze', .6); }
     const t = S.t; w.actF = t < 10 ? 7 : t < 20 ? 8 : t < 40 ? 9 : t < 52 ? 10 : 11;
     if (t === 20) {
+      Snd.play('mp3_zeus_attack');
       const ox = w.x + w.face * 72, oy = w.y - 150; let cur = S.tg, from = [ox, oy], d = this.dmg(w, 1); const hit = [];
       let gen = 0;
       while (cur && gen < 4) {
         const [cx, cy] = bodyCenter(cur), g = gen, p0 = from, v = cur, dd = d; hit.push(cur);
-        this.later(g * 9, () => { this.bolt(p0[0], p0[1], cx, cy, { life: 16 + 4 }); if (v.state !== 'dead' && v.state !== 'drown') { hurt(v, dd); if (v.state !== 'dead') knockWorm(v, (v.x >= w.x ? 1 : -1) * 1.6, -2.2); } addFx('b3_bolt_hit', cx, cy, 1.15); Snd.play('freeze', .9); shake(g ? 5 : 11); });
+        this.later(g * 9, () => { this.bolt(p0[0], p0[1], cx, cy, { life: 16 + 4 }); if (v.state !== 'dead' && v.state !== 'drown') { hurt(v, dd); if (v.state !== 'dead') knockWorm(v, (v.x >= w.x ? 1 : -1) * 1.6, -2.2); } addFx('b3_bolt_hit', cx, cy, 1.15); if (!Snd.has('zeus_attack')) Snd.play('freeze', .9); shake(g ? 5 : 11); });
         from = [cx, cy]; d = Math.round(d * .75); gen++;
         cur = this.foes(w).filter(t => !hit.includes(t) && Math.hypot(t.x - cur.x, t.y - cur.y) < B3_BOUNCE_R).sort((a, b) => Math.hypot(a.x - cur.x, a.y - cur.y) - Math.hypot(b.x - cur.x, b.y - cur.y))[0] || null;
       }
@@ -182,7 +183,7 @@ const BOSS3 = {
       const fs = this.foes(w), d = this.dmg(w, SPECIAL_MUL);
       fs.forEach((p, i) => this.later(i * 12, () => {
         if (p.state === 'dead' || p.state === 'drown') return; const [cx, cy] = bodyCenter(p);
-        (G.b3fx = G.b3fx || []).push({ k: 'thunder', x: cx, y: p.y, age: 0, life: 22, seed: Math.random() * 99 }); Snd.play('freeze', 1);
+        (G.b3fx = G.b3fx || []).push({ k: 'thunder', x: cx, y: p.y, age: 0, life: 22, seed: Math.random() * 99 }); Snd.play('mp3_zeus_thunder');
         this.later(7, () => { explode(cx, p.y - 24, 78, d, { owner: w, fx: 'b3_thunder_boom', hs: 1.25, carve: 0, knock: 6 }); shake(14); G.b3flash = 8; });
       }));
       showBanner('THUNDER! (it strikes everyone)', '#9fe4ff');

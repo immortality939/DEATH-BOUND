@@ -266,7 +266,7 @@ const KG_WIDS = { C03_Storm_Skull: 1, C06_Tomb_Skull: 1 };  // the boss weapons 
       if (u === 24) Snd.play('slash', .5);
       if (u === 30) {   // the fist hits the floor
         const ix = w.x + w.face * 70 * s, dmg = BOSS3.dmg(w, KG_SMASH_MUL);
-        shake(34); Snd.play('boom', 1.4); Snd.play('boom', 1); debris(ix, w.y - 4, 26, 'dirt'); debris(ix, w.y - 4, 10, 'metal');
+        shake(34); Snd.play('mp3_sk_smash'); debris(ix, w.y - 4, 26, 'dirt'); debris(ix, w.y - 4, 10, 'metal');
         smoke(ix, w.y, 2.0); smoke(w.x - w.face * 50 * s, w.y, 1.3); addFx('explosion_small', ix, w.y - 10, 1.3);
         ringFx(ix, w.y - 4, '#d8c8a8'); ringFx(ix, w.y - 4, '#fff2cf', 8);
         const n = specialHit(w, dmg, false, KG_HIT_R, ix); G.terrain.carve(ix, w.y + 6, 42);

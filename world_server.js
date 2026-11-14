@@ -215,7 +215,8 @@ function detonate(p) {
   if (pr.divine) { divineBurst(p); return; }   // Divine Heal: heals, no damage, no crater
   if (p.bomblet) { explode(p.x, p.y, pr.bomblet.blast, pr.bomblet.dmg, { fx: 'explosion_small', hs: .7, knock: 5, silent: false, owner: p.owner }); return; }
   const hitFx = (pr.hitT && pr.hitT[p.owner ? teamWTier(G.teams[p.owner.team]) : 0]) || pr.hit;   // some weapons have their own hit effect per upgrade look
-  explode(p.x, p.y, pr.blast, pr.dmg, { fx: hitFx, hs: pr.hs, knock: pr.knock, carve: pr.carve, freeze: pr.freeze, owner: p.owner, noKnock: pr.noKnock });
+  const hsnd = pr.hitSnd ? Snd.file(pr.hitSnd) : false;   // own hit sound file (Shuriken / Tempest Arc): the normal boom stays silent when it played
+  explode(p.x, p.y, pr.blast, pr.dmg, { fx: hitFx, hs: pr.hs, knock: pr.knock, carve: pr.carve, freeze: pr.freeze, owner: p.owner, noKnock: pr.noKnock, silent: hsnd });
   if (pr.freeze) { Snd.play('freeze'); }
   /* miniImpact: bomblets fly as shots and explode the moment they touch ground or an enemy */ if (p.w.cluster) { const cs = pr.clusterSpd || [3, 8], mf = pr.miniFuse || [40, 90]; for (let i = 0; i < p.w.cluster; i++) { const a = -Math.PI / 2 + (p.w.cluster > 1 ? lerp(-(pr.clusterSpread || 1.25), (pr.clusterSpread || 1.25), i / (p.w.cluster - 1)) : 0) + rnd(-.2, .2), s = rnd(cs[0], cs[1]); spawnProj({ x: p.x, y: p.y - 4, vx: Math.cos(a) * s, vy: Math.sin(a) * s, w: p.w, p: pr, owner: p.owner, kind: pr.miniImpact ? 'shot' : 'timed', bomblet: true, fuse: rint(mf[0], mf[1]), life: 400, bounceK: .5, ...(pr.miniImpact ? { rotSpin: rnd(-.3, .3) } : {}) }); } }
 }
@@ -580,7 +581,7 @@ function bossSpecialStep(w) {   // called every frame by the AI while the specia
   else w.actF = Math.min(11, Math.floor(t / ACT_T));
   if (t === 1 && (sp === 'smash' || sp === 'jump')) { const f = nearestFoe(w); if (f) w.face = f.x >= w.x ? 1 : -1; }   // turn to the nearest player
   const slam = () => {
-    shake(34); Snd.play('boom', 1.4); Snd.play('boom', 1); const fx = w.x + w.face * 60 * sc;
+    shake(34); Snd.play(mino ? 'mp3_mino_smash' : 'mp3_sk_smash'); const fx = w.x + w.face * 60 * sc;
     addFx('explosion_big', fx, w.y - 6, 1.7 * sc / 2); debris(w.x, w.y - 4, 28, 'dirt'); ringFx(fx, w.y - 4, '#ffcf8a'); ringFx(fx, w.y - 4, '#fff2cf', 8);
     if (mino) {   // the axe cracks the floor and a shockwave runs toward the player
       debris(fx, w.y - 4, 18, 'dirt'); G.terrain.carve(fx + w.face * 30, w.y + 6, 40); spawnWave(w, w.x, w.face, dmg);   // starts under the boss, so players standing right in front of it are hit too G.firedThisTurn = true;
@@ -598,7 +599,7 @@ function bossSpecialStep(w) {   // called every frame by the AI while the specia
       const save = { x: w.x, y: w.y }; let ok = false;   // shorten the jump until there is floor to land on
       for (let k = 0; k <= 10 && !ok; k++) { const cx = w.x + (tx - w.x) * (1 - k / 10); w.x = save.x; w.y = save.y; if (placeOnGround(w, cx)) { ok = true; w.jx1 = w.x; w.jy1 = w.y; } }
       w.x = save.x; w.y = save.y; if (!ok) { w.jx1 = w.x; w.jy1 = w.y; }
-      showBanner('⚠ ' + w.name + ' leaps!', '#ff4a4a'); Snd.play('boom', .5);
+      showBanner('⚠ ' + w.name + ' leaps!', '#ff4a4a'); Snd.play('mp3_slime_jump', .5);
     }
     if (t >= JA && t <= JL) {   // flight: arc over the ground between take-off and landing
       const a = Math.min(1, (t - JA) / JUMP_AIR_T), e = a * a * (3 - 2 * a);
@@ -612,7 +613,7 @@ function bossSpecialStep(w) {   // called every frame by the AI while the specia
     }
   }
   else if (sp === 'roar') {
-    if (t === 3 * ACT_T) { shake(30); Snd.play('boom', 1.5); ringFx(w.x + w.face * 40 * sc, w.y - 60 * sc, '#ffe08a'); ringFx(w.x + w.face * 40 * sc, w.y - 60 * sc, '#ffffff', 10); ringFx(w.x + w.face * 40 * sc, w.y - 60 * sc, '#ffe08a', 20); const n = specialHit(w, dmg, true, Infinity); showBanner('ROAAAR!', '#ffb347'); G.firedThisTurn = true; }   // Infinity = hurts every player on the map, however far
+    if (t === 3 * ACT_T) { shake(30); Snd.play('mp3_orc_roar'); ringFx(w.x + w.face * 40 * sc, w.y - 60 * sc, '#ffe08a'); ringFx(w.x + w.face * 40 * sc, w.y - 60 * sc, '#ffffff', 10); ringFx(w.x + w.face * 40 * sc, w.y - 60 * sc, '#ffe08a', 20); const n = specialHit(w, dmg, true, Infinity); showBanner('ROAAAR!', '#ffb347'); G.firedThisTurn = true; }   // Infinity = hurts every player on the map, however far
     else if (t > 3 * ACT_T && t < 9 * ACT_T && t % 6 === 0) shake(7);
   }
   if (t >= end) { w.actF = null; w.hop = 0; w.spT = 0; G.phase = 'retreat'; G.timer = 50; return true; }

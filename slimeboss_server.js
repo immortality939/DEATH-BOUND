@@ -226,6 +226,7 @@ const SLIME = {
     }
     // jump (different height / gap): crouch 16, fly 54, land 18
     const FT = 54;
+    if (t === 17) Snd.file('slime_jump');
     if (t <= 16) { w.actF = SL.JP + (t < 8 ? 0 : 1); return false; }
     if (t <= 16 + FT) {
       const a = (t - 16) / FT, up = Math.max(0, S.y0 - sp.y), H = (150 + up * .35) * hk;
@@ -243,7 +244,7 @@ const SLIME = {
   s_sl_smash(w, S) {
     const t = S.t, ease = a => a * a * (3 - 2 * a), hk = w.minion ? .55 : 1;
     if (t === 1) { this.faceFoe(w); SB(w, '⚠ ' + w.name + ' smashes the ground! (jump to dodge)', slCol(w)); Snd.play('boom', SV(w, .5)); }
-    const F = SL.SM;
+    const F = SL.SM; if (t === 15) Snd.file('slime_jump');
     if (t < 15) { w.actF = F; w.hop = 0; return false; }                                                           // prepare
     if (t < 23) { w.actF = F + 1; w.hop = ease((t - 15) / 8) * 14 * hk; return false; }                            // jump start
     if (t < 31) { w.actF = F + 2; w.hop = (14 + ease((t - 23) / 8) * 150) * hk; return false; }                    // up 1

@@ -311,7 +311,7 @@ const GM_T_STOMP = [[0, 0], [12, 16], [26, 17], [44, 18], [58, 18], [66, 19], [9
     // touch-down: camera shake + blast around him, damage by distance, NO knockback. 'up' = he landed UP on a floating platform = stronger
     land(w, up) {
       const s = px(w), ix = w.x, iy = w.y, R = GM_JUMP_R * s / GM_PX, d0 = dmgG(w, up ? GM_JUMP_UP_MUL : GM_JUMP_MUL); let n = 0;
-      shake(GM_SHAKE_LAND); Snd.play('gm_stomp'); Snd.play('boom', 1.4); Snd.play('boom', 1);
+      shake(GM_SHAKE_LAND); Snd.play('mp3_gm_land');
       rockFxAt(ix, iy + 4, 1.5); shockFxAt(ix - 70 * s, iy, .9); shockFxAt(ix + 70 * s, iy, .9); puffs(ix, iy - 4, 7, 1.5); debris(ix, iy - 4, 30, 'dirt'); ringFx(ix, iy - 4, '#ffb36b'); ringFx(ix, iy - 4, '#fff2cf', 8);
       for (const p of foes(w)) {
         const [pcx, pcy] = bodyCenter(p), d = Math.hypot(pcx - ix, pcy - (iy - 30)); if (d > R) continue;
@@ -432,7 +432,7 @@ const GM_T_STOMP = [[0, 0], [12, 16], [26, 17], [44, 18], [58, 18], [66, 19], [9
     },
     smash(w) {   // damage to everybody near the fists, by distance, NO knockback
       const s = px(w), ix = w.x + (w.face || 1) * 95 * s, iy = w.y, d0 = dmgG(w, GM_SMASH_MUL); let n = 0;
-      shake(GM_SHAKE_SMASH); setTimeout(() => shake(26), 120); setTimeout(() => shake(14), 380); Snd.play('gm_stomp'); Snd.play('boom', 1.3); rockFxAt(ix, iy + 4, 1.25); puffs(ix, iy - 4, 6, 1.4); debris(ix, iy - 4, 26, 'dirt'); ringFx(ix, iy - 4, '#ffb36b'); ringFx(ix, iy - 4, '#fff2cf', 8);
+      shake(GM_SHAKE_SMASH); setTimeout(() => shake(26), 120); setTimeout(() => shake(14), 380); Snd.play('mp3_gm_smash'); rockFxAt(ix, iy + 4, 1.25); puffs(ix, iy - 4, 6, 1.4); debris(ix, iy - 4, 26, 'dirt'); ringFx(ix, iy - 4, '#ffb36b'); ringFx(ix, iy - 4, '#fff2cf', 8);
       for (const p of foes(w)) {
         const [pcx, pcy] = bodyCenter(p), d = Math.hypot(pcx - ix, pcy - (iy - 30)); if (d > GM_SMASH_R * s / GM_PX) continue;
         n++; hurt(p, Math.max(1, Math.round(d0 * (1 - .65 * d / (GM_SMASH_R * s / GM_PX))))); addFx('spark_hit', pcx, pcy, 1.2); puffs(pcx, pcy + 20, 1, .6);
@@ -461,7 +461,7 @@ const GM_T_STOMP = [[0, 0], [12, 16], [26, 17], [44, 18], [58, 18], [66, 19], [9
       const u = ++S.u; w.actF = keys(GM_T_STOMP, u);
       if (u === 48) shake(8);
       if (u === 66) {
-        const dir = w.face || 1; shake(GM_SHAKE_SMASH + 6); setTimeout(() => shake(26), 120); setTimeout(() => shake(14), 380); Snd.play('gm_stomp'); Snd.play('boom', 1.4); ringFx(w.x + dir * 90 * s, w.y - 4, '#ffb36b'); ringFx(w.x + dir * 90 * s, w.y - 4, '#fff2cf', 8);
+        const dir = w.face || 1; shake(GM_SHAKE_SMASH + 6); setTimeout(() => shake(26), 120); setTimeout(() => shake(14), 380); Snd.play('mp3_gm_smash'); ringFx(w.x + dir * 90 * s, w.y - 4, '#ffb36b'); ringFx(w.x + dir * 90 * s, w.y - 4, '#fff2cf', 8);
         puffs(w.x + dir * 90 * s, w.y - 2, 5, 1.3); debris(w.x + dir * 90 * s, w.y - 4, 22, 'dirt');
         (G.gmWaves = G.gmWaves || []).push({ x: w.x + dir * 100 * s, y: w.y, dir, dist: 0, age: 0, hit: [], owner: w, dmg: dmgG(w, GM_WAVE_MUL), fxAt: 0 });
       }

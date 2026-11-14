@@ -34,7 +34,7 @@ const idleF = w => OR.IDLE;   // ONE fixed idle picture: the 4 idle sprite frame
 
   // remember when the spear was thrown / the whelp swung (drives the throw / swing frames)
   const _ls = launchShot; launchShot = function (w) { if (isBossO(w)) w.throwT0 = G.frame; return _ls.apply(this, arguments); };
-  const _fm = fireMelee; fireMelee = function (w) { if (isWhelp(w)) w.oSwing = G.frame; return _fm.apply(this, arguments); };
+  const _fm = fireMelee; fireMelee = function (w, wd) { if (isWhelp(w)) { w.oSwing = G.frame; if (wd && Snd.has('orc_axe')) wd = Object.assign({}, wd, { snd: 'mp3_orc_axe' }); } return _fm.call(this, w, wd); };
 
   // Gutrot's idle: NO growing / shrinking (breathing removed on request). The 4 idle sprite frames only differ by ~2px, so he looked frozen -
   // instead he gets a slow weight-shift (a small lean left / right around his feet, size never changes) and the frames loop a bit faster.

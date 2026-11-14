@@ -253,7 +253,7 @@ const KK_T_ROAR = [[0, KK.JUMP + 5], [4, KK.JUMP + 6], [10, KK.JUMP + 6], [18, K
     // ---------- a ground smash: damage to everybody near the fist, NO knockback ----------
     impact(w, mul, ring) {
       const s = sz(w), ix = w.x + w.face * KK_FRONT * s, iy = w.y, d0 = dmgK(w, mul); let n = 0;
-      shake(34); Snd.play('boom', 1.4); Snd.play('boom', 1); addFx('explosion_small', ix, iy - 10, 1.5); debris(ix, iy - 4, 24, 'dirt'); debris(w.x, iy - 4, 10, 'dirt'); ringFx(ix, iy - 4, '#ffcf8a'); ringFx(ix, iy - 4, '#fff2cf', 8);
+      shake(34); Snd.play('mp3_kk_smash'); addFx('explosion_small', ix, iy - 10, 1.5); debris(ix, iy - 4, 24, 'dirt'); debris(w.x, iy - 4, 10, 'dirt'); ringFx(ix, iy - 4, '#ffcf8a'); ringFx(ix, iy - 4, '#fff2cf', 8);
       for (const p of foes(w)) {
         const [pcx, pcy] = bodyCenter(p), d = Math.hypot(pcx - ix, pcy - (iy - 30)); if (d > KK_SMASH_R * s) continue;
         n++; hurt(p, Math.max(1, Math.round(d0 * (1 - .4 * d / (KK_SMASH_R * s))))); addFx('spark_hit', pcx, pcy, 1.2);
@@ -264,7 +264,7 @@ const KK_T_ROAR = [[0, KK.JUMP + 5], [4, KK.JUMP + 6], [10, KK.JUMP + 6], [18, K
     // ---------- the roar: a round shockwave around his head, damage + a LITTLE knockback ----------
     roar(w) {
       const [x] = [w.x + w.face * 52 * px(w)], y = w.y - (w.hop || 0) - 125 * px(w), d0 = dmgK(w, KK_ROAR_MUL), R = KK_ROAR_R * sz(w), [bx, by] = bodyCenter(w);
-      shake(38); Snd.play('kk_roar'); Snd.play('boom', 1.2);
+      shake(38); Snd.play('mp3_kk_roar');
       addFx('kk_roar_wave', x, y, 2 * R / 256 * 1.02, { alpha: .6 }); ringFx(x, y, '#ffcf8a'); ringFx(x, y, '#ffffff', 7);
       for (const p of foes(w)) {
         const [pcx, pcy] = bodyCenter(p), d = Math.hypot(pcx - x, pcy - y); if (d > R) continue;
@@ -293,7 +293,7 @@ const KK_T_ROAR = [[0, KK.JUMP + 5], [4, KK.JUMP + 6], [10, KK.JUMP + 6], [18, K
     s_kk_pound(w, S) {
       const u = S.t; w.hop = 0; w.actF = keys(KK_T_POUND, u);
       if (u === 1) { const n = nearestFoe(w); if (n) face(w, n); showBanner('⚠ ' + w.name + ' pounds his chest - he calls his CLAN!', '#ffb347'); }
-      if (u === 30 || u === 90) Snd.play('kk_roar');
+      if (u === 30 || u === 90) Snd.play('mp3_kk_roar');
       if (u === 32 || u === 62 || u === 92 || u === 122) this.thump(w);
       if (u === 66) this.callClan(w);
       if (u > 150) { w.actF = null; return true; } return false;

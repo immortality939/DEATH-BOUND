@@ -246,7 +246,7 @@ const MC = {
     else w.actF = F + (u < 8 ? 0 : u < 16 ? 1 : u < 20 ? 2 : u < 25 ? 3 : u < 31 ? 4 : 5);
     if (u === imp) {
       const dmg = BOSS3.dmg(w, mino ? (MINO_SLASH_MUL[this.key(w)] || 1) : CEN_SLASH_MUL), fr = mino ? MINO_HIT_FRONT : CEN_HIT_FRONT, bk = mino ? MINO_HIT_BACK : CEN_HIT_BACK;
-      let n = 0; Snd.play('slash', 1); shake(10);
+      let n = 0; Snd.play(mino ? 'mp3_mino_attack' : 'mp3_cen_attack'); shake(10);
       for (const p of this.foes(w)) {
         const dx = (p.x - w.x) * w.face; if (dx < -bk || dx > fr || Math.abs(p.y - w.y) > 170) continue;
         n++; hurt(p, dmg); if (p.state !== 'dead') knockWorm(p, w.face * 4.5, -3.5);
@@ -263,7 +263,7 @@ const MC = {
     if (t === 1) { this.face(w, nearestFoe(w)); showBanner('⚠ ' + w.name + ' raises his axe…  SHOCKWAVE! (jump over it)', '#ffb347'); Snd.play('boom', .6); }
     const F = MN.SMASH; w.actF = F + (t < 14 ? 0 : t < 26 ? 1 : t < 32 ? 2 : t < 38 ? 3 : t < 46 ? 4 : 5);
     if (t === 26) {
-      shake(34); Snd.play('boom', 1.4); Snd.play('boom', 1); const fx = w.x + w.face * 70 * sc / 2;
+      shake(34); Snd.play('mp3_mino_smash'); const fx = w.x + w.face * 70 * sc / 2;
       addFx('explosion_big', fx, w.y - 6, 1.7 * sc / 2); debris(w.x, w.y - 4, 28, 'dirt'); debris(fx, w.y - 4, 18, 'dirt'); ringFx(fx, w.y - 4, '#ffcf8a'); ringFx(fx, w.y - 4, '#fff2cf', 8);
       G.terrain.carve(fx + w.face * 30, w.y + 6, 36);
       spawnWave(w, w.x, w.face, BOSS3.dmg(w, MINO_WAVE_MUL[this.key(w)] || 1.5));
@@ -289,7 +289,7 @@ const MC = {
     }
     const u = S.pt, F = CN.SMASH; w.actF = F + (u < 10 ? 0 : u < 20 ? 1 : u < 27 ? 2 : u < 33 ? 3 : u < 40 ? 4 : 5);
     if (u === 20) {
-      shake(36); Snd.play('boom', 1.5); Snd.play('boom', 1); const fx = w.x + w.face * 80 * sc / 2;
+      shake(36); Snd.play('mp3_cen_smash'); const fx = w.x + w.face * 80 * sc / 2;
       addFx('explosion_big', fx, w.y - 6, 1.6 * sc / 2); addFx('b3_rock_hit', fx, w.y - 20, 2); debris(fx, w.y - 4, 26, 'dirt'); ringFx(fx, w.y - 4, '#ffcf8a'); ringFx(fx, w.y - 4, '#fff2cf', 8);
       const d = BOSS3.dmg(w, CEN_SMASH_MUL);
       for (const q of this.foes(w)) {   // the target, and anybody standing next to him

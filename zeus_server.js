@@ -138,7 +138,7 @@ const ZS_TW = {"13-14":21,"14-15":22,"15-16":23,"16-17":24,"0-1":25,"1-2":26,"2-
     if (t === 1) {
       const f = nearestFoe(w); if (f) w.face = f.x >= w.x ? 1 : -1;
       S.n = 0; S.next = FLY_END; S.last = 0; w.flyGoal = null; w.flyOff = w.flyOff || 0; w.zfF = 0; w.zfB = 0;
-      showBanner('⚡ ' + w.name + ' rises into the storm! (' + ZF_STRIKES + ' lightning strikes)', '#9fe4ff'); Snd.play('freeze', .8); ringFx(w.x, w.y - 60, '#9fe4ff'); ringFx(w.x, w.y - 60, '#ffffff', 8);
+      showBanner('⚡ ' + w.name + ' rises into the storm! (' + ZF_STRIKES + ' lightning strikes)', '#9fe4ff'); Snd.play('mp3_zeus_levitate'); ringFx(w.x, w.y - 60, '#9fe4ff'); ringFx(w.x, w.y - 60, '#ffffff', 8);
     }
     // --- rise ---
     if (t <= ZF_RISE) {
@@ -157,7 +157,7 @@ const ZS_TW = {"13-14":21,"14-15":22,"15-16":23,"16-17":24,"0-1":25,"1-2":26,"2-
           const d = BOSS3.dmg(w, ZF_DMG), gx = x, gy = y;
           ringFx(gx, gy - 4, '#9fe4ff'); Snd.play('freeze', .5);
           BOSS3.later(14, () => {
-            (G.b3fx = G.b3fx || []).push({ k: 'thunder', x: gx, y: gy, age: 0, life: 22, seed: Math.random() * 99 }); Snd.play('freeze', 1);
+            (G.b3fx = G.b3fx || []).push({ k: 'thunder', x: gx, y: gy, age: 0, life: 22, seed: Math.random() * 99 }); Snd.play('mp3_zeus_thunder');
             BOSS3.later(7, () => { explode(gx, gy - 24, 78, d, { owner: w, fx: 'b3_thunder_boom', hs: 1.25, carve: 0, knock: 6 }); shake(9); G.b3flash = 5; });
           });
         }
