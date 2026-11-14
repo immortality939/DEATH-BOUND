@@ -40,17 +40,29 @@
   const DEF_GAIN = 1.6;     // the game's master volume is 0.5, so 1.6 here = about 0.8 overall
   const ST = {};            // key -> { buf, el, ready }
 
-  function viaElement(st, f) {   // last resort (e.g. the page is opened from file:// and fetch is blocked): a normal <audio> element
+  function viaElement(st, f) {   // last resort: a normal <audio> element (works everywhere, but starts a little later)
     try { const a = new Audio(); a.preload = 'auto'; a.addEventListener('canplaythrough', () => { st.el = a; st.ready = true; }, { once: true }); a.src = encodeURI(DIR + f); a.load(); } catch (e) { }
+  }
+  function getBytes(url) {   // XMLHttpRequest first: it reads files inside the APK (file:// / android_asset) where fetch() is often blocked
+    return new Promise((res, rej) => {
+      try {
+        const x = new XMLHttpRequest(); x.open('GET', url, true); x.responseType = 'arraybuffer';
+        x.onload = () => { if ((x.status === 200 || x.status === 0) && x.response && x.response.byteLength > 100) res(x.response); else rej(0); };
+        x.onerror = () => rej(0); x.send();
+      } catch (e) { rej(0); }
+    }).catch(() => typeof fetch === 'function' ? fetch(url).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); }) : Promise.reject(0));
   }
   function load(key) {
     const f = FILES[key]; if (!f || ST[key]) return; const st = ST[key] = { buf: null, el: null, ready: false };
     const ctx = Snd.ctx;
     const tryBase = i => {
-      if (!ctx || typeof fetch !== 'function' || i >= BASES.length) return viaElement(st, f);
-      fetch(BASES[i] + encodeURI(DIR + f)).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })
+      if (!ctx || i >= BASES.length) return viaElement(st, f);
+      getBytes(BASES[i] + encodeURI(DIR + f))
         .then(ab => new Promise((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); }))
-        .then(buf => { st.buf = buf; st.ready = true; })
+        .then(buf => {
+          let pk = 0; for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let k = 0; k < d.length; k += 8) { const v = d[k] < 0 ? -d[k] : d[k]; if (v > pk) pk = v; } }
+          st.peak = pk; st.buf = buf; st.ready = true;   // peak is used below so a very loud file can never clip
+        })
         .catch(() => tryBase(i + 1));
     };
     tryBase(0);
@@ -64,7 +76,8 @@
     const st = ST[key]; if (!st || !st.ready) return false;
     if (this.muted) return true;   // muted: nothing should play, and the old sound must not play either
     try {
-      if (st.buf && this.ctx) { const s = this.ctx.createBufferSource(), g = this.ctx.createGain(); s.buffer = st.buf; g.gain.value = (GAIN[key] || DEF_GAIN) * (vol == null ? 1 : vol); s.connect(g); g.connect(this.master); s.start(); }
+      if (st.buf && this.ctx) { const s = this.ctx.createBufferSource(), g = this.ctx.createGain(); s.buffer = st.buf; let gn = GAIN[key] || DEF_GAIN; if (st.peak && st.peak * gn * .5 > .95) gn = .95 / (st.peak * .5);   // keep loud files under full scale
+      g.gain.value = gn * (vol == null ? 1 : vol); s.connect(g); g.connect(this.master); s.start(); }
       else if (st.el) { const c = st.el.cloneNode(); c.volume = Math.min(1, .8 * (vol == null ? 1 : vol)); const p = c.play(); if (p && p.catch) p.catch(() => { }); }
       else return false;
     } catch (e) { return false; }
