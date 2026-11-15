@@ -152,7 +152,7 @@ const SFX = (w, name, x, y, s) => addFx(name, x, y, s * (w.minion ? Math.max(.4,
 const SDB = (w, x, y, n, kind) => debris(x, y, w.minion ? Math.max(3, Math.ceil(n * .3)) : n, kind);
 
 // ---- the small slime kings in the shared minion turn (NEW): they only walk TOWARD the nearest player and SPLASH him when close (damage). They never jump-smash.
-//      They jump ONLY to reach a floating platform when the target stands on top of one. ----
+//      They jump ONLY to reach a floating platform when the target stands on top of one, or to jump DOWN from a platform when the target is on the ground below (jump down -> walk -> hit). ----
 const SLM = {
   step(m) {
     if (m.state === 'dead' || m.state === 'drown' || m.frozen > 0) { m.done = true; return; }
@@ -252,11 +252,26 @@ const SLIME = {
     if (Math.abs(sp.y - m.y) < 26 && this.runnable(m, sp)) return null;               // same level and connected: just walk
     return sp;
   },
+  // is the slime standing on a thin FLOATING platform (not the thick ground)?
+  onPlat(m) {
+    const T = G.terrain, x = Math.round(m.x); let y = Math.round(m.y) + 1;
+    for (let k = 0; k < 4 && !T.solid(x, y); k++) y++;
+    let th = 0; while (th < 90 && T.solid(x, y + th)) th++;
+    return th > 0 && th < 70;
+  },
+  // the slime is on a platform and the target is on the ground below: the ground spot to jump down to (the one closest to the slime, so it drops first and walks after)
+  dropFor(m, f) {
+    const c = this.spots().filter(s => !s.plat && Math.abs(s.y - f.y) < 45 && Math.abs(s.x - f.x) > 40); if (!c.length) return null;
+    c.sort((a, b) => Math.abs(a.x - m.x) - Math.abs(b.x - m.x)); return c[0];
+  },
   minionPlan(m) {
     const f = nearestFoe(m);
-    if (f && f.state === 'ground' && f.y < m.y - 40) { const sp = this.platFor(m, f); if (sp) return { k: 'sl_hop', sp }; }   // target on a floating platform: jump up to it
-    if (this.near(m)) return { k: 'sl_splash' };                                                                                 // already close: attack
-    return { k: 'sl_walk' };                                                                                                      // otherwise walk forward to him
+    if (f && f.state === 'ground' && Math.abs(f.y - m.y) > 40) {
+      const sp = this.platFor(m, f); if (sp) return { k: 'sl_hop', sp };                                        // target stands on another floating platform (above or below): jump to it
+      if (f.y > m.y + 40 && this.onPlat(m)) { const gd = this.dropFor(m, f); if (gd) return { k: 'sl_hop', sp: gd }; }   // slime on a platform, target on the ground below: jump DOWN first, then walk, then hit
+    }
+    if (this.near(m)) return { k: 'sl_splash' };                                                                 // already close: attack
+    return { k: 'sl_walk' };                                                                                      // otherwise walk forward to him
   },
   // walk forward only: toward the nearest player along the ground, stop when close (the attack follows) or at a ledge
   s_sl_walk(w, S) {
