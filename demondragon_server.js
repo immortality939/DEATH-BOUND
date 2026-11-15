@@ -86,7 +86,7 @@ const DD_KEYS = ['frostwyrm', 'cinderdrake', 'voiddrake'];
   function ddCleanup(w) { w.ddsp = null; w.ddRoarF = null; w.ddFx = null; }
   function ddRoarHit(w) {   // the roar: round blast around his body, strongest close to him, pushes everybody away
     const [cx, cy] = bodyCenter(w), d0 = BOSS3.dmg(w, DD_ROAR_MUL);
-    shake(30); snd('boom', 1.2); snd('rp_scream', .9);
+    shake(30); if (!Snd.has('dd_roar')) { snd('boom', 1.2); snd('rp_scream', .9); }
     for (const p of foesOf(w)) {
       const [px, py] = bodyCenter(p), d = Math.hypot(px - cx, py - cy); if (d > DD_ROAR_R) continue;
       const k = d / DD_ROAR_R;
@@ -113,7 +113,7 @@ const DD_KEYS = ['frostwyrm', 'cinderdrake', 'voiddrake'];
       if ((w.flyOff || 0) >= DD_HOVER - 8 || S.t > 90) { S.ph = 'go'; S.t0 = S.t; S.side = tg.x >= w.x ? 1 : -1; S.fails = 0; showBanner('⚠ ' + w.name + ' flies to ' + (tg.name || 'a player') + '!', '#ff7a3a'); }
     } else if (S.ph === 'go') {   // glides to a spot beside the player, riding the ground height under him
       const tx = clamp(tg.x - S.side * DD_STAND, 100, WORLD_W - 100), dx = tx - w.x, dist = Math.abs(dx);
-      if (dist <= 6 || S.fails > 8 || S.t - S.t0 > 260) { S.ph = 'roar'; S.r = 0; w.face = tg.x >= w.x ? 1 : -1; snd('freeze', .5); }
+      if (dist <= 6 || S.fails > 8 || S.t - S.t0 > 260) { S.ph = 'roar'; S.r = 0; w.face = tg.x >= w.x ? 1 : -1; if (!Snd.file('dd_roar')) snd('freeze', .5); }
       else { const sp = Math.min(9, Math.max(2.5, dist * .12)); if (placeOnGround(w, w.x + Math.sign(dx) * Math.min(sp, dist))) S.fails = 0; else S.fails++; }
     } else if (S.ph === 'roar') {
       const r = ++S.r;

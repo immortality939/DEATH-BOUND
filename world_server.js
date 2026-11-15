@@ -165,6 +165,7 @@ function updateWorm(w) {
   if (w.jet && w.state !== 'air') w.jet = false;   // Fly ends the moment the robot is not in the air any more (died, drowned, rescued)
   if (w.flash > 0) w.flash--; if (w.healT > 0) w.healT--; if (w.walking > 0) w.walking--;
   if (w.flyGoal != null) w.flyOff = (w.flyOff || 0) + clamp(w.flyGoal - (w.flyOff || 0), -3.2, 3.2);   // flying dragons rise / land smoothly
+  if (w.rob && (w.flyOff || 0) > 20 && w === G.activeWorm && w.state !== 'dead' && w.state !== 'drown' && !(w.flySndT > G.frame) && /^boss_(frostwyrm|cinderdrake|voiddrake|lavahound)$/.test(w.rob.id) && Snd.file('wing_fly')) w.flySndT = G.frame + 100;   // wing sound while the dragon / hound flies on its turn
   if (w.breathT > 0) w.breathT--; if (w.lunge > 0) w.lunge--;
   if (w.hover && w.state !== 'dead' && w.state !== 'drown') { w.vx = w.vy = 0; w.state = 'ground'; w.knocked = false; return; }   // baby dragons fly: no gravity, they cannot fall or drown
   if (w.state === 'dead') {
@@ -404,7 +405,7 @@ function updateShooting() {
       const d = aimDir(w);
       const jit = vo.spread || 0, pw = clamp(v.power + (jit ? rnd(-.04, .04) : 0), 0, POW_MAX);
       const sh = launchShot(w, v.wd, pw, jit); if (vo.lift) sh.vy -= rnd(0, vo.lift);
-      const [mx, my] = muzzleWorld(w, v.wd); addFx('explosion_small', mx, my, vo.recoil > 2 ? .55 : .3); addFx('smoke', mx, my, .5, { alpha: .6 }); Snd.play(v.wd.proj.snd); shake(vo.recoil > 2 ? 6 : 2.5);
+      const [mx, my] = muzzleWorld(w, v.wd); addFx('explosion_small', mx, my, vo.recoil > 2 ? .55 : .3); addFx('smoke', mx, my, .5, { alpha: .6 }); if (!(v.wd.proj.sndOnce && v.sndDone)) { Snd.play(v.wd.proj.snd); v.sndDone = true; } shake(vo.recoil > 2 ? 6 : 2.5);
       if (w.state !== 'dead' && w.state !== 'drown') { knockWorm(w, clamp(w.vx - d[0] * vo.recoil, -4.5, 4.5) - w.vx, -Math.abs(vo.recoil) * .25); }
       v.left--; v.gap = vo.gap;
     }

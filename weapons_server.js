@@ -195,16 +195,17 @@ SIG_WMETA['M0_Blank'] = { muzzle: [170, 128], bbox: [0, 0, 1, 1] };   // empty p
 const CBOSS_W = (id, boss, name, desc, o) => {
   const vol = o.vol || null, n = vol ? vol.count : 1;
   const proj = { spr: 'cimg:proj/' + id + '_proj.png', ss: o.ss || 1, speed: CHARGE_SPEED, g: o.g || WEAPON_G, wind: WEAPON_WIND, spin: o.spin || 0, glow: o.glow || null, add: !!o.add, dmg: o.dmg, blast: o.blast, hit: o.hit, hs: o.hs, snd: o.snd || 'rocket', knock: o.knock, trail: !!o.trail, life: 2400 };
+  if (o.hitSnd) proj.hitSnd = o.hitSnd; if (o.sndOnce) proj.sndOnce = true;
   if (o.freeze) proj.freeze = true; if (o.homing) { proj.homing = true; proj.homeRange = 200; } if (o.bomblet) proj.bomblet = o.bomblet; if (o.clusterSpread) proj.clusterSpread = o.clusterSpread; if (o.clusterSpd) proj.clusterSpd = o.clusterSpd; if (o.miniFuse) proj.miniFuse = o.miniFuse; if (o.miniImpact !== undefined) proj.miniImpact = o.miniImpact;
   const wp = { id, name, desc, ammo: Infinity, type: 'shot', charge: true, boss, rockets: n, proj };
   if (vol) wp.volley = vol; if (o.cluster) wp.cluster = o.cluster;
   return wp;
 };
 WEAPONS.push(
-  CBOSS_W('C01_Gutrot_Spear', 'boss_gutrot', "Gutrot's Spear", "One huge spear hurled hard and flat.", { dmg: 62, blast: 40, knock: 10, ss: .95, g: .09, hit: 'explosion_big', hs: .8, snd: 'mp3_orc_spear' }),
+  CBOSS_W('C01_Gutrot_Spear', 'boss_gutrot', "Gutrot's Spear", "One huge spear hurled hard and flat.", { dmg: 62, blast: 40, knock: 10, ss: .95, g: .09, hit: 'explosion_big', hs: .8, snd: 'mp3_orc_spear', hitSnd: 'orc_spear_hit' }),
   CBOSS_W('C02_Frost_Breath', 'boss_frostwyrm', "Frost Breath", "Three icy fireballs that freeze whoever they hit.", { dmg: 30, blast: 40, knock: 6, ss: 1, vol: { count: 3, gap: 14, recoil: 1.2, spread: 3 }, freeze: true, hit: 'ice_hit', hs: 1.0, snd: 'freeze', glow: '#7fd6ff', add: true }),
   CBOSS_W('C03_Storm_Skull', 'boss_stormbone', "Storm Skull", "A crackling skull that bursts into 3 bone bombs.", { dmg: 46, blast: 52, knock: 8, ss: 1, spin: .22, cluster: 3, clusterSpread: 1.25, clusterSpd: [3, 8], miniFuse: [40, 90], miniImpact: true, bomblet: { dmg: 14, blast: 32 }, hit: 'energy_hit', hs: .95, glow: '#5be0ff' }),
-  CBOSS_W('C04_Inferno_Breath', 'boss_cinderdrake', "Inferno Breath", "A long burst of 6 fireballs from the dragon's mouth.", { dmg: 18, blast: 32, knock: 4, ss: 1, vol: { count: 6, gap: 7, recoil: .8, spread: 4 }, hit: 'explosion_small', hs: .85, glow: '#ff8a30', add: true, trail: true }),
+  CBOSS_W('C04_Inferno_Breath', 'boss_cinderdrake', "Inferno Breath", "A long burst of 6 fireballs from the dragon's mouth.", { snd: 'mp3_dd_fire', sndOnce: true, dmg: 18, blast: 32, knock: 4, ss: 1, vol: { count: 6, gap: 7, recoil: .8, spread: 4 }, hit: 'explosion_small', hs: .85, glow: '#ff8a30', add: true, trail: true }),
   CBOSS_W('C05_Temple_Axe', 'boss_templemino', "Temple Axe", "A giant double axe thrown end over end. Huge knockback.", { dmg: 78, blast: 54, knock: 13, ss: 1.1, spin: .2, hit: 'explosion_big', hs: 1.0 }),
   CBOSS_W('C06_Tomb_Skull', 'boss_tombking', "Tomb Skulls", "Two cursed skulls that lock on when you are close.", { dmg: 38, blast: 44, knock: 7, ss: 1, spin: .25, vol: { count: 2, gap: 34, recoil: 1.0, spread: 1 }, homing: true, hit: 'plasma_hit', hs: .9, glow: '#ff9a30' }),
   CBOSS_W('C07_Zenith_Axe', 'boss_zenithmino', "Zenith Twin Axes", "Two golden axes thrown one after the other.", { dmg: 44, blast: 46, knock: 9, ss: 1.05, spin: .2, vol: { count: 2, gap: 30, recoil: 1.0, spread: 2 }, hit: 'explosion_big', hs: .85 }),
@@ -215,8 +216,8 @@ WEAPONS.push(
   CBOSS_W('C10_Void_Breath', 'boss_voiddrake', "Void Breath", "Four void flames that lock on when close.", { dmg: 34, blast: 46, knock: 7, ss: 1, vol: { count: 4, gap: 12, recoil: 1.0, spread: 3 }, homing: true, hit: 'plasma_hit', hs: 1.0, glow: '#d65aff', add: true, trail: true }),
   // ---- HEROIC third bosses (boss3.js): their basic attack / base damage numbers ----
   CBOSS_W('C11_Warchief_Rock', 'boss_warchief', "Warchief's Boulder", "A huge boulder hurled with brute force.", { dmg: 76, blast: 56, knock: 12, ss: .9, spin: .18, hit: 'b3_rock_hit', hs: 1.0, snd: 'rocket' }),
-  CBOSS_W('C12_Scorpion_Venom', 'boss_scorpionking', "Venom Stinger", "Three poison bolts shot from the tail.", { dmg: 34, blast: 40, knock: 5, ss: 1, vol: { count: 3, gap: 14, recoil: 1.0, spread: 3 }, hit: 'b3_poison_hit', hs: 1.0, snd: 'slash', glow: '#6dff3a', trail: true }),
-  CBOSS_W('C13_Lava_Hound_Lava', 'boss_lavahound', "Molten Spit", "Two balls of lava spat from the hound's jaws.", { dmg: 46, blast: 50, knock: 7, ss: 1.1, vol: { count: 2, gap: 20, recoil: 1.0, spread: 3 }, hit: 'b3_lava_hit', hs: 1.1, glow: '#ff8a30', add: true, trail: true }),
+  CBOSS_W('C12_Scorpion_Venom', 'boss_scorpionking', "Venom Stinger", "Three poison bolts shot from the tail.", { dmg: 34, blast: 40, knock: 5, ss: 1, vol: { count: 3, gap: 14, recoil: 1.0, spread: 3 }, hit: 'b3_poison_hit', hs: 1.0, snd: 'mp3_sk_poison', glow: '#6dff3a', trail: true }),
+  CBOSS_W('C13_Lava_Hound_Lava', 'boss_lavahound', "Molten Spit", "Two balls of lava spat from the hound's jaws.", { snd: 'mp3_dd_fire', sndOnce: true, dmg: 46, blast: 50, knock: 7, ss: 1.1, vol: { count: 2, gap: 20, recoil: 1.0, spread: 3 }, hit: 'b3_lava_hit', hs: 1.1, glow: '#ff8a30', add: true, trail: true }),
   CBOSS_W('C14_Zeus_Bolt', 'boss_zeus', "Zeus' Lightning", "Lightning strikes one player directly and jumps to every player standing close.", { dmg: 64, blast: 30, knock: 4, ss: 1, hit: 'b3_bolt_hit', hs: 1.0, snd: 'freeze', glow: '#9fe4ff', add: true }),
   CBOSS_W('C15_Reaper_Scythe', 'boss_deathreaper', "Reaper's Scythe", "Dashes to a random player and slashes, then flies back.", { dmg: 70, blast: 40, knock: 8, ss: 1, spin: .3, hit: 'spark_hit', hs: 1.0, snd: 'slash', glow: '#6dffa0', add: true }),
   CBOSS_W('C16_Werewolf_Claw', 'boss_werewolf', "Shadow Claws", "Double claw slash: two hits in a row. Every 3rd turn he strikes across the whole map.", { dmg: 42, blast: 30, knock: 6, ss: 1, hit: 'spark_hit', hs: 1.0, snd: 'slash', glow: '#b46bff', add: true }),

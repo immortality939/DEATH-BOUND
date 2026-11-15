@@ -140,7 +140,7 @@ const LH_FLAME_S = .62, LH_SMOKE_S = .62;
     for (const w of G.worms) {
       if (!isLH(w) || w.state === 'dead' || w.state === 'drown') continue;
       if (w.spT > 0 && w.rob.spec === 'burn') {
-        if (w.spT === BURN_PEAK - 2) { lhMuzzle(w, true, true); snd('flame', .9); }
+        if (w.spT === BURN_PEAK - 2) { lhMuzzle(w, true, true); if (!Snd.file('lh_flame')) snd('flame', .9); }
         else if (w.spT > BURN_PEAK && w.spT < BURN_PEAK + 32 && w.spT % 5 === 0) lhMuzzle(w, false, true);
       }
     }

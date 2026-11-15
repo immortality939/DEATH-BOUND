@@ -298,7 +298,7 @@ const SLIME = {
       const a = (t - 51) / 10; w.actF = F + (a < .5 ? 5 : 6); w.hop = 264 * hk * (1 - a * a); return false;
     }
     if (t === 61) {                                                                                                 // IMPACT
-      w.hop = 0; w.actF = F + 7; SH(w, 40); Snd.play('boom', SV(w, 1.5)); if (!w.minion) Snd.play('boom', 1);
+      w.hop = 0; w.actF = F + 7; SH(w, 40); if (!Snd.file('slime_smash')) { Snd.play('boom', SV(w, 1.5)); if (!w.minion) Snd.play('boom', 1); }
       SFX(w, 'splash', w.x, w.y - 8, 2.6); SDB(w, w.x, w.y - 4, 30, 'dirt'); if (!w.minion) debris(w.x, w.y - 4, 10, 'metal');
       ringFx(w.x, w.y - 4, slRing(w)); if (!w.minion) { ringFx(w.x, w.y - 4, '#ffffff', 8); ringFx(w.x, w.y - 4, slCol(w), 16); }
       const d = this.dmg(w, SLIME_SMASH_MUL), hit = BOSS3.foes(w).filter(p => p.state === 'ground');   // on the ground / on a platform = hurt, any distance
@@ -324,7 +324,7 @@ const SLIME = {
     if (t < 9) { w.actF = F; return false; }
     if (t < 17) { w.actF = F + 1; return false; }
     if (t === 17) {
-      w.actF = F + 2; SH(w, 30); Snd.play('boom', SV(w, 1.2)); SFX(w, 'splash', w.x, w.y - 8, 2.6); SDB(w, w.x, w.y - 4, 22, 'dirt');
+      w.actF = F + 2; SH(w, 30); if (!Snd.file('slime_near')) Snd.play('boom', SV(w, 1.2)); SFX(w, 'splash', w.x, w.y - 8, 2.6); SDB(w, w.x, w.y - 4, 22, 'dirt');
       ringFx(w.x, w.y - 30 * k, slRing(w)); if (!w.minion) ringFx(w.x, w.y - 30, '#ffffff', 8);
       const d = this.dmg(w, SLIME_SPLASH_MUL), cy = w.y - 50 * (w.sc || 1) * .5, R = SLIME_SPLASH_R * k;
       const hit = BOSS3.foes(w).filter(p => Math.abs(p.x - w.x) < R && Math.abs((p.y - 30) - cy) < Math.max(150, 300 * k));

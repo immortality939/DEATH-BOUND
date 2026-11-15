@@ -161,7 +161,7 @@ const SK_ACT = 'adventure/boss_scorpionking_act.webp', SK_VENOM_IMG = 'proj/scor
       if (S.ph === 'smash') {   // ... and slams him into the ground
         const a = ease(u / 8); w.actF = SKP.to(SK.PINCER, SK.PINCER + 2, a); tg.vx = 0; tg.vy = 0; tg.x = AX; tg.flyOff = 120 * (1 - ease(u / 8));
         if (u === 8) {
-          tg.flyOff = 0; shake(36); Snd.play('boom', 1.5); Snd.play('boom', 1); hurt(tg, BOSS3.dmg(w, SK_PINCER_MUL)); if (tg.state !== 'dead') knockWorm(tg, w.face * 1.5, -3);
+          tg.flyOff = 0; shake(36); Snd.play('mp3_sk_slam'); hurt(tg, BOSS3.dmg(w, SK_PINCER_MUL)); if (tg.state !== 'dead') knockWorm(tg, w.face * 1.5, -3);
           addFx('explosion_big', tg.x, tg.y - 8, 1.5); addFx('b3_poison_hit', tg.x, tg.y - 30, 1.4); debris(tg.x, tg.y - 4, 24, 'dirt'); ringFx(tg.x, tg.y - 4, '#ffcf8a'); G.terrain.carve(tg.x, tg.y + 6, 40); showBanner('SMASH!', '#ff6a4a');
         }
         if (u > 8) w.actF = u < 22 ? SKP.to(SK.PINCER + 2, SK.PINCER + 3, (u - 8) / 14) : [SK.PINCER + 3, SK.IDLE, ease((u - 22) / 10)];
@@ -183,7 +183,7 @@ const SK_ACT = 'adventure/boss_scorpionking_act.webp', SK_VENOM_IMG = 'proj/scor
       else if (u < 13) w.actF = SKP.to(SK.TAIL + 2, SK.TAIL + 3, (u - 7) / 6);          // whip -> follow-through
       else w.actF = SKP.to(SK.TAIL + 3, SK.TAIL + 1, (u - 13) / 11);                    // back up for the next lash
       if (u === 7) {   // the venom leaves the stinger: one glob to EVERY player
-        const [ox, oy] = tip(w), list = foes(w); Snd.play('freeze', .8); shake(5);
+        const [ox, oy] = tip(w), list = foes(w); if (!Snd.file('sk_poison')) Snd.play('freeze', .8); shake(5);
         list.forEach((p, i) => SKX.venom(w, ox, oy, p, i * 5, round));
         addFx('b3_poison_hit', ox, oy, .5);
       }

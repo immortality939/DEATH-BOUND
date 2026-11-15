@@ -187,7 +187,7 @@ const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s
     if (t >= 20 && t < 100 && t % 14 === 0) addFx('b3_ghost_boom', cx0 + rnd(-90, 90) * S, cy0 + rnd(-100, 60) * S, .5);
     if (t === 40 || t === 70) { ringFx(cx0, cy0, '#b06bff', 0); shake(8); }
     if (t === 100) {   // the moment he is whole again
-      shake(34); Snd.play('rp_scream', .8); ringFx(cx0, cy0, '#d9a8ff'); ringFx(cx0, cy0, '#ffffff', 8); G.rpFlash = 12;
+      shake(34); if (!Snd.file('rp_blast')) Snd.play('rp_scream', .8); ringFx(cx0, cy0, '#d9a8ff'); ringFx(cx0, cy0, '#ffffff', 8); G.rpFlash = 12;
       addFx('rp_scream_wave', cx0, cy0, 2.1, { alpha: .75 });
     }
     if (t >= RP_CUT_END) reviveNow(R);
@@ -238,7 +238,7 @@ const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s
       if (S.ph === 'atk') {
         const a = ++S.a; faceTo(w, tg.x); const A = RP.ATK;
         w.actF = a <= 8 ? blend(S.fp, A, a / 8) : a <= 16 ? to(A, A + 1, (a - 8) / 8) : a <= 24 ? to(A + 1, A + 2, (a - 16) / 8) : a <= 31 ? to(A + 2, A + 3, (a - 24) / 7) : a <= 36 ? to(A + 3, A + 4, (a - 31) / 5) : a <= 42 ? to(A + 4, A + 5, (a - 36) / 6) : a <= 50 ? A + 5 : to(A + 5, RP.FLY, (a - 50) / 8);
-        if (a === 30) { Snd.play('slash', 1); }
+        if (a === 30) { Snd.play('mp3_rp_slash'); }
         if (a === 33 && tg.state !== 'dead' && tg.state !== 'drown') {
           hurt(tg, BOSS3.dmg(w, 1.1)); if (tg.state !== 'dead') knockWorm(tg, w.face * 5, -3.6);
           addFx('b3_slash', tg.x - w.face * 10, tg.y - 50, 1.4, { flip: w.face < 0 }); addFx('spark_hit', tg.x, tg.y - 40, 1.2); shake(12); Snd.play('hit');
@@ -268,7 +268,7 @@ const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s
     },
     scream(w) {   // the shockwave: a round blast around his body, strongest close to him, pushes everybody away
       const [x, y] = bodyCenter(w), d0 = BOSS3.dmg(w, SPECIAL_MUL * RP_SCREAM_MUL);
-      shake(38); G.rpFlash = 12; Snd.play('rp_scream'); Snd.play('boom', 1.3);
+      shake(38); G.rpFlash = 12; Snd.play('mp3_rp_blast');
       addFx('rp_scream_wave', x, y, 2 * RP_WAVE_R / 256 * 1.02, { alpha: .85 }); ringFx(x, y, '#c58bff'); ringFx(x, y, '#ffffff', 7); ringFx(x, y, '#8a3cff', 14);
       for (const p of foes(w)) {
         const [px_, py_] = bodyCenter(p), d = Math.hypot(px_ - x, py_ - y); if (d > RP_WAVE_R) continue;

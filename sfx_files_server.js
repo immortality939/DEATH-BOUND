@@ -12,7 +12,12 @@
   // the sounds live only in the APK (offline game's assets/sound effect/); the online code reads them from there, like the images
   const BASES = [''];
   const FILES = {
-    kk_roar: 'kingkong roar.ogg',             kk_smash: 'king kong smash ground.mp3',
+    rp_blast: 'death reaper blast.mp3', rp_slash: 'death reaper slash attack.mp3',
+    dd_fire: 'demon dragon and lava hound basick attack fire.mp3', wing_fly: 'demon dragon and lava hound flying.mp3', dd_roar: 'demon dragon roar.mp3',
+    gm_walk: 'golem footstep walking.mp3', slime_near: 'king slime near attack.mp3', slime_smash: 'king slime smash ground.mp3',
+    lh_flame: 'lava hound floor flame.wav', orc_spear_hit: 'orc spear hit impact.mp3',
+    sk_poison: 'scorpion king poison shoot.wav', sk_slam: 'scorpion king slam player attack.mp3', ww_claw: 'werewolf basic attack.mp3',
+    kk_pound: 'king_kong_pounding_his_chest.mp3', kk_roar: 'kingkong roar.ogg',             kk_smash: 'king kong smash ground.mp3',
     gm_smash: 'golem smash ground.mp3',        gm_land: 'golem jump land hit impact.mp3',
     mino_attack: 'minotaur attack axe.mp3',    mino_smash: 'minotaur axe smash ground.mp3',
     cen_attack: 'centaur basic attack.mp3',    cen_smash: 'centaur smash ground.mp3',
@@ -26,7 +31,10 @@
   };
   // the old sound each file replaces (played only while the file is not ready). 'name' or ['name', arg]; no arg = the caller's arg
   const FALL = {
-    kk_roar: ['kk_roar', ['boom', 1.2]], kk_smash: [['boom', 1.4], ['boom', 1]],
+    rp_blast: ['rp_scream', ['boom', 1.3]], rp_slash: [['slash', 1]], dd_fire: [['rocket']], wing_fly: [], dd_roar: [['boom', 1.2], ['rp_scream', .9]],
+    gm_walk: ['gm_step'], slime_near: [['boom', 1.2]], slime_smash: [['boom', 1.5], ['boom', 1]], lh_flame: [['flame', .9]], orc_spear_hit: [],
+    sk_poison: [['slash']], sk_slam: [['boom', 1.5], ['boom', 1]], ww_claw: [['slash', 1]],
+    kk_pound: [], kk_roar: ['kk_roar', ['boom', 1.2]], kk_smash: [['boom', 1.4], ['boom', 1]],
     gm_smash: ['gm_stomp', ['boom', 1.3]], gm_land: ['gm_stomp', ['boom', 1.4], ['boom', 1]],
     mino_attack: [['slash', 1]], mino_smash: [['boom', 1.4], ['boom', 1]],
     cen_attack: [['slash', 1]], cen_smash: [['boom', 1.5], ['boom', 1]],

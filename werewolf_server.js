@@ -264,7 +264,7 @@ CMINIONS.werewolf = { name: "Blood Wolf", hpMul: 6, sc: 1.9, fly: false, sheet: 
       S.u++; const u = S.u; face(w, tg);
       const D = WWF.DBL; w.actF = keys([[1, WWF.IDLE], [9, D], [15, D + 1], [21, D + 2], [27, D + 3], [33, D + 4], [41, D + 5], [51, D + 5], [64, WWF.IDLE]], u);
       if (u === 18 || u === 31) {
-        const k = u === 18 ? 1 : 2, dmg = dmgOf(w, WW_CLAW_MUL, WW_MIN_CLAW_MUL); let n = 0; Snd.play('slash', 1); shake(big ? (k === 1 ? 8 : 13) : 5);
+        const k = u === 18 ? 1 : 2, dmg = dmgOf(w, WW_CLAW_MUL, WW_MIN_CLAW_MUL); let n = 0; if (k === 1) Snd.play('mp3_ww_claw'); else if (!Snd.has('ww_claw')) Snd.play('slash', 1); shake(big ? (k === 1 ? 8 : 13) : 5);
         for (const p of foes(w)) {
           const dx = (p.x - w.x) * w.face; if (dx < -WW_HIT_BACK * s || dx > WW_HIT_FRONT * s || Math.abs(p.y - w.y) > 170 * s) continue;
           n++; hurt(p, dmg); if (p.state !== 'dead') knockWorm(p, w.face * (k === 1 ? 2.2 : 5), k === 1 ? -1.4 : -3.6);
