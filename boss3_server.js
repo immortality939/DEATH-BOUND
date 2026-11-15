@@ -230,7 +230,7 @@ const BOSS3 = {
   spawnGhosts(boss, n) {
     const T = G.terrain, hp = Math.max(1, Math.round(MINION_HP * 1.4 * (typeof ENEMY_MULT !== 'undefined' ? ENEMY_MULT : 1) * (typeof advDM === 'function' ? advDM() : 1) * (typeof BOSS_HP_MULT !== 'undefined' ? BOSS_HP_MULT : 1))); G.minionSeq = G.minionSeq | 0; let made = 0;
     for (let k = 0; k < n; k++) {
-      const side = k % 2 ? 1 : -1; let sx = clamp(boss.x + side * (120 + k * 30), 100, WORLD_W - 100), sy = T.surfaceBelow(sx, Math.max(0, boss.y - 90)); if (sy < 0 || sy > WATER_Y - 40) { sx = clamp(boss.x - side * 140, 100, WORLD_W - 100); sy = T.surfaceBelow(sx, Math.max(0, boss.y - 90)); } if (sy < 0 || sy > WATER_Y - 40) continue;
+      const side = k % 2 ? 1 : -1; let sx = clamp(boss.x + side * (120 + k * 30), edgeLo(100), edgeHi(100)), sy = T.surfaceBelow(sx, Math.max(0, boss.y - 90)); if (sy < 0 || sy > WATER_Y - 40) { sx = clamp(boss.x - side * 140, edgeLo(100), edgeHi(100)); sy = T.surfaceBelow(sx, Math.max(0, boss.y - 90)); } if (sy < 0 || sy > WATER_Y - 40) continue;
       G.minionSeq++;
       const m = { team: boss.team, idx: 60 + G.minionSeq, sc: .95, name: 'Soul Wisp', minion: true, ghost: true, hover: true, mw: B3_GHOST_W, rob: this.ghostRob(), x: sx, y: sy - 2, vx: 0, vy: 0, hp, maxHp: hp, face: sx < boss.x ? 1 : -1, aim: 0, state: 'air', knocked: false, bounces: 0, wf: 0, fi: 8, walkAcc: 0, walking: 0, flash: 0, frozen: 0, dt: 0, fallPeak: 0, flyGoal: 80, flyOff: (boss.flyOff || 0) };
       G.worms.push(m); G.queue.push(m); made++; addFx('teleport', sx, sy - 60, 1.1);
@@ -244,7 +244,7 @@ const BOSS3 = {
     const [mx, my] = bodyCenter(m); foes.sort((a, b) => Math.hypot(a.x - mx, a.y - my) - Math.hypot(b.x - mx, b.y - my)); const tg = foes[0], [cx, cy] = bodyCenter(tg);
     const dx = cx - mx, dy = cy - my, d = Math.hypot(dx, dy) || 1; m.face = dx >= 0 ? 1 : -1;
     if (d < B3_GHOST_TOUCH) { this.ghostBoom(m); return; }
-    const sp = 4.2; m.x = clamp(m.x + dx / d * sp, 60, WORLD_W - 60); m.gmove = (m.gmove || 0) + sp;
+    const sp = 4.2; m.x = clamp(m.x + dx / d * sp, edgeLo(60), edgeHi(60)); m.gmove = (m.gmove || 0) + sp;
     const sy = G.terrain.surfaceBelow(m.x, Math.max(0, m.y - 120)); if (sy >= 0 && sy < WATER_Y - 30) m.y = sy;
     m.flyGoal = clamp(m.y - (cy + 18), 18, 240);
     if (m.gmove >= B3_GHOST_RANGE) { m.done = true; m.gmove = 0; }

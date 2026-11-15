@@ -65,7 +65,7 @@ const AI = {
   // ---- boss safety: is there a drop (cliff / pit / sea) within the boss's reach on this side? ----
   edgeNear(w, dir) {
     const T = G.terrain, sc = w.sc || 1;
-    for (let d = 60 * sc / 2; d <= 110 * sc; d += 18) { const x = w.x + dir * d; if (x < 90 || x > WORLD_W - 90) return true; let ok = false; for (let dy = -50; dy <= 150; dy += 6) if (T.solid(x, w.y + dy)) { ok = true; break; } if (!ok) return true; }
+    for (let d = 60 * sc / 2; d <= 110 * sc; d += 18) { const x = w.x + dir * d; if (x < edgeLo(90) || x > edgeHi(90)) return true; let ok = false; for (let dy = -50; dy <= 150; dy += 6) if (T.solid(x, w.y + dy)) { ok = true; break; } if (!ok) return true; }
     return false;
   },
   edgeFlee(w) { const l = this.edgeNear(w, -1), r = this.edgeNear(w, 1); return l && !r ? 1 : r && !l ? -1 : 0; },   // direction to walk away from the fall (0 = safe, or no safe side)
@@ -86,12 +86,12 @@ const AI = {
     for (let k = 1; k <= 45; k++) { const q = simWalk(b, -dir, sc); if (!q) break; b = q; if (k % 3 === 0 && ok(b)) return { jx: b.x }; }
     return { stuck: true };
   },
-  safeDrop(x, y) { if (x < 90 || x > WORLD_W - 90) return false; for (let d = 4; d <= 100; d += 4) if (G.terrain.solid(x, y + d)) return y + d < WATER_Y - 40; return false; },
+  safeDrop(x, y) { if (x < edgeLo(90) || x > edgeHi(90)) return false; for (let d = 4; d <= 100; d += 4) if (G.terrain.solid(x, y + d)) return y + d < WATER_Y - 40; return false; },
   flyStep(m) {   // BABY DRAGONS: no melee. Every turn they fly to a NEW spot, hover, and spit 2 fireballs at the nearest player
     if (m.frozen > 0) { m.done = true; return; }
     const foes = aliveWorms().filter(e => e.team !== m.team); if (!foes.length) { m.done = true; return; }
     foes.sort((a, b) => Math.abs(a.x - m.x) - Math.abs(b.x - m.x)); const tg = foes[0];
-    if (m.fp == null) { const side = Math.random() < .5 ? -1 : 1; m.fx = clamp(tg.x + side * rnd(230, 430), 90, WORLD_W - 90); m.fp = 1; m.ft = 0; m.flyGoal = rnd(115, 190); }
+    if (m.fp == null) { const side = Math.random() < .5 ? -1 : 1; m.fx = clamp(tg.x + side * rnd(230, 430), edgeLo(90), edgeHi(90)); m.fp = 1; m.ft = 0; m.flyGoal = rnd(115, 190); }
     if (m.fp === 1) {   // glide to the new hover spot
       const dx = m.fx - m.x; m.ft++;
       if (Math.abs(dx) > 3 && m.ft < 420) { m.x += Math.sign(dx) * Math.min(2.8, Math.abs(dx)); m.face = dx > 0 ? 1 : -1; const sy = G.terrain.surfaceBelow(m.x, Math.max(0, m.y - 260)); if (sy >= 0 && sy < WATER_Y - 40) m.y += clamp(sy - m.y, -2, 2); }
@@ -159,9 +159,11 @@ const AI = {
       if (isBoss(w)) { const fl = this.edgeFlee(w); if (fl) { this.st = 'flee'; this.dir = fl; this.t = 150; this.stuck = 0; this.lastX = w.x; showBanner('⚠ ' + w.name + ' backs away from the edge', '#ffb347'); return; } }   // boss near a fall: step away from it first
       if (isBoss(w) && bossStompTargets(w).length && !(this.bspecial && !this.bdone) && !(w.flyOff > 20)) { this.st = 'stomp'; this.t = 0; w.stompT = 0; showBanner('⚠ ' + w.name + ' raises a foot…', '#ff4a4a'); return; }   // boss: a player is too close, stomp instead of shooting
       if (isBoss(w) && !this.bmoved) {   // EVERY boss turn (robot bosses and creature bosses): walk a few steps left or right FIRST, then aim and shoot from the new spot
-        this.bmoved = true; const pick = Math.random() < .5 ? -1 : 1; let d = pick;
+        this.bmoved = true; let pick = Math.random() < .5 ? -1 : 1; let d = pick;
+        // a player far away (hiding in a corner): walk TOWARD him (longer steps) instead of a random step, so the boss can go to the very side and reach him
+        const far = aliveWorms().filter(x => x.team !== w.team && !x.minion).sort((a, b) => Math.abs(a.x - w.x) - Math.abs(b.x - w.x))[0]; this.bfar = !!(far && Math.abs(far.x - w.x) > 450); if (this.bfar) pick = d = far.x < w.x ? -1 : 1;
         if (this.edgeNear(w, d)) d = -d;   // never walk toward a drop
-        if (!this.edgeNear(w, d)) { this.st = 'move'; this.moved = 0; this.dir = d; this.bdir = d; this.t = 50 + rint(0, 45); this.stuck = 0; this.lastX = w.x; return; }
+        if (!this.edgeNear(w, d)) { this.st = 'move'; this.moved = 0; this.dir = d; this.bdir = d; this.t = (this.bfar ? 130 : 50) + rint(0, 45); this.stuck = 0; this.lastX = w.x; return; }
       }
       if (this.bspecial && !this.bdone) {   // SPECIAL TURN (after the walk): smash / roar / jump on the spot, or take off (dragon)
         this.bdone = true; const sp = w.rob.spec;

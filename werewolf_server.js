@@ -196,7 +196,7 @@ CMINIONS.werewolf = { name: "Blood Wolf", hpMul: 6, sc: 1.9, fly: false, sheet: 
     landSpot(w, tg, stop) {   // a free standing spot next to the target, on HIS level
       const T = G.terrain, sc = w.sc || 1, side0 = w.x <= tg.x ? -1 : 1;
       for (const f of [1, .65, .35, 0]) for (const side of [side0, -side0]) {
-        const x = clamp(tg.x + side * stop * f, 100, WORLD_W - 100), y = T.surfaceBelow(x, Math.max(0, tg.y - 90)); if (y < 0 || Math.abs(y - tg.y) > 42 || y > WATER_Y - 60) continue;
+        const x = clamp(tg.x + side * stop * f, edgeLo(100), edgeHi(100)), y = T.surfaceBelow(x, Math.max(0, tg.y - 90)); if (y < 0 || Math.abs(y - tg.y) > 42 || y > WATER_Y - 60) continue;
         if (blocked(x, y - 2, sc) || !onGround(x, y, sc) || !T.solid(x - 8 * sc, y + 2) || !T.solid(x + 8 * sc, y + 2)) continue; return { x, y: y - 1 };
       }
       return null;
@@ -344,7 +344,7 @@ CMINIONS.werewolf = { name: "Blood Wolf", hpMul: 6, sc: 1.9, fly: false, sheet: 
     G.minionSeq = G.minionSeq | 0; let made = 0;
     for (let k = 0; k < 2; k++) {
       const side = k % 2 ? 1 : -1, ox = side * (230 + k * 40);
-      let sx = clamp(boss.x + ox, 120, WORLD_W - 120), sy = T.surfaceBelow(sx, Math.max(0, boss.y - 90)); if (sy < 0 || sy > WATER_Y - 40) { sx = clamp(boss.x - ox, 120, WORLD_W - 120); sy = T.surfaceBelow(sx, Math.max(0, boss.y - 90)); } if (sy < 0 || sy > WATER_Y - 40) continue;
+      let sx = clamp(boss.x + ox, edgeLo(120), edgeHi(120)), sy = T.surfaceBelow(sx, Math.max(0, boss.y - 90)); if (sy < 0 || sy > WATER_Y - 40) { sx = clamp(boss.x - ox, edgeLo(120), edgeHi(120)); sy = T.surfaceBelow(sx, Math.max(0, boss.y - 90)); } if (sy < 0 || sy > WATER_Y - 40) continue;
       carveSpawn(sx, sy, K.sc); G.minionSeq++;
       const m = { team: boss.team, idx: 50 + G.minionSeq, sc: K.sc, name: K.name, minion: true, hover: false, mw: K.mw, rob: K.rob, x: sx, y: sy - 2, vx: 0, vy: 0, hp, maxHp: hp, face: sx < boss.x ? 1 : -1, aim: 0, state: 'air', knocked: false, bounces: 0, wf: 0, fi: 8, walkAcc: 0, walking: 0, flash: 0, frozen: 0, dt: 0, fallPeak: 0 };
       G.worms.push(m); G.queue.push(m); made++; addFx('teleport', sx, sy - 30, 1.1);

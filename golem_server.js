@@ -280,7 +280,7 @@ const GM_T_STOMP = [[0, 0], [12, 16], [26, 17], [44, 18], [58, 18], [66, 19], [9
     landSpot(w, tg, stop) {   // a free spot next to the target (same floor) where he can land
       const T = G.terrain, sc = w.sc || 1, side0 = w.x <= tg.x ? -1 : 1;
       for (const f of [1, .65, .35, 0]) for (const side of [side0, -side0]) {
-        const x = clamp(tg.x + side * stop * f, 100, WORLD_W - 100), y = T.surfaceBelow(x, Math.max(0, tg.y - 90)); if (y < 0 || Math.abs(y - tg.y) > 42 || y > WATER_Y - 60) continue;
+        const x = clamp(tg.x + side * stop * f, edgeLo(100), edgeHi(100)), y = T.surfaceBelow(x, Math.max(0, tg.y - 90)); if (y < 0 || Math.abs(y - tg.y) > 42 || y > WATER_Y - 60) continue;
         if (blocked(x, y - 2, sc) || !onGround(x, y, sc) || !T.solid(x - 8 * sc, y + 2) || !T.solid(x + 8 * sc, y + 2)) continue; return { x, y: y - 1 };
       }
       return null;
@@ -455,7 +455,7 @@ const GM_T_STOMP = [[0, 0], [12, 16], [26, 17], [44, 18], [58, 18], [66, 19], [9
         if (u > 40) { w.actF = null; S.ph = 'go'; S.v = null; S.rt = 0; S.stuck = 0; S.t0 = S.t; w.gmPh = 0; w.face = S.side; showBanner('⚠ ' + w.name + ' marches to the ' + (S.side < 0 ? 'LEFT' : 'RIGHT') + ' corner...', '#ff7a3a'); } return false;
       }
       if (S.ph === 'go') {   // walk until the floor ends (the corner), or the map ends
-        const r = this.walk(w, S, S.side < 0 ? 40 : WORLD_W - 40, GM_RUN * s / GM_PX, 4); if (r !== 'go' || S.t - S.t0 > 700) S.ph = 'stop'; return false;
+        const r = this.walk(w, S, S.side < 0 ? edgeLo(40) : edgeHi(40), GM_RUN * s / GM_PX, 4); if (r !== 'go' || S.t - S.t0 > 700) S.ph = 'stop'; return false;
       }
       if (S.ph === 'stop') { if (this.stop(w, S)) { S.ph = 'act'; S.u = 0; w.face = -S.side; showBanner('⚠ ' + w.name + ' raises his foot... SHOCKWAVE! (jump / fly over it)', '#ff7a3a'); } return false; }   // faces away from the corner = toward the players
       const u = ++S.u; w.actF = keys(GM_T_STOMP, u);
@@ -487,7 +487,7 @@ const GM_T_STOMP = [[0, 0], [12, 16], [26, 17], [44, 18], [58, 18], [66, 19], [9
           wv.hit.push(t); hurt(t, wv.dmg); addFx('spark_hit', t.x, t.y - 40, 1.3); rockFxAt(t.x, t.y, .8); puffs(t.x, t.y, 2, .8); Snd.play('boom', .9); shake(14);   // NO knockback
         }
       }
-      if (wv.x < 20 || wv.x > WORLD_W - 20 || wv.dist > GM_WAVE_MAX || !wv.owner || wv.owner.state === 'dead') wv.dead = true;
+      if (wv.x < edgeLo(20) || wv.x > edgeHi(20) || wv.dist > GM_WAVE_MAX || !wv.owner || wv.owner.state === 'dead') wv.dead = true;
     }
     G.gmWaves = L.filter(wv => !wv.dead);
   }

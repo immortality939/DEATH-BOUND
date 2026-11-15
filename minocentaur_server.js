@@ -129,7 +129,7 @@ const MC = {
   landSpot(w, tg, stop) {   // a free standing spot next to the target, on HIS level (his side first, then the other side, then closer and closer)
     const T = G.terrain, sc = w.sc || 1, side0 = w.x <= tg.x ? -1 : 1;
     for (const f of [1, .65, .35, 0]) for (const side of [side0, -side0]) {
-      const x = clamp(tg.x + side * stop * f, 100, WORLD_W - 100), y = T.surfaceBelow(x, Math.max(0, tg.y - 90)); if (y < 0 || Math.abs(y - tg.y) > 42 || y > WATER_Y - 60) continue;
+      const x = clamp(tg.x + side * stop * f, edgeLo(100), edgeHi(100)), y = T.surfaceBelow(x, Math.max(0, tg.y - 90)); if (y < 0 || Math.abs(y - tg.y) > 42 || y > WATER_Y - 60) continue;
       if (blocked(x, y - 2, sc) || !onGround(x, y, sc) || !T.solid(x - 8 * sc, y + 2) || !T.solid(x + 8 * sc, y + 2)) continue; return { x, y: y - 1 };   // must stand fully on the floor (not hanging over an edge)
     }
     return null;

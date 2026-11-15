@@ -198,7 +198,7 @@ const KK_T_ROAR = [[0, KK.JUMP + 5], [4, KK.JUMP + 6], [10, KK.JUMP + 6], [18, K
     landSpot(w, tg, stop) {
       const T = G.terrain, sc = w.sc || 1, side0 = w.x <= tg.x ? -1 : 1;
       for (const f of [1, .65, .35, 0]) for (const side of [side0, -side0]) {
-        const x = clamp(tg.x + side * stop * f, 100, WORLD_W - 100), y = T.surfaceBelow(x, Math.max(0, tg.y - 90)); if (y < 0 || Math.abs(y - tg.y) > 42 || y > WATER_Y - 60) continue;
+        const x = clamp(tg.x + side * stop * f, edgeLo(100), edgeHi(100)), y = T.surfaceBelow(x, Math.max(0, tg.y - 90)); if (y < 0 || Math.abs(y - tg.y) > 42 || y > WATER_Y - 60) continue;
         if (blocked(x, y - 2, sc) || !onGround(x, y, sc) || !T.solid(x - 8 * sc, y + 2) || !T.solid(x + 8 * sc, y + 2)) continue; return { x, y: y - 1 };
       }
       return null;
@@ -277,12 +277,12 @@ const KK_T_ROAR = [[0, KK.JUMP + 5], [4, KK.JUMP + 6], [10, KK.JUMP + 6], [18, K
       BOSS3.later(22, () => showBanner('ROAR!  (everyone in the ring is hurt)', '#ffb347'));
     },
     // ---------------- 30% HP: pounds his chest (12 frames) and calls ONE brown clan Kong that falls from the sky beside him ----------------
-    thump(w) { const [bx, by] = bodyCenter(w); shake(14); Snd.play('boom', .8); ringFx(bx + w.face * 20, by, '#ffcf8a'); addFx('smoke', w.x - w.face * 40 * sz(w), w.y - 6, .6); debris(w.x, w.y - 4, 6, 'dirt'); },
+    thump(w) { const [bx, by] = bodyCenter(w); shake(14); if (!Snd.has('kk_pound')) Snd.play('boom', .8); ringFx(bx + w.face * 20, by, '#ffcf8a'); addFx('smoke', w.x - w.face * 40 * sz(w), w.y - 6, .6); debris(w.x, w.y - 4, 6, 'dirt'); },
     callClan(boss) {
       if (boss.kkClanOut) return; boss.kkClanOut = true;
       const s = sz(boss), tg = nearestFoe(boss), pseudo = { x: tg ? tg.x : boss.x + 1, sc: boss.sc }; let sp = null;
       for (const d of [1, 1.3, 1.6]) { sp = this.landSpot(pseudo, { x: boss.x, y: boss.y }, KK_CLAN_DIST * s * d); if (sp && Math.abs(sp.x - boss.x) > 110 * s) break; sp = null; }
-      if (!sp) sp = { x: clamp(boss.x + (boss.x < WORLD_W / 2 ? 1 : -1) * KK_CLAN_DIST * s, 120, WORLD_W - 120), y: boss.y };
+      if (!sp) sp = { x: clamp(boss.x + (boss.x < WORLD_W / 2 ? 1 : -1) * KK_CLAN_DIST * s, edgeLo(120), edgeHi(120)), y: boss.y };
       const hp = Math.max(1, Math.round((boss.maxHp || boss.hp) * KK_CLAN_HP)); G.minionSeq = (G.minionSeq | 0) + 1;
       const rob = Object.assign({}, boss.rob, { id: 'minion_kong', name: 'Clan Kong', act: KK_ACT_BR });
       const mw = { id: 'C18_Kong_Smash', art: 'M0_Blank', name: 'Kong Smash', desc: 'Smash / roar', ammo: Infinity, type: 'melee', range: 0, dmg: Math.round(bossBaseDmg(boss) * KK_CLAN_DMG), knock: 0, fx: 'spark_hit', snd: 'slash', carve: 0, minion: true };
@@ -293,6 +293,7 @@ const KK_T_ROAR = [[0, KK.JUMP + 5], [4, KK.JUMP + 6], [10, KK.JUMP + 6], [18, K
     s_kk_pound(w, S) {
       const u = S.t; w.hop = 0; w.actF = keys(KK_T_POUND, u);
       if (u === 1) { const n = nearestFoe(w); if (n) face(w, n); showBanner('⚠ ' + w.name + ' pounds his chest - he calls his CLAN!', '#ffb347'); }
+      if (u === 26) Snd.file('kk_pound');   // chest-pounding sound file
       if (u === 30 || u === 90) Snd.play('mp3_kk_roar');
       if (u === 32 || u === 62 || u === 92 || u === 122) this.thump(w);
       if (u === 66) this.callClan(w);

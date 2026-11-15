@@ -213,7 +213,7 @@ const KG_WIDS = { C03_Storm_Skull: 1, C06_Tomb_Skull: 1 };  // the boss weapons 
     landSpot(w, tg, stop) {   // a free standing spot next to the player, on his level (his near side first, then the other side, then closer)
       const T = G.terrain, sc = w.sc || 1, side0 = w.x <= tg.x ? -1 : 1;
       for (const f of [1, .7, .4, 0]) for (const side of [side0, -side0]) {
-        const x = clamp(tg.x + side * stop * f, 100, WORLD_W - 100), y = T.surfaceBelow(x, Math.max(0, tg.y - 90)); if (y < 0 || Math.abs(y - tg.y) > 46 || y > WATER_Y - 60) continue;
+        const x = clamp(tg.x + side * stop * f, edgeLo(100), edgeHi(100)), y = T.surfaceBelow(x, Math.max(0, tg.y - 90)); if (y < 0 || Math.abs(y - tg.y) > 46 || y > WATER_Y - 60) continue;
         if (blocked(x, y - 2, sc) || !onGround(x, y, sc) || !T.solid(x - 8 * sc, y + 2) || !T.solid(x + 8 * sc, y + 2)) continue; return { x, y: y - 1 };
       }
       return null;

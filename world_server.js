@@ -83,6 +83,10 @@ function hurt(w, dmg, opt = {}) {
 function killWorm(w) { w.state = 'dead'; w.dt = 0; w.vx = w.vy = 0; w.exploded = false; }
 // ---- limits so nothing leaves the map for good ----
 const KNOCK_MAX = 13;       // fastest a blast can push a robot (up / sideways). 13 = about 280 px high, then it falls back down normally
+// ADVENTURE: the ground beside the map is REAL (EDGE_EXT px each side), so players can stand in the very corners. Enemies / bosses use these limits (instead of the old keep-away margins
+// of 80..WORLD_W-80) so they can follow a player into the corner, reach him and hit him. Other modes keep the old margins.
+function edgeLo(m) { return (G.adv && G.terrain && G.terrain.eL) ? 30 - EDGE_EXT : m; }
+function edgeHi(m) { return (G.adv && G.terrain && G.terrain.eL) ? WORLD_W + EDGE_EXT - 30 : WORLD_W - m; }
 function sideExt() { return (G.adv && G.terrain && G.terrain.eL) ? EDGE_EXT : 0; }   // Adventure: shots / beams may fly over the walkable ground beside the map, so their side limits move out by this much
 const PROJ_CEILING = -5000; // a shot is only removed when it is this far above the map (gravity brings every shot back long before)
 function knockWorm(w, kx, ky) { if (w.state === 'dead' || w.state === 'drown') return; const hv = 1 / ((w.sc || 1) * (w.sc || 1)); w.vx += kx * hv; w.vy += ky * hv;
@@ -549,7 +553,7 @@ function specialHit(w, dmg, air, R, cx, anyY) {
 function nearestFoe(w) { return G.worms.filter(t => !bossAlly(w, t) && t.team !== w.team && t.state !== 'dead' && t.state !== 'drown').sort((a, b) => Math.abs(a.x - w.x) - Math.abs(b.x - w.x))[0] || null; }
 // put the boss at x, riding the ground (steps up / down a little); false = no ground there
 function placeOnGround(w, nx) {
-  const sc = w.sc || 1; nx = clamp(nx, 80, WORLD_W - 80);
+  const sc = w.sc || 1; nx = clamp(nx, edgeLo(80), edgeHi(80));
   for (let up = 0; up <= 40 * sc; up += 2) { if (blocked(nx, w.y - up, sc)) continue; for (let dn = 0; dn <= 90 * sc; dn += 1) if (onGround(nx, w.y - up + dn, sc)) { if (w.y - up + dn > WATER_Y - 40) return false; w.x = nx; w.y = w.y - up + dn; return true; } return false; }
   return false;
 }
@@ -569,7 +573,7 @@ function updateWaves() {
         wv.hit.push(t); hurt(t, wv.dmg); if (t.state !== 'dead') knockWorm(t, wv.dir * 2.4, -5); addFx('spark_hit', t.x, t.y - 40, 1.2); addFx('explosion_small', t.x, t.y - 10, .8); Snd.play('boom', .7); shake(10);
       }
     }
-    if (wv.x < 20 || wv.x > WORLD_W - 20 || wv.dist > WAVE_MAX) wv.dead = true;
+    if (wv.x < edgeLo(20) || wv.x > edgeHi(20) || wv.dist > WAVE_MAX) wv.dead = true;
   }
   G.waves = G.waves.filter(wv => !wv.dead);
 }
@@ -661,7 +665,7 @@ function summonMinions(boss) {
   G.minionSeq = G.minionSeq | 0; let made = 0;
   for (let k = 0; k < n; k++) {
     const side = k % 2 ? 1 : -1, ox = side * (150 + Math.floor(k / 2) * 70 + k * 18);   // spread around the boss
-    let sx = clamp(boss.x + ox, 80, WORLD_W - 80), sy = T.surfaceBelow(sx, Math.max(0, boss.y - 90)); if (sy < 0 || sy > WATER_Y - 40) { sx = clamp(boss.x - ox, 80, WORLD_W - 80); sy = T.surfaceBelow(sx, Math.max(0, boss.y - 90)); } if (sy < 0 || sy > WATER_Y - 40) continue;
+    let sx = clamp(boss.x + ox, edgeLo(80), edgeHi(80)), sy = T.surfaceBelow(sx, Math.max(0, boss.y - 90)); if (sy < 0 || sy > WATER_Y - 40) { sx = clamp(boss.x - ox, edgeLo(80), edgeHi(80)); sy = T.surfaceBelow(sx, Math.max(0, boss.y - 90)); } if (sy < 0 || sy > WATER_Y - 40) continue;
     carveSpawn(sx, sy, MINION_SC);
     const K = G.minionKind, rl = G.minionRobots.length ? G.minionRobots : [0], rob = K ? K.rob : Assets.robots.robots[rl[G.minionSeq % rl.length]], mw = K ? K.mw : MINION_WEAPONS[G.minionSeq % MINION_WEAPONS.length]; G.minionSeq++;
     const hpK = K ? Math.round(hp * (K.hpMul || 1)) : hp;
@@ -683,7 +687,7 @@ function swarmControl() {
 }
 // ---- exact movement prediction for bots (same physics as walkWorm / jumpWorm / updateWorm, but on a scratch position) ----
 function simWalk(p, d, sc) {   // one walk step; null = blocked by a wall or a drop
-  const nx = p.x + d * 1.45; if (nx < 70 || nx > WORLD_W - 70) return null;
+  const nx = p.x + d * 1.45; if (nx < edgeLo(70) || nx > edgeHi(70)) return null;
   let up = 0, ok = false; for (; up <= 12 * sc; up++) if (!blocked(nx, p.y - up, sc)) { ok = true; break; } if (!ok) return null;
   let y = p.y - up; if (!onGround(nx, y, sc)) { let g = false; for (let dn = 1; dn <= 7 * sc; dn++) if (onGround(nx, y + dn, sc)) { y += dn; g = true; break; } if (!g) return null; }
   return { x: nx, y };
@@ -697,7 +701,7 @@ function simJump(p, d, sc) {   // exact flight of a forward jump: returns the la
       if (sy > 0) { if (onGround(x, y + sy, sc)) { y += sy; if (onGround(x, y, sc)) { let yy = y; while (onGround(x, yy - 1, sc) && yy > y - 6) yy--; return { x, y: yy, vy }; } } else y += sy; }
       else if (sy < 0) { if (blocked(x, y + sy, sc)) { vy = 0; break; } y += sy; }
     }
-    if (y > WATER_Y || x < 40 || x > WORLD_W - 40) return null;
+    if (y > WATER_Y || x < edgeLo(40) || x > edgeHi(40)) return null;
   }
   return null;
 }
