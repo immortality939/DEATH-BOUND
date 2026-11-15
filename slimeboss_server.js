@@ -20,7 +20,8 @@
 //  PLAGUEWOOD (bog) + PRISM CAVES (prism)  -  the old Bog / Crystal Slime Kings AND their small baby slimes are GONE. Both maps now use YOUR Slime King (this file, table SLIME_KINGS):
 //    - same moves as the Jelly Colossus (move to a new spot -> splash if a player is near, else jump smash), only the colour changes: bog = green, prism = violet
 //    - the stats are the old ones of that map (HP x1.3 of the map's robot boss, armor +4, attack +6 %, base damage of the old cannon: Bog 58 / Crystal 90), see weapons.js C08 / C09
-//    - the small slimes (summoned every 2nd round, HP x2.4, old damage 17 / 18) are small copies of the Slime King and do the SAME moves (all of them together, in the shared minion turn)
+//    - the small slimes (summoned every 2nd round, HP x2.4, old damage 17 / 18) are small copies of the Slime King but only WALK TOWARD the nearest player and SPLASH him (no jump smash).
+//      They jump only to reach a floating platform when the target stands on top of one (all of them together, in the shared minion turn)
 // ============================================================================================================
 
 // ---- TUNING (change these to rebalance the fight) ----
@@ -50,9 +51,9 @@ const SLIME_ANCH = Array.from({ length: 9 }, () => ({ n: [238, 300], f: [238, 30
 // mw = attack of the small slimes (only the damage is used: splash = x1, smash = x.6 like the boss; the old numbers 17 / 18), hpMul = their health x the normal minion health (old 2.4)
 const SLIME_KINGS = {
   bog:   { key: 'slimeking_bog',     boss: 'Bog Slime King',     stage: 'Slime Throne',   mini: 'Baby Slime King',         glow: '#7dff3a', ring: '#c8ff9f', hpMul: 2.4,
-           mw: { id: 'MC8_Goo_Splash', art: 'M0_Blank', name: 'Goo Smash', desc: 'Leaps and smashes the ground, splashes anyone close', ammo: Infinity, type: 'melee', range: 58, dmg: 17, knock: 4, fx: 'plasma_hit', snd: 'slash', carve: 0, minion: true, lunge: true } },
+           mw: { id: 'MC8_Goo_Splash', art: 'M0_Blank', name: 'Goo Smash', desc: 'Slides toward you and splashes you; jumps only to reach a platform', ammo: Infinity, type: 'melee', range: 58, dmg: 17, knock: 4, fx: 'plasma_hit', snd: 'slash', carve: 0, minion: true, lunge: true } },
   prism: { key: 'slimeking_crystal', boss: 'Crystal Slime King', stage: 'Crystal Hollow', mini: 'Baby Crystal Slime King', glow: '#c08cff', ring: '#e6d0ff', hpMul: 2.4,
-           mw: { id: 'MC9_Crystal_Splash', art: 'M0_Blank', name: 'Crystal Smash', desc: 'Leaps and smashes the ground, splashes anyone close', ammo: Infinity, type: 'melee', range: 58, dmg: 18, knock: 4, fx: 'energy_hit', snd: 'slash', carve: 0, minion: true, lunge: true } },
+           mw: { id: 'MC9_Crystal_Splash', art: 'M0_Blank', name: 'Crystal Smash', desc: 'Slides toward you and splashes you; jumps only to reach a platform', ammo: Infinity, type: 'melee', range: 58, dmg: 18, knock: 4, fx: 'energy_hit', snd: 'slash', carve: 0, minion: true, lunge: true } },
 };
 const SLIME_MINI_SC = 1.0;   // size of the small slimes (the king is SLIME_SC = 3.2)
 const isSlM = w => !!(w && w.minion && w.rob && String(w.rob.id || '').indexOf('minion_slimeking') === 0);   // a small slime king
@@ -150,16 +151,18 @@ const SB = (w, txt, col) => { if (!w.minion) showBanner(txt, col); };   // one b
 const SFX = (w, name, x, y, s) => addFx(name, x, y, s * (w.minion ? Math.max(.4, slK(w) * 1.5) : 1));
 const SDB = (w, x, y, n, kind) => debris(x, y, w.minion ? Math.max(3, Math.ceil(n * .3)) : n, kind);
 
-// ---- the small slime kings in the shared minion turn: (move to a new spot) -> splash if a player is near, otherwise jump smash ----
+// ---- the small slime kings in the shared minion turn (NEW): they only walk TOWARD the nearest player and SPLASH him when close (damage). They never jump-smash.
+//      They jump ONLY to reach a floating platform when the target stands on top of one. ----
 const SLM = {
   step(m) {
     if (m.state === 'dead' || m.state === 'drown' || m.frozen > 0) { m.done = true; return; }
     if (m.slTurn !== G.turnCount) { m.slTurn = G.turnCount; m.slS = null; m.hop = 0; m.actF = null; m.slTarget = null; }   // a new minion turn starts from scratch
     if (!m.slInit) { m.slInit = true; m.hover = true; }
-    if (!m.slS) m.slS = SLIME.near(m) ? { k: 'sl_splash', t: 0 } : { k: 'sl_move', t: 0 };   // a player is already close: splash right away
+    if (!m.slS) { const pl = SLIME.minionPlan(m); if (pl.sp) m.slGoal = pl.sp; m.slS = { k: pl.k, t: 0 }; }   // 1) splash if close / hop to the target's platform / walk toward him
     const S = m.slS; S.t++;
     if (!SLIME['s_' + S.k](m, S)) return;
-    if (S.k === 'sl_move') { m.slTarget = null; m.slS = { k: SLIME.near(m) ? 'sl_splash' : 'sl_smash', t: 0 }; return; }
+    if (S.k === 'sl_hop') { m.slTarget = null; m.slS = { k: SLIME.near(m) ? 'sl_splash' : 'sl_walk', t: 0 }; return; }   // landed on the platform: splash if close, else walk to him
+    if (S.k === 'sl_walk' && SLIME.near(m)) { m.slS = { k: 'sl_splash', t: 0 }; return; }                              // reached him: attack
     m.slS = null; m.actF = null; m.hop = 0; m.done = true;
   },
 };
@@ -209,9 +212,9 @@ const SLIME = {
   s_sl_move(w, S) {
     const t = S.t, k = slK(w), hk = w.minion ? .6 : 1;
     if (t === 1) {
-      const sp = this.pick(w); if (!sp) return true;
+      const sp = (S.k === 'sl_hop' && w.slGoal) || this.pick(w); w.slGoal = null; if (!sp) return true;
       S.sp = sp; S.x0 = w.x; S.y0 = w.y; w.face = sp.x >= w.x ? 1 : -1; w.slTarget = sp;
-      S.mode = (Math.abs(sp.y - w.y) < 26 && this.runnable(w, sp)) ? 'run' : 'jump';
+      S.mode = (S.k !== 'sl_hop' && Math.abs(sp.y - w.y) < 26 && this.runnable(w, sp)) ? 'run' : 'jump';
       SB(w, '⚠ ' + w.name + (S.mode === 'run' ? ' slides to a new spot…' : ' leaps to a new spot…'), slCol(w));
     }
     const sp = S.sp, spd = SLIME_RUN_SPEED * (w.minion ? .8 : 1);
@@ -240,6 +243,32 @@ const SLIME = {
     const l = t - (16 + FT); w.actF = SL.JP + (l < 7 ? 6 : l < 13 ? 7 : 8);
     return l > 18;
   },
+  // ---------------- small slimes: what to do this turn ----------------
+  // the target stands on a FLOATING platform above the slime -> the platform spot to jump to (null = no jump needed / possible)
+  platFor(m, f) {
+    let c = this.spots().filter(s => s.plat && Math.abs(s.x - f.x) < 110 && Math.abs(s.y - f.y) < 40); if (!c.length) return null;
+    const off = c.filter(s => Math.abs(s.x - f.x) >= 30); if (off.length) c = off;   // do not land right on the player
+    c.sort((a, b) => Math.abs(a.x - f.x) - Math.abs(b.x - f.x)); const sp = c[0];
+    if (Math.abs(sp.y - m.y) < 26 && this.runnable(m, sp)) return null;               // same level and connected: just walk
+    return sp;
+  },
+  minionPlan(m) {
+    const f = nearestFoe(m);
+    if (f && f.state === 'ground' && f.y < m.y - 40) { const sp = this.platFor(m, f); if (sp) return { k: 'sl_hop', sp }; }   // target on a floating platform: jump up to it
+    if (this.near(m)) return { k: 'sl_splash' };                                                                                 // already close: attack
+    return { k: 'sl_walk' };                                                                                                      // otherwise walk forward to him
+  },
+  // walk forward only: toward the nearest player along the ground, stop when close (the attack follows) or at a ledge
+  s_sl_walk(w, S) {
+    const t = S.t, spd = SLIME_RUN_SPEED * .8, f = nearestFoe(w); if (!f) return true;
+    const dir = f.x >= w.x ? 1 : -1; w.face = dir; w.actF = SL.MV + (Math.floor(t / 3) % 8);
+    if (!S.stop) { if (Math.abs(f.x - w.x) > 55 && t < 150) { if (!placeOnGround(w, w.x + dir * spd)) S.stop = true; } else S.stop = true; }
+    if (t % 14 === 0 && !S.stop) { SFX(w, 'splash', w.x - dir * 20, w.y - 4, .5); SH(w, 1); }
+    if (S.stop) { S.e = (S.e | 0) + 1; w.actF = SL.ID; return S.e > 6; }
+    return false;
+  },
+  // jump up to the platform the target stands on (same arc as the king's position change)
+  s_sl_hop(w, S) { return this.s_sl_move(w, S); },
   // ---------------- 2a) jump smash: every player on the ground is hurt, however far ----------------
   s_sl_smash(w, S) {
     const t = S.t, ease = a => a * a * (3 - 2 * a), hk = w.minion ? .55 : 1;
