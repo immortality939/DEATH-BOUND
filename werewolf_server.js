@@ -288,7 +288,7 @@ CMINIONS.werewolf = { name: "Blood Wolf", hpMul: 6, sc: 1.9, fly: false, sheet: 
         w.face = S.dir; w.actF = keys([[1, WWF.IDLE], [10, ST], [30, ST], [38, ST + 1]], u); w.hop = 0;
         if (u % 6 === 0) { addFx('b3_slash', w.x + w.face * 40 * s, w.y - 60 * s, .6 * s + .3, { flip: w.face < 0 }); shake(big ? 4 : 2); }
         if (u === 20 && big) { ringFx(w.x, w.y - 8, '#c58bff'); Snd.play('boom', .8); }
-        if (u >= 38) { S.ph = 'dash'; S.u = 0; S.v = 0; S.dp = 0; if (big) Snd.play('slash', 1.3); }
+        if (u >= 38) { S.ph = 'dash'; S.u = 0; S.v = 0; S.dp = 0; if (big) Snd.play('mp3_ww_berserk'); }
         return false;
       }
       if (S.ph === 'dash') {   // the dash: spinning slash frames loop while he flies across the map
