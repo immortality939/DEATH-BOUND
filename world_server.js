@@ -713,10 +713,11 @@ function bossMinionsCheck() {
 // ---------------- boss stage: clear the path ----------------
 // Flattens hills, pillars and floating blocks in the walkway and fills pits, so melee bots can walk from the boss to your robots.
 // The ground line is the typical (lower) ground height around each spot, smoothed so it never gets steeper than a robot can climb.
-function clearPath(T, X0 = 300, X1 = 2250, HEAD = 120) {
+function clearPath(T, X0 = 0, X1 = T.W - 1, HEAD = 120) {   // whole map width (it used to stop at 300 / 2250: hills, pits and a cliff stayed in the corners, so small bots could not walk to a player standing there)
   const W = T.W, H = T.H, m = T.mask, c = T.ctx, surf = new Int16Array(W), base = new Float32Array(W);
   for (let x = 0; x < W; x++) { let y = 0, s = H; while (y < H - 70) { if (m[y * W + x]) { let k = 0; while (k < 70 && m[(y + k) * W + x]) k++; if (k >= 70) { s = y; break; } y += k; } else y++; } surf[x] = s; }   // top of the first thick (>=70px) ground in each column
-  for (let x = X0; x <= X1; x++) { const v = []; for (let q = Math.max(X0, x - 350); q <= Math.min(X1, x + 350); q += 10) v.push(surf[q]); v.sort((a, b) => a - b); base[x] = v[Math.floor(.75 * (v.length - 1))]; }
+  const gv = []; for (let x = X0; x <= X1; x += 10) if (surf[x] < H) gv.push(surf[x]); gv.sort((a, b) => a - b); const gl = gv.length ? gv[gv.length >> 1] : H - 200;
+  for (let x = X0; x <= X1; x++) { const v = []; for (let q = Math.max(X0, x - 350); q <= Math.min(X1, x + 350); q += 10) if (surf[q] < H) v.push(surf[q]); if (!v.length) v.push(gl); v.sort((a, b) => a - b); base[x] = v[Math.floor(.75 * (v.length - 1))]; }   // columns with no ground at all (chasm) do not pull the floor down to the bottom of the map
   for (let x = X0 + 1; x <= X1; x++) base[x] = clamp(base[x], base[x - 1] - 3, base[x - 1] + 3);
   for (let x = X1 - 1; x >= X0; x--) base[x] = clamp(base[x], base[x + 1] - 3, base[x + 1] + 3);
   for (let x = X0; x <= X1; x++) {
@@ -731,6 +732,8 @@ function clearPath(T, X0 = 300, X1 = 2250, HEAD = 120) {
   // the floor of the walkway can no longer be destroyed (Terrain.carve skips it), so no crater can ever block the bots
   const fl = new Int16Array(W).fill(32767); for (let x = X0; x <= X1; x++) fl[x] = Math.round(base[x]);
   const bak = document.createElement('canvas'); bak.width = W; bak.height = H; bak.getContext('2d').drawImage(c.canvas, 0, 0); T.bak = bak; T.floor = fl;
+  // the real ground beside the map (eL / eR) and its picture are copies of the map's edge columns: rebuild them from the flattened map so the corners are flat too
+  if (T.eL && T.eR) { const E = EDGE_EXT; for (let c2 = 0; c2 < E; c2++) for (let y = 0; y < H; y++) { T.eL[c2 * H + y] = m[y * W + c2]; T.eR[c2 * H + y] = m[y * W + (W - 1 - c2)]; } if (T.under) T.makeUnder(c.canvas); }
 }
 
 // ---------------- main update ----------------

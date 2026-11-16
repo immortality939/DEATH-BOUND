@@ -25,6 +25,7 @@ const GM_W = 3400;                  // width of the Molten Quarry maps (the othe
 const GM_SC = 3.0;                  // collision size (he must fit under the floating platforms); the picture size is GM_PX
 const GM_PX = 1.5;                  // world px per sprite px (boss size). Idle = 388 px tall = 35% taller than King Kong (288 px)
 const GM_WALK = 4.2;                // "move first" walking speed (px per tick)
+const GM_WALK_MAX = 1300;           // longest walk (ticks) to a player / back home: the map is 3400 wide + the corner ground, 420 was too short from the far side
 const GM_RUN = 9;                 // walking speed when he goes to a player (smash) and back
 const GM_STRIDE = 450;              // world px for ONE full walk cycle (4 frames). Bigger = slower legs for the same speed
 const GM_STEP_MIN = 240, GM_STEP_MAX = 470;   // the "move first" distance
@@ -352,8 +353,12 @@ const GM_T_STOMP = [[0, 0], [12, 16], [26, 17], [44, 18], [58, 18], [66, 19], [9
     s_gm_move(w, S) {
       const t = S.t;
       if (t === 1) {
-        S.stuck = 0; S.v = null; S.rt = 0; w.gmPh = 0; let dir = Math.random() < .5 ? -1 : 1; if (AI.edgeNear(w, dir)) dir = -dir; if (AI.edgeNear(w, dir)) return true;
-        const dd = rnd(GM_STEP_MIN, GM_STEP_MAX); S.tx = clamp(w.x + dir * dd, 300, WORLD_W - 300); if (Math.abs(S.tx - w.x) < 120) { dir = -dir; S.tx = clamp(w.x + dir * dd, 300, WORLD_W - 300); } w.face = dir; S.ph = 'walk';   // near a map end: walk the other way
+        S.stuck = 0; S.v = null; S.rt = 0; w.gmPh = 0; let dir = Math.random() < .5 ? -1 : 1;
+        // a player far away (hiding in a corner): walk TOWARD him with longer steps, so the golem can go to the very corner and reach him
+        const nf = nearestFoe(w), far = !!(nf && Math.abs(nf.x - w.x) > 600); if (far) dir = nf.x < w.x ? -1 : 1;
+        // only the real end of the map stops him (AI.edgeNear looks ~110 body-widths ahead, which kept the golem ~400 px away from the corners)
+        const atEnd = d => d < 0 ? w.x - edgeLo(60) < 70 : edgeHi(60) - w.x < 70; if (atEnd(dir)) dir = -dir; if (atEnd(dir)) return true;
+        const dd = rnd(GM_STEP_MIN, GM_STEP_MAX) * (far ? 1.6 : 1); S.tx = clamp(w.x + dir * dd, edgeLo(300), edgeHi(300)); if (Math.abs(S.tx - w.x) < 120) { dir = -dir; S.tx = clamp(w.x + dir * dd, edgeLo(300), edgeHi(300)); } w.face = dir; S.ph = 'walk';   // near a map end: walk the other way
       }
       if (S.ph === 'walk') { const r = this.walk(w, S, S.tx, GM_WALK, 16); if (r !== 'go' || t > 260) S.ph = 'stop'; return false; }
       return this.stop(w, S);
@@ -415,7 +420,7 @@ const GM_T_STOMP = [[0, 0], [12, 16], [26, 17], [44, 18], [58, 18], [66, 19], [9
       if (S.ph === 'go') {
         const tg = S.tg; if (!tg || tg.state === 'dead' || tg.state === 'drown') { S.ph = 'stop1'; return false; }
         const r = this.walk(w, S, tg.x, GM_RUN * s / GM_PX, GM_SMASH_STAND * s); face(w, tg);
-        if (r !== 'go' || S.t - S.t0 > 420) S.ph = 'stop1'; return false;
+        if (r !== 'go' || S.t - S.t0 > GM_WALK_MAX) S.ph = 'stop1'; return false;   // GM_WALK_MAX: long enough to cross the whole map (he used to give up after 420 ticks and smash from far away)
       }
       if (S.ph === 'stop1') { if (this.stop(w, S)) { S.ph = 'act'; S.u = 0; face(w, S.tg && S.tg.state !== 'dead' ? S.tg : nearestFoe(w)); } return false; }
       if (S.ph === 'act') {
@@ -425,7 +430,7 @@ const GM_T_STOMP = [[0, 0], [12, 16], [26, 17], [44, 18], [58, 18], [66, 19], [9
         if (u > 104) { w.actF = null; if (S.jumped) { const n = nearestFoe(w); if (n) face(w, n); return true; } S.ph = 'back'; S.v = null; S.rt = 0; S.stuck = 0; w.gmPh = 0; S.t0 = S.t; } return false;   // after a jump-smash he stays where he landed
       }
       if (S.ph === 'back') {   // walk back to his spot
-        const r = this.walk(w, S, S.home, GM_RUN * s / GM_PX, 14); if (r !== 'go' || S.t - S.t0 > 420) S.ph = 'stop2'; return false;
+        const r = this.walk(w, S, S.home, GM_RUN * s / GM_PX, 14); if (r !== 'go' || S.t - S.t0 > GM_WALK_MAX) S.ph = 'stop2'; return false;
       }
       if (S.ph === 'stop2') { if (this.stop(w, S)) { const n = nearestFoe(w); if (n) face(w, n); return true; } return false; }
       return true;
