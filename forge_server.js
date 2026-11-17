@@ -174,7 +174,7 @@ const Forge = {
       }
     }
     // inventories
-    const eqList = D.owned.map(itemById).filter(it => it && !it.potion && !it.noUp), RK = { legendary: 0, epic: 1, rare: 2, common: 3 };
+    const eqList = D.owned.map(itemById).filter(it => it && !it.potion && !it.noUp), RK = { mythical: -1, legendary: 0, epic: 1, rare: 2, common: 3 };
     eqList.sort((a, b) => (a.type === 'weapon' ? -1 : 0) - (b.type === 'weapon' ? -1 : 0) || RK[a.rar] - RK[b.rar]);
     const eqCells = eqList.map(it => this.cell('equip:' + it.id, it, worn.has(it.id) ? '<em>E</em>' : '', Profile.lvl(it.id), it.id === this.item)).join('');
     const mats = MAT_ITEMS.filter(m => Mats.get(m) > 0);
