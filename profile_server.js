@@ -20,7 +20,7 @@ const SLOTS = [   // key, label, item type it accepts
   { key: 'glove',  label: 'Gloves', type: 'glove' },   // Gloves (gloves.js, Shop + boss loot): Damage + Vitality / Dexterity / Luck / Agility, no Defense   // Necklace (Shop + boss loot): adds a % of your TOTAL health, cannot be upgraded   // Wings (Shop + boss loot from Sandstorm Dunes on): worn on the robot's back, upgradable
 ];
 const STAT_LABEL = { dmg: ['Damage', ''], hp: ['Health', ''], def: ['Defense', ''], vit: ['Vitality', ''], agi: ['Agility', ''], dex: ['Dexterity', ''], luk: ['Luck', ''], crt: ['Crit Chance', '%'], cdm: ['Crit Damage', '%'], heal: ['Heal', ''], nhp: ['of total Health', '%'] };
-const RARITY = { common: { name: 'Common', color: '#aab4cc' }, rare: { name: 'Rare', color: '#4fd8ff' }, epic: { name: 'Epic', color: '#c77bff' }, legendary: { name: 'Legendary', color: '#ffc83a' }, item: { name: 'Item', color: '#7dffc4' } };   // 'item' = Heal / Team Heal (no rarity is shown for them)
+const RARITY = { common: { name: 'Common', color: '#aab4cc' }, rare: { name: 'Rare', color: '#4fd8ff' }, epic: { name: 'Epic', color: '#c77bff' }, legendary: { name: 'Legendary', color: '#ffc83a' }, mythical: { name: 'Mythical', color: '#ff4a3a' }, item: { name: 'Item', color: '#7dffc4' } };   // 'item' = Heal / Team Heal (no rarity is shown for them)
 // stats: dmg = Damage (flat damage added to every hit of your signature weapon; on the weapon itself it is the weapon's own damage), hp = extra health, def = damage taken reduced %, crt / cdm = crit chance / crit damage %
 //        vit / agi / dex / luk = attributes (see CHARACTER LEVEL below). There is no speed stat and no Attack % any more: old spd is now agi, old pow is now dmg.
 const ITEMS = [
@@ -123,7 +123,7 @@ const ITEMS = [
 // ---- signature weapons as inventory items: you always own your own robot's one for free, and every robot's signature weapon can also be BOUGHT in the Shop or WON from Adventure loot and worn by any robot ----
 const WEAPON_ITEMS = WEAPONS.filter(w => w.sig).map(w => { const k = 'w_' + w.id.slice(3).toLowerCase(); return { id: k, img: 'assets/items/' + k + '.png', name: w.name, type: 'weapon', rar: 'common', stats: { dmg: w.proj.dmg }, desc: w.desc.replace(' Unlimited.', '') + ' Lobbed shot, unlimited ammo. Looks change at +10, +11 and +12.', sig: w.sig }; });
 // ---- the 20 Shop weapons as inventory items (bought in the Shop, 2 also drop on every Boss loot board; you can wear one instead of your signature weapon) ----
-const SHOP_WEAPON_ITEMS = WEAPONS.filter(w => w.shop).map(w => ({ id: w.shop, img: 'assets/items/' + w.shop + '.png', name: w.name, type: 'weapon', rar: w.rar, stats: { dmg: w.proj.dmg }, desc: w.desc + ' Lobbed shot, unlimited ammo. Looks change at +10, +11 and +12.' + (hasWeaponSkill(w) ? ' In Adventure its damage is halved (it has a skill).' : ''), shop: true }));
+const SHOP_WEAPON_ITEMS = WEAPONS.filter(w => w.shop && !w.mythic).map(w => ({ id: w.shop, img: 'assets/items/' + w.shop + '.png', name: w.name, type: 'weapon', rar: w.rar, stats: { dmg: w.proj.dmg }, desc: w.desc + ' Lobbed shot, unlimited ammo. Looks change at +10, +11 and +12.' + (hasWeaponSkill(w) ? ' In Adventure its damage is halved (it has a skill).' : ''), shop: true }));
 // ---- 80 extra Shop gear pieces (20 helmets, 20 armors, 20 rings, 20 shoes). Sold in the Shop only: they never drop from Adventure loot. ----
 const SHOP_GEAR_ITEMS = [
   { id: 'h_ironpot', img: 'assets/items/h_ironpot.png', name: "Crusader Helm", type: 'helmet', rar: 'common', stats: { hp: 4, def: 2 }, desc: "A golden cross down the visor.", shop: true },
@@ -247,6 +247,28 @@ const NECK_ITEMS = [
   { id: 'neck_4', img: 'assets/items/neck_4.png', name: 'Frostcrystal Collar', type: 'necklace', rar: 'legendary', noUp: true, stats: { nhp: 40 }, desc: 'Glowing ice crystals wrapped in gold. Adds 40% of your TOTAL health. Cannot be upgraded.' },
   { id: 'neck_5', img: 'assets/items/neck_5.png', name: 'Voidwing Collar', type: 'necklace', rar: 'legendary', noUp: true, stats: { nhp: 50 }, desc: 'Violet void wings around an amethyst core. Adds 50% of your TOTAL health. Cannot be upgraded.' },
 ];
+// ===== MYTHICAL ITEMS (ONLINE Coin Shop only: not in the chip Shop, not in boss loot, not in the offline game) =====
+// Fixed stats exactly as listed (no rarity split, no rarity Damage bonus). FREE for now (test): tap an item in the Coin Shop and take it. The Necklace can NOT be upgraded.
+const mythSt = o => Object.assign({}, o);
+const MYTH_FIXED = {
+  w_mythic_bazooka: { dmg: 320, hp: 50, vit: 10, luk: 50, agi: 20, def: 20 }, w_mythic_spear: { dmg: 350, hp: 30, vit: 25, luk: 25, agi: 25, def: 25 },
+  w_mythic_boomerang: { dmg: 350, hp: 30, vit: 10, luk: 70, agi: 10, def: 10 }, w_mythic_hammer: { dmg: 330, hp: 80, vit: 30, luk: 20, agi: 20, def: 30 },
+  w_mythic_ball: { dmg: 300, hp: 100, vit: 25, luk: 25, agi: 15, def: 35 },
+};
+const MYTH_WEAPON_ITEMS = WEAPONS.filter(w => w.mythic).map(w => ({ id: w.shop, img: 'assets/items/' + w.shop + '.png', name: w.name, type: 'weapon', rar: 'mythical', stats: mythSt(MYTH_FIXED[w.shop]), baseDmg: MYTH_FIXED[w.shop].dmg, desc: w.desc + ' Lobbed shot, unlimited ammo. Looks change at +10, +11 and +12.', shop: true, myth: true }));
+const MYTH_GEAR_ST = { dmg: 20, hp: 25, vit: 15, agi: 15, luk: 15, def: 15 };
+const MYTH_ITEMS = [
+  ...MYTH_WEAPON_ITEMS,
+  { id: 'wings_myth_void', img: 'assets/items/wings_myth_void.png', name: 'Mythic Void Wings', type: 'wings', rar: 'mythical', look: 'myth_void', stats: { dmg: 100, hp: 100, vit: 20, agi: 10, luk: 20 }, desc: 'Violet void wings that flare when you fly.', myth: true },
+  { id: 'wings_myth_blade', img: 'assets/items/wings_myth_blade.png', name: 'Mythic Blade Wings', type: 'wings', rar: 'mythical', look: 'myth_blade', stats: { dmg: 50, hp: 200, vit: 30, agi: 20, luk: 20 }, desc: 'Blade-feathered wings, light as flesh and sharp as steel.', myth: true },
+  { id: 'm_helmet', img: 'assets/items/m_helmet.png', name: 'Inferno Crown Helm', type: 'helmet', rar: 'mythical', stats: mythSt(MYTH_GEAR_ST), desc: 'Gold and ruby helm of the Inferno set.', myth: true },
+  { id: 'm_armor', img: 'assets/items/m_armor.png', name: 'Inferno Plate Armor', type: 'armor', rar: 'mythical', stats: mythSt(MYTH_GEAR_ST), desc: 'Gold and ruby plate of the Inferno set.', myth: true },
+  { id: 'm_shoes', img: 'assets/items/m_shoes.png', name: 'Inferno Winged Greaves', type: 'shoes', rar: 'mythical', stats: mythSt(MYTH_GEAR_ST), desc: 'Winged ruby greaves of the Inferno set.', myth: true },
+  { id: 'm_ring', img: 'assets/items/m_ring.png', name: 'Inferno Ruby Ring', type: 'ring', rar: 'mythical', stats: mythSt(MYTH_GEAR_ST), desc: 'A golden ring with a blazing ruby.', myth: true },
+  { id: 'm_gloves', img: 'assets/items/m_gloves.png', name: 'Inferno Claw Gauntlets', type: 'glove', rar: 'mythical', stats: { dmg: 45, hp: 25, vit: 15, agi: 15, luk: 15, def: 15 }, desc: 'Clawed gold gauntlets of the Inferno set.', myth: true },
+  { id: 'm_necklace', img: 'assets/items/m_necklace.png', name: 'Inferno Ruby Collar', type: 'necklace', rar: 'mythical', noUp: true, stats: { nhp: 65 }, desc: 'A ruby collar. Adds 65% of your TOTAL health. Cannot be upgraded.', myth: true },
+];
+const MYTH_BUNDLE = ['m_helmet', 'm_armor', 'm_gloves', 'm_shoes', 'm_ring', 'm_necklace'];   // "Mythical Equipment Bundle" (Best deals)
 // Heal / Team Heal: consumables sold in the Shop (no rarity, no upgrades, not an "owned" item). You can carry at most POTION_MAX of each; every use in a match
 // takes one away for good, so you buy again after the match. In battle they are the two clickable boxes at the bottom. pct = share of the robot's MAX health that is healed.
 const POTION_MAX = 2;
@@ -255,7 +277,7 @@ const POTION_ITEMS = [
   { id: 'pot_team', img: 'assets/items/pot_team.png', name: 'Team Heal', type: 'potion', potion: 'team', pct: .35, rar: 'item', stats: {}, desc: 'Heals EVERY living robot of your team for 35% of its own max health. One tap on its box in battle: instant, and you can still fire in the same turn. Carry up to 2. Used ones are gone after the match.' },
 ];
 const baseId = id => { id = String(id == null ? '' : id); const k = id.indexOf('#'); return k < 0 ? id : id.slice(0, k); };   // 'r_ring#2' -> 'r_ring' (every extra copy of a gear piece is its own item 'baseid#n')
-const _itemBase = id => ITEMS.find(i => i.id === id) || NECK_ITEMS.find(i => i.id === id) || GLOVE_ITEMS.find(i => i.id === id) || HEAL_ITEMS.find(i => i.id === id) || WING_ITEMS.find(i => i.id === id) || POTION_ITEMS.find(i => i.id === id) || SHOP_GEAR_ITEMS.find(i => i.id === id) || WEAPON_ITEMS.find(i => i.id === id) || SHOP_WEAPON_ITEMS.find(i => i.id === id) || (typeof MAT_ITEMS !== 'undefined' ? MAT_ITEMS.find(i => i.id === id) : null);
+const _itemBase = id => ITEMS.find(i => i.id === id) || NECK_ITEMS.find(i => i.id === id) || GLOVE_ITEMS.find(i => i.id === id) || HEAL_ITEMS.find(i => i.id === id) || WING_ITEMS.find(i => i.id === id) || MYTH_ITEMS.find(i => i.id === id) || POTION_ITEMS.find(i => i.id === id) || SHOP_GEAR_ITEMS.find(i => i.id === id) || WEAPON_ITEMS.find(i => i.id === id) || SHOP_WEAPON_ITEMS.find(i => i.id === id) || (typeof MAT_ITEMS !== 'undefined' ? MAT_ITEMS.find(i => i.id === id) : null);
 const _instCache = {};
 const itemById = id => { if (id == null) return null; if (typeof id === 'string' && id.indexOf('#') > 0) { const b = _itemBase(baseId(id)); if (!b) return null; const c = _instCache[id]; if (c && c.__b === b) return c; return (_instCache[id] = Object.assign({}, b, { id, base: b.id, __b: b })); } return _itemBase(id); };   // an extra copy looks and acts like its base item but has its own id (own upgrade level, own slot)
 const weaponItemFor = rid => WEAPON_ITEMS.find(i => i.sig === rid);
@@ -466,7 +488,7 @@ const Profile = {
       const s = SLOTS.find(x => x.key === key), id = eq[key], it = id && itemById(id), ok = selIt && selIt.type === s.type && s.type !== 'weapon';
       return `<div class="pf-slot g-${key}${ok ? ' can' : ''}${it && it.id === this.sel ? ' sel' : ''}" data-slot="${key}"><small>${s.label}</small>${it ? this.itemTile(it, '', this.lvl(it.id)) : '<span class="pf-empty">empty</span>'}</div>`;
     };
-    const RK = { legendary: 0, epic: 1, rare: 2, common: 3 }, allOwned = D.owned.map(itemById).filter(Boolean);
+    const RK = { mythical: -1, legendary: 0, epic: 1, rare: 2, common: 3 }, allOwned = D.owned.map(itemById).filter(Boolean);
     const owned = allOwned.filter(it => this.filter === 'all' || it.type === this.filter).map((it, k) => ({ it, k: allOwned.findIndex(o => baseId(o.id) === baseId(it.id)) * 1000 + k })).sort((a, b) => (a.it.type === 'weapon' ? -1 : 0) - (b.it.type === 'weapon' ? -1 : 0) || RK[a.it.rar] - RK[b.it.rar] || a.k - b.k).map(o => o.it);
     const total = Math.max(INV_CELLS, Math.ceil(owned.length / 4) * 4);
     const TABS = [['all', 'All'], ['weapon', 'Weapon'], ['helmet', 'Helmets'], ['ring', 'Rings'], ['armor', 'Armor'], ['shoes', 'Shoes'], ['heal', 'Heal'], ['wings', 'Wings'], ['necklace', 'Necklace'], ['glove', 'Gloves']];
@@ -629,9 +651,35 @@ const Wallet = {
   refresh() { document.querySelectorAll('.chipval').forEach(e => e.textContent = this.get().toLocaleString()); },
 };
 const Shop = {
-  type: 'all', rar: 'all', sel: null, msg: '',
-  open() { Profile.data || Profile.load(); this.msg = ''; this.render(); UI.show('shop'); },
+  type: 'all', rar: 'all', sel: null, msg: '', view: 'items',   // view: 'items' = the chip shop, 'coin' = the Coin Shop (nothing for sale yet)
+  open() { Profile.data || Profile.load(); this.msg = ''; this.view = 'items'; this.render(); UI.show('shop'); },
+  titleImg(clickable) { const img = `<img class="shop-title" src="assets/ui/coin_shop_title.png" alt="Coin Shop" draggable="false" onerror="this.outerHTML='&lt;h2 class=&quot;shop-title-txt&quot;&gt;COIN SHOP&lt;/h2&gt;'">`; return clickable ? `<button class="shop-title-btn" id="bCoinShop" title="Open the Coin Shop">${img}<small>tap to open</small></button>` : `<div class="shop-title-btn on">${img}</div>`; },
+  // ONLINE Coin Shop: 3 rows you can swipe left / right: Coins (packs), Best deals, Mythical items. Everything mythical is FREE for now (test): tap it, then take it.
+  csSel: null, csMsg: '',
+  renderCoin() {
+    const root = $('shop'), coins = store.get('coins', 0) | 0, D = Profile.data || Profile.load(), sel = this.csSel, PACKS = [300, 500, 1000, 1500, 2000, 3000, 4000, 6000];
+    const mythTile = it => `<div class="cs-card myth${sel === it.id ? ' sel' : ''}" data-cs="${it.id}"><div class="cs-art" style="background-image:url(assets/ui/mythical_background.png)"><img src="${it.img}" alt="" draggable="false"></div><b>${it.name}</b><u class="cs-free">FREE</u></div>`;
+    const rows = `<h4 class="cs-h">Coins</h4><div class="cs-row">${PACKS.map(n => `<div class="cs-card pack${sel === 'pack' + n ? ' sel' : ''}" data-cs="pack${n}"><img src="assets/ui/coins_${n}.png" alt="${n} coins" draggable="false"></div>`).join('')}</div>
+      <h4 class="cs-h">Best deals</h4><div class="cs-row"><div class="cs-card deal${sel === 'deal_myth' ? ' sel' : ''}" data-cs="deal_myth"><img src="assets/ui/best_deal_mythical_bundle.png" alt="Mythical Equipment Bundle" draggable="false"><u class="cs-free">FREE</u></div></div>
+      <h4 class="cs-h">Mythical items</h4><div class="cs-row">${MYTH_ITEMS.map(mythTile).join('')}</div>`;
+    let det = '<div class="pf-det"><p class="dim">Swipe each row left or right. Tap an item to see its stats. Mythical items are FREE for now (test): tap one, then press Take.</p></div>';
+    const take = (ids, label) => `<div class="row"><button class="btn sm" data-take="${ids.join(',')}">${label}</button></div>${this.csMsg ? `<p class="shopmsg">${this.csMsg}</p>` : ''}`;
+    if (sel && sel.startsWith('pack')) det = `<div class="pf-det"><h3>${(+sel.slice(4)).toLocaleString()} Coins</h3><p class="dim">Coin packs are not on sale yet.</p></div>`;
+    else if (sel === 'deal_myth') det = `<div class="pf-det" style="--rc:${RARITY.mythical.color}"><h3>Mythical Equipment Bundle <i>Best deal</i></h3><p class="dim">Helmet, Armor, Gloves, Shoes, Ring and Necklace of the Inferno set.</p><div class="st">${MYTH_BUNDLE.map(id => { const m = itemById(id); return `<span class="pos">${m.name}</span>`; }).join('')}</div>${take(MYTH_BUNDLE, 'Take the whole bundle (free)')}</div>`;
+    else if (sel && itemById(sel)) { const it = itemById(sel); det = `<div class="pf-det" style="--rc:${RARITY.mythical.color}"><div class="cs-art big" style="background-image:url(assets/ui/mythical_background.png)"><img src="${it.img}" alt="" draggable="false"></div><h3>${it.name} <i>${RARITY[it.rar].name} ${it.type}</i></h3><div class="st">${Profile.statText(it.stats)}</div><p class="dim">${it.desc}</p><p class="dim">You own <b>${Profile.copies(it.id)}</b>. Equip it in Profile.</p>${take([it.id], 'Take it (free)')}</div>`; }
+    root.innerHTML = `<div class="panel pf shop"><div class="pf-top shop-top"><span class="chipbal coinbal"><i class="coinglyph"></i><b>${coins.toLocaleString()}</b></span>${this.titleImg(false)}<button class="btn alt sm" id="bShopBack">Back</button></div>
+      <div class="shop-body"><div class="cs-main">${rows}</div><div class="shop-det">${det}</div></div></div>`;
+    $('bShopBack').onclick = () => { Snd.play('beep'); this.view = 'items'; this.render(); };
+    root.querySelectorAll('[data-cs]').forEach(e => e.onclick = () => { if (e.parentNode._drag) return; this.csSel = e.dataset.cs; this.csMsg = ''; Snd.play('pick'); this.renderCoin(); });
+    root.querySelectorAll('[data-take]').forEach(b => b.onclick = () => { const ids = b.dataset.take.split(','); ids.forEach(id => Profile.addCopy(id)); Profile.save(); Snd.play('win'); this.csMsg = ids.length > 1 ? 'You took the bundle! Equip the pieces in Profile.' : `You took ${itemById(ids[0]).name}! Equip it in Profile.`; this.renderCoin(); });
+    root.querySelectorAll('.cs-row').forEach(r => {   // mouse drag = swipe (touch swipe is native)
+      let x0 = 0, s0 = 0, down = false; r.onpointerdown = e => { if (e.pointerType !== 'mouse') return; down = true; x0 = e.clientX; s0 = r.scrollLeft; r._drag = false; };
+      r.onpointermove = e => { if (!down) return; const dx = e.clientX - x0; if (Math.abs(dx) > 6) { r._drag = true; r.scrollLeft = s0 - dx; } };
+      const up = () => { down = false; setTimeout(() => { r._drag = false; }, 0); }; r.onpointerup = up; r.onpointerleave = up;
+    });
+  },
   render() {
+    if (this.view === 'coin') return this.renderCoin();
     const root = $('shop'), D = Profile.data || Profile.load(), own = new Set(D.owned.map(baseId)), chips = Wallet.get();
     const RK = { item: -1, common: 0, rare: 1, epic: 2, legendary: 3 };
     const list = [...ITEMS, ...SHOP_GEAR_ITEMS, ...WEAPON_ITEMS, ...SHOP_WEAPON_ITEMS, ...HEAL_ITEMS, ...WING_ITEMS, ...NECK_ITEMS, ...GLOVE_ITEMS, ...POTION_ITEMS, ...MAT_ITEMS].filter(i => (this.type === 'all' || i.type === this.type) && (this.rar === 'all' || i.rar === this.rar)).sort((a, b) => RK[a.rar] - RK[b.rar] || itemPrice(a) - itemPrice(b));
@@ -644,10 +692,11 @@ const Shop = {
       det = `<div class="pf-det" style="--rc:${RARITY[it.rar].color}">${it.img ? `<img class="big" src="${it.img}" alt="" draggable="false">` : ''}<h3>${it.name} <i>${isMat ? it.tag : it.potion ? 'Battle item' : RARITY[it.rar].name + ' ' + it.type}</i></h3><div class="st">${isMat ? `<span class="pos">${it.line}</span>` : it.potion ? `<span class="pos">Heals ${Math.round(it.pct * 100)}% of max health${it.potion === 'team' ? ' · whole team' : ''}</span>` : Profile.statText(it.stats)}</div><p class="dim">${it.desc}</p>${it.potion ? `<p class="dim">You carry <b>${stk}/${POTION_MAX}</b>. You can buy again any time, up to ${POTION_MAX}.</p>` : ''}` +
         (isMat ? `<p class="dim">You have <b>${Mats.get(it).toLocaleString()}</b>. Use it in the Forge (Forge anvil in Profile).</p><div class="row">${[1, 10, 100].map(n => `<button class="btn sm" data-buy="${n}"${chips >= pr * n ? '' : ' disabled'}><img class="cb" src="assets/chip.png" alt="">${(pr * n).toLocaleString()} · ×${n}</button>`).join('')}</div>${chips < pr ? `<p class="dim">You need ${(pr - chips).toLocaleString()} more chips.</p>` : ''}${this.msg ? `<p class="shopmsg">${this.msg}</p>` : ''}</div>` : `<div class="row">${has ? `<button class="btn sm alt" disabled>${it.potion ? 'Full ' + stk + '/' + POTION_MAX : 'Owned'}</button>` : `<button class="btn sm" data-buy="1"${can ? '' : ' disabled'}><img class="cb" src="assets/chip.png" alt="">${pr.toLocaleString()} · Buy</button>`}</div>${!has && !can ? `<p class="dim">You need ${(pr - chips).toLocaleString()} more chips.</p>` : ''}${this.msg ? `<p class="shopmsg">${this.msg}</p>` : ''}</div>`);
     }
-    root.innerHTML = `<div class="panel pf shop"><div class="pf-top"><h2>Shop</h2>${Wallet.badge()}<button class="btn alt sm" id="bShopBack">Back</button></div>
+    root.innerHTML = `<div class="panel pf shop"><div class="pf-top shop-top">${Wallet.badge()}${this.titleImg(true)}<button class="btn alt sm" id="bShopBack">Back</button></div>
       <div class="pf-tabs">${tabs(TY, this.type, 'ty')}</div><div class="pf-tabs">${tabs(RA, this.rar, 'ra')}</div>
       <div class="shop-body"><div class="pf-cells shop-cells">${cells || '<p class="dim">Nothing here.</p>'}</div><div class="shop-det">${det}</div></div></div>`;
     $('bShopBack').onclick = () => UI.show('title');
+    $('bCoinShop').onclick = () => { Snd.play('pick'); this.view = 'coin'; this.render(); };
     root.querySelectorAll('[data-ty]').forEach(e => e.onclick = () => { this.type = e.dataset.ty; this.render(); });
     root.querySelectorAll('[data-ra]').forEach(e => e.onclick = () => { this.rar = e.dataset.ra; this.render(); });
     root.querySelectorAll('[data-item]').forEach(e => e.onclick = () => { this.sel = e.dataset.item; this.msg = ''; this.render(); });
@@ -691,6 +740,20 @@ const Shop = {
 .pf-ih{align-items:center;gap:8px;flex-wrap:wrap}.pf-ih .stonebal{flex-wrap:wrap;font-size:13px;padding:1px 8px 1px 3px;gap:4px}.pf-ih .stonebal img{width:20px;height:20px}
 #title .balrow{position:fixed;top:12px;right:14px;z-index:5;display:flex;gap:8px}
 #shop .shop{max-width:min(96vw,980px);padding:12px 16px}
+.shop-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}.shop-top .chipbal{justify-self:start}.shop-top .btn{justify-self:end;margin-left:0}
+.shop-title{height:clamp(38px,9vh,62px);width:auto;max-width:56vw;object-fit:contain;animation:shopGlow 2.4s ease-in-out infinite}
+.shop-title-btn{background:none;border:0;padding:0;margin:0;display:flex;flex-direction:column;align-items:center;cursor:pointer;color:#ffe08a;font:700 10px var(--body);letter-spacing:1.5px;text-transform:uppercase;transition:transform .12s}.shop-title-btn small{margin-top:-2px;opacity:.8}
+.shop-title-btn:hover{transform:scale(1.05)}.shop-title-btn:active{transform:scale(.96)}.shop-title-btn.on{cursor:default}.shop-title-btn.on:hover{transform:none}
+.coinglyph{display:inline-block;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff6b8,#ffc93a 45%,#c97b0a);border:2px solid #8a4f05;box-sizing:border-box;vertical-align:-3px;margin-right:4px}
+.cs-main{flex:1 1 auto;min-width:0;overflow-y:auto;max-height:100%}.cs-h{margin:6px 2px 2px;font:700 14px var(--body);color:var(--accent);text-transform:uppercase;letter-spacing:1px}
+.cs-row{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x proximity;padding:4px 2px 10px;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;cursor:grab;scrollbar-width:thin}
+.cs-card{flex:0 0 auto;scroll-snap-align:start;position:relative;border-radius:12px;border:2px solid rgba(255,255,255,.12);background:rgba(10,16,34,.7);padding:6px;text-align:center;cursor:pointer;user-select:none}.cs-card.sel{border-color:var(--accent);box-shadow:0 0 12px rgba(255,200,60,.5)}
+.cs-card.pack{width:clamp(88px,12vw,112px)}.cs-card.pack img{width:100%;display:block}.cs-card.deal{width:clamp(170px,25vw,230px)}.cs-card.deal img{width:100%;display:block;border-radius:8px}
+.cs-card.myth{width:clamp(84px,12vw,100px)}.cs-art{width:100%;aspect-ratio:1;border-radius:9px;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;border:2px solid #ff4a3a;box-sizing:border-box}.cs-art img{width:92%;height:92%;object-fit:contain;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}.cs-art.big{max-width:170px;margin:0 auto 6px}
+.cs-card b{display:block;font-size:12px;color:#fff;margin-top:4px;line-height:1.1}.cs-free{display:block;text-decoration:none;font:800 12px var(--body);color:#7dffc4;margin-top:2px}.cs-card.deal .cs-free{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.65);padding:2px 8px;border-radius:8px}
+.coinbal{padding-left:8px}.coin-slot .pf-it{border:1px dashed rgba(255,255,255,.16);background:rgba(255,255,255,.03)}.coin-slot .pr{color:#9eacc9}.pf-tab:disabled{opacity:.55;cursor:default}
+.shop-title-txt{margin:0;text-align:center;font-size:30px;color:#ffd24a;text-shadow:0 0 14px rgba(255,170,40,.9)}
+@keyframes shopGlow{0%,100%{filter:drop-shadow(0 0 4px rgba(255,170,40,.55))}50%{filter:drop-shadow(0 0 14px rgba(255,205,80,.95))}}
 .shop-body{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}.shop-cells{flex:2 1 380px;max-height:min(52vh,430px);grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}.shop-det{flex:1 1 250px;min-width:230px}
 .pf-cell.sp{flex-direction:column;min-height:0;padding-bottom:3px}.pf-cell.sp .pf-it{flex:1}.pf-cell.owned{opacity:.55}
 .pr{display:flex;align-items:center;justify-content:center;gap:3px;text-decoration:none;font:800 13px var(--body);color:#ffe08a;margin-top:2px}.pr img{width:16px;height:16px}

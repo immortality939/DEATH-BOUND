@@ -287,6 +287,8 @@ const FLY_FX = {                   // sprite animation sheets (assets/fx), same 
   wings_rare: { file: 'fx/wings_rare.png', frames: 8, cols: 4, fw: 192, fh: 192, fps: 24, loop: true },
   wings_epic: { file: 'fx/wings_epic.png', frames: 8, cols: 4, fw: 192, fh: 192, fps: 24, loop: true },
   wings_legend: { file: 'fx/wings_legend.png', frames: 8, cols: 4, fw: 192, fh: 192, fps: 24, loop: true },
+  wings_myth_void: { file: 'fx/wings_myth_void.png', frames: 8, cols: 4, fw: 192, fh: 192, fps: 24, loop: true },     // MYTHICAL wings (online Coin Shop)
+  wings_myth_blade: { file: 'fx/wings_myth_blade.png', frames: 8, cols: 4, fw: 192, fh: 192, fps: 24, loop: true },
 };
 
 // ===== DOOM AXE (legendary Shop weapon + strong-boss loot): the thrown shot IS the axe picture, spinning slowly, with its own trail + hit effect per look =====
@@ -306,3 +308,26 @@ WEAPONS.push(
   SHOPW('S34_Doom_Axe', 'Doom Axe', 'legendary', 'A legendary war axe. You throw the axe itself, spinning slowly, and it chops down with a huge hit.', { k: 'daxe', c1: '#ffffff', c2: '#c8ccd8' }, 237, 46, 'explosion_big', 1.2, 'axe', 6, false, { hitT: ['axe_hit_t0', 'axe_hit_t1', 'axe_hit_t2', 'axe_hit_t3'] }),
 );
 { const dw = WEAPONS.find(w => w.id === 'S34_Doom_Axe'); dw.hold = DOOM_AXE_HOLD; dw.proj.trailFx = ['axe_trail_t0', 'axe_trail_t1', 'axe_trail_t2', 'axe_trail_t3']; }
+
+// ===== MYTHICAL WEAPONS (ONLINE Coin Shop only, rarity 'mythical'; they are NOT in the chip Shop and NOT in boss loot) =====
+// Bazooka, Spear, Boomerang, Hammer, Soccer Ball. Pictures (4 looks: +0..+9, +10, +11, +12):
+//   held      assets/weapons/S35_Mythic_Bazooka(_t1.._t3).png ... S39_Mythic_Ball   (512x256, drawn without any background)
+//   shop icon assets/items/w_mythic_<name>(_t1.._t3).png      shot  assets/proj/mythic_<name>_t0..t3.png  (Bazooka: 8-frame electric sheet 640x320)
+// Damage is the number on the item (no rarity bonus). One shot normally. With POW: 3 shots 100 ms apart (6 frames), every shot = 40% of the POW damage
+// (POW = +50%), so the total is 3 x 0.4 x 1.5 = 1.8x the normal damage (e.g. 100 -> 150 -> 3 x 60 = 180). Soccer Ball: held 1.3x bigger, spins slowly in flight.
+const MYTH_VOLLEY = { count: 3, gap: 5, recoil: 1.2, spread: 0 };   // gap 5 = a shot every 6 frames = 100 ms
+const MYTH_POW_SHARE = 0.4;                                          // each POW shot carries 40% of the POW damage
+Object.assign(SIG_WMETA, {
+  'S35_Mythic_Bazooka': { muzzle: [480, 128], bbox: [90, 20, 490, 236] }, 'S36_Mythic_Spear': { muzzle: [480, 128], bbox: [90, 20, 490, 236] },
+  'S37_Mythic_Boomerang': { muzzle: [322, 128], bbox: [90, 20, 490, 236] }, 'S38_Mythic_Hammer': { muzzle: [402, 128], bbox: [90, 20, 490, 236] },
+  'S39_Mythic_Ball': { muzzle: [304, 128], bbox: [90, 20, 490, 236] },
+});
+WEAPONS.push(
+  SHOPW('S35_Mythic_Bazooka', 'Mythic Bazooka', 'mythical', 'Mythical electric bazooka. Fires a crackling ball of lightning. With POW it fires 3 shots.', { k: 'mbaz', c1: '#ffffff', c2: '#40d8ff' }, 320, 54, 'explosion_big', 1.2, 'rocket', 5, false, { hitT: ['volt_hit_t0', 'volt_hit_t1', 'volt_hit_t2', 'volt_hit_t3'] }),
+  SHOPW('S36_Mythic_Spear', 'Mythic Spear', 'mythical', 'Mythical tribal spear. You throw the spear itself, point first. With POW it throws 3.', { k: 'mpic', pic: 'spear', len: 110, spin: 0, glow: '255,80,40' }, 350, 40, 'explosion_big', 1.2, 'axe', 4, false),
+  SHOPW('S37_Mythic_Boomerang', 'Mythic Boomerang', 'mythical', 'Mythical feathered boomerang, spins fast. With POW it throws 3.', { k: 'mpic', pic: 'boomerang', len: 52, spin: 0.2, glow: '255,150,40' }, 350, 40, 'explosion_big', 1.2, 'axe', 4, false),
+  SHOPW('S38_Mythic_Hammer', 'Mythic Hammer', 'mythical', 'Mythical war hammer, thrown end over end. With POW it throws 3.', { k: 'mpic', pic: 'hammer', len: 54, spin: 0.14, glow: '255,200,60' }, 330, 46, 'explosion_big', 1.2, 'axe', 5, false),
+  SHOPW('S39_Mythic_Ball', 'Mythic Soccer Ball', 'mythical', 'Mythical soccer ball. The ball itself is the shot and spins slowly. With POW it kicks 3.', { k: 'mpic', pic: 'ball', len: 38, spin: 0.05, glow: '120,200,255' }, 300, 46, 'explosion_big', 1.2, 'shotgun', 5, false),
+);
+WEAPONS.forEach(w => { if (w.rar === 'mythical') w.mythic = true; });
+{ const bw = WEAPONS.find(w => w.id === 'S39_Mythic_Ball'); bw.hold = 1.3; }   // the ball is held a little bigger

@@ -191,10 +191,29 @@ function drawDoomAxe(ctx, tier, a, ss, vx) {
   if (tier) { const R = (32 + tier * 6) * ss, c = ['', '255,200,60', '255,60,60', '255,150,30'][tier], g = ctx.createRadialGradient(0, 0, 1, 0, 0, R); g.addColorStop(0, 'rgba(' + c + ',.45)'); g.addColorStop(1, 'rgba(' + c + ',0)'); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R, 0, 6.283); ctx.fill(); ctx.restore(); }
   const w = im.width * k, h = im.height * k; ctx.rotate(a * DOOM_AXE_SPIN * dir); ctx.drawImage(im, -w / 2, -h * .4, w, h);   // spins around the axe head
 }
+// MYTHICAL shots (online Coin Shop weapons): the weapon's own picture (assets/proj/mythic_<pic>_t0..t3.png). Spear flies point first, Boomerang / Hammer spin, Soccer Ball spins slowly.
+function drawMythPic(ctx, L, tier, a, ss, ang, vx) {
+  tier = Math.min(3, tier | 0); const path = 'proj/mythic_' + L.pic + '_t' + tier + '.png', im = getImg(path), dir = vx < 0 ? -1 : 1;
+  if (!im || !im.width) { loadImage(path).catch(() => { }); ctx.fillStyle = '#ffb040'; ctx.beginPath(); ctx.arc(0, 0, 10 * ss, 0, 6.283); ctx.fill(); return; }
+  const k = ss * L.len * (1 + .07 * tier) / Math.max(im.width, im.height), w = im.width * k, h = im.height * k, R = Math.max(w, h) * .75;
+  const g = ctx.createRadialGradient(0, 0, 1, 0, 0, R); g.addColorStop(0, 'rgba(' + L.glow + ',.38)'); g.addColorStop(1, 'rgba(' + L.glow + ',0)');
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R, 0, 6.283); ctx.fill(); ctx.restore();   // soft glow
+  ctx.rotate(L.spin ? a * L.spin * dir : ang + Math.PI / 2); ctx.drawImage(im, -w / 2, -h / 2, w, h);
+}
+// Mythic Bazooka shot: a ball of electric shock, 8-frame sheet 640x320 (4x2 frames of 160x160), a different sheet for +0 / +10 / +11 / +12
+function drawMythBaz(ctx, tier, a, ss) {
+  tier = Math.min(3, tier | 0); const path = 'proj/mythic_bazooka_t' + tier + '.png', im = getImg(path), sz = 88 * ss * (1 + .08 * tier);
+  if (!im || !im.width) { loadImage(path).catch(() => { }); ctx.fillStyle = '#7fe6ff'; ctx.beginPath(); ctx.arc(0, 0, 12 * ss, 0, 6.283); ctx.fill(); return; }
+  const f = Math.floor(a / 2) % 8, sx = (f % 4) * 160, sy = Math.floor(f / 4) * 160;
+  ctx.rotate(a * .12); ctx.drawImage(im, sx, sy, 160, 160, -sz / 2, -sz / 2, sz, sz);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .5; ctx.drawImage(im, sx, sy, 160, 160, -sz / 2, -sz / 2, sz, sz); ctx.restore();
+}
 function drawSigShot(ctx, L, p, t, ss) {
   const k = L.k, a = p.age || 0, ang = Math.atan2(p.vy, p.vx);
   const glow = (r, c, al) => { const g = ctx.createRadialGradient(0, 0, 1, 0, 0, r); g.addColorStop(0, c); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = al; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.283); ctx.fill(); ctx.restore(); };
   const ball = (r, hi) => { const g = ctx.createRadialGradient(-r * .35, -r * .35, r * .1, 0, 0, r); g.addColorStop(0, L.c1); g.addColorStop(hi || .55, L.c2); g.addColorStop(1, '#10131c'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.283); ctx.fill(); };
+  if (k === 'mpic') { drawMythPic(ctx, L, p.owner ? teamWTier(G.teams[p.owner.team]) : 0, a, ss, ang, p.vx); return; }   // Mythic Spear / Boomerang / Hammer / Soccer Ball
+  if (k === 'mbaz') { drawMythBaz(ctx, p.owner ? teamWTier(G.teams[p.owner.team]) : 0, a, ss); return; }   // Mythic Bazooka: electric ball
   if (k === 'volt') { drawVoltBolt(ctx, p.owner ? teamWTier(G.teams[p.owner.team]) : 0, a, ss, ang); return; }   // Tempest Arc: crackling lightning bolt, 4 looks
   if (k === 'daxe') { drawDoomAxe(ctx, p.owner ? teamWTier(G.teams[p.owner.team]) : 0, a, ss, p.vx); return; }   // Doom Axe: its own picture, 4 looks
   if (k === 'shur') { drawShuriken(ctx, p.owner ? teamWTier(G.teams[p.owner.team]) : 0, a, ss, p.vx); return; }   // Shuriken: its own picture, 4 looks

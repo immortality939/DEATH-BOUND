@@ -393,6 +393,7 @@ function startFire(power) {
     case 'burst': G.burst = { wd, left: wd.shots, gap: 0 }; break;
     case 'shot': case 'timed': {
       if (wd.volley) { G.volley = { wd, left: wd.volley.count, gap: 0, power }; break; }
+      if (wd.mythic && G.powShot) { G.volley = { wd, left: MYTH_VOLLEY.count, gap: 0, power, vo: MYTH_VOLLEY, mul: MYTH_POW_SHARE }; break; }   // Mythical weapon + POW: 3 shots 100 ms apart, each 40% of the POW damage
       const pr = wd.proj; const sp = launchShot(w, wd, power); Snd.play(pr.snd); if (wd.type === 'shot' && pr.hit) { } G.burst = null; G.phase = 'retreat'; G.timer = RETREAT_TIME * 60; break;
     }
     case 'place': placeItem(w, wd); Snd.play('jump'); G.phase = 'retreat'; G.timer = RETREAT_TIME * 60; break;
@@ -405,10 +406,10 @@ function startFire(power) {
 function updateShooting() {
   const w = G.activeWorm, wd = curWeapon();
   if (G.volley) {   // cannon / missile tech: one projectile at a time, each with recoil
-    const v = G.volley, vo = v.wd.volley; if (v.gap > 0) v.gap--; else if (v.left > 0) {
+    const v = G.volley, vo = v.vo || v.wd.volley; if (v.gap > 0) v.gap--; else if (v.left > 0) {
       const d = aimDir(w);
       const jit = vo.spread || 0, pw = clamp(v.power + (jit ? rnd(-.04, .04) : 0), 0, POW_MAX);
-      const sh = launchShot(w, v.wd, pw, jit); if (vo.lift) sh.vy -= rnd(0, vo.lift);
+      const sh = launchShot(w, v.wd, pw, jit); if (v.mul) sh.p = Object.assign({}, sh.p, { dmg: Math.round(sh.p.dmg * v.mul) }); if (vo.lift) sh.vy -= rnd(0, vo.lift);
       const [mx, my] = muzzleWorld(w, v.wd); addFx('explosion_small', mx, my, vo.recoil > 2 ? .55 : .3); addFx('smoke', mx, my, .5, { alpha: .6 }); if (!(v.wd.proj.sndOnce && v.sndDone)) { Snd.play(v.wd.proj.snd); v.sndDone = true; } shake(vo.recoil > 2 ? 6 : 2.5);
       if (w.state !== 'dead' && w.state !== 'drown') { knockWorm(w, clamp(w.vx - d[0] * vo.recoil, -4.5, 4.5) - w.vx, -Math.abs(vo.recoil) * .25); }
       v.left--; v.gap = vo.gap;
