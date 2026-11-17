@@ -175,6 +175,8 @@
 #shop .pf-cell.sel::after{border-color:#ffe27a !important;box-shadow:inset 0 0 0 1px rgba(0,0,0,.6),0 0 8px rgba(255,200,70,.7)}
 #shop .pf-cell.off::after{opacity:.4}
 #shop .pf-it{background:none}
+/* MYTHICAL items: the mythical background everywhere (Profile slots + inventory, Shop, Forge, character sheet) */
+#profile .pf-it.myth,#shop .pf-it.myth,.pf-it.myth,#forge .fg-cell.myth,.fg-cell.myth,#onl .cslot.myth{background:url(assets/ui/mythical_background.png) center/cover !important}
 `; document.head.appendChild(css);
 })();
 console.log('goldui.js loaded - gold/navy frames for Shop + Profile');

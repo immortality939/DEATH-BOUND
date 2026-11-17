@@ -146,7 +146,7 @@ const Forge = {
   },
   // ---- drawing ----
   slotHTML(slot, label, inner, cls = '') { return `<div class="fg-slot s-${slot}${inner ? ' full' : ''} ${cls}" data-slot="${slot}"><small>${label}</small>${inner || '<span class="pl"></span>'}</div>`; },
-  cell(g, it, extra, lvl, used) { return `<div class="fg-cell${this.sel === g ? ' sel' : ''}${used ? ' used' : ''}" data-g="${g}" style="--rc:${(RARITY[it.rar] || RARITY.common).color}"><img src="${Profile.imgOf(it)}" alt="" draggable="false">${lvl ? `<u class="lv">+${lvl}</u>` : ''}${extra || ''}</div>`; },
+  cell(g, it, extra, lvl, used) { return `<div class="fg-cell${it.rar === 'mythical' ? ' myth' : ''}${this.sel === g ? ' sel' : ''}${used ? ' used' : ''}" data-g="${g}" style="--rc:${(RARITY[it.rar] || RARITY.common).color}"><img src="${Profile.imgOf(it)}" alt="" draggable="false">${lvl ? `<u class="lv">+${lvl}</u>` : ''}${extra || ''}</div>`; },
   render() {
     const root = $('forge'); if (!root) return; const D = Profile.data || Profile.load();
     const keep = {}; root.querySelectorAll('[data-sc]').forEach(e => keep[e.dataset.sc] = e.scrollTop);
@@ -156,7 +156,7 @@ const Forge = {
     { const left = {}; this.st = this.st.map(x => { if (!x.t) return { t: 0, n: 0 }; if (left[x.t] == null) left[x.t] = Stones.get(x.t); const n = Math.min(x.n, left[x.t]); left[x.t] -= n; return n > 0 ? { t: x.t, n } : { t: 0, n: 0 }; }); }   // slots can only hold stones you still own
     const c = this.calc(), rob = Assets.robots.robots[D.char], worn = new Set(Object.values(D.eq).flatMap(o => Object.values(o)));
     // centre slot
-    const itemIn = c ? `<img src="${Profile.imgOf(c.it)}" alt="" draggable="false">${c.L ? `<u class="lv">+${c.L}</u>` : ''}` : '';
+    const itemIn = c ? `<img src="${Profile.imgOf(c.it)}" alt="" draggable="false"${c.it.rar === 'mythical' ? ' style="background:url(assets/ui/mythical_background.png) center/cover;border-radius:8px"' : ''}>${c.L ? `<u class="lv">+${c.L}</u>` : ''}` : '';
     const amM = this.amu ? matOf('amulet', this.amu) : null, spM = this.sup ? matOf('support', this.sup) : null;
     const stIn = this.st.map(x => { const m = x.t ? matOf('stone', x.t) : null; return m ? `<img src="${m.img}" alt="" draggable="false"><s class="cnt">×${fmtK(x.n)}</s>` : ''; });
     const amIn = amM ? `<img src="${amM.img}" alt="" draggable="false"><s class="cnt">+${amM.pct}%</s>` : '';
@@ -291,7 +291,7 @@ const Forge = {
 .fg-ph{display:flex;justify-content:space-between;align-items:center;font:400 12px var(--disp);color:#cfd8ff;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px}.fg-ph span{font:700 11px var(--body);color:#8f9bd8}
 .fg-grid{flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin;display:grid;grid-template-columns:repeat(auto-fill,minmax(calc(var(--s)*.84),1fr));grid-auto-rows:calc(var(--s)*.84);gap:6px;align-content:start;padding:6px 4px 3px}
 .fg-grid .dim{grid-column:1/-1;margin:6px 4px;font-size:12px}
-.fg-cell{position:relative;border-radius:10px;border:2px solid var(--rc);background:rgba(14,14,50,.85);display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:pan-y;box-sizing:border-box}
+.fg-cell.myth{background:url(assets/ui/mythical_background.png) center/cover}.fg-cell{position:relative;border-radius:10px;border:2px solid var(--rc);background:rgba(14,14,50,.85);display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:pan-y;box-sizing:border-box}
 .fg-cell img{width:78%;height:78%;object-fit:contain;pointer-events:none}.fg-cell.sel{box-shadow:0 0 0 2px #5fe7ff,0 0 12px rgba(95,231,255,.8);background:rgba(60,70,180,.35)}.fg-cell.used{opacity:.35}
 .fg-cell em{position:absolute;top:-6px;right:-5px;background:var(--accent);color:#1a0f00;border-radius:50%;width:15px;height:15px;font:800 10px/15px var(--body);font-style:normal;text-align:center}
 .fg-info{flex:0 0 auto;min-height:26px;font-size:11px;line-height:1.15;color:#cfd8ff;padding:3px 6px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(150,160,255,.2);max-height:34px;overflow:auto;scrollbar-width:thin}.fg-info b{margin-right:4px}.fg-info span{color:#aab4d8}

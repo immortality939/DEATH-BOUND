@@ -185,7 +185,7 @@ const OnlineUI = (() => {
 #onl .idet .st{display:flex;flex-direction:column;gap:2px;font:700 13px var(--body,sans-serif)}
 #onl .idet .pos{color:#8dff9a}#onl .idet .neg{color:#ff8a7a}#onl .idet .dim{color:#cdb98f}
 #onl .idet p{margin:0;color:#e9dcc0;font:400 12px/1.35 var(--body,sans-serif)}
-#onl .cslot.has{border-color:var(--rc,#aab4cc);box-shadow:inset 0 0 8px rgba(0,0,0,.5)}
+#onl .cslot.myth{background:url(assets/ui/mythical_background.png) center/cover}#onl .cslot.has{border-color:var(--rc,#aab4cc);box-shadow:inset 0 0 8px rgba(0,0,0,.5)}
 #onl .cslot small{position:absolute;top:0;left:0;right:0;font:700 7px var(--body,sans-serif);color:#cdb98f;text-transform:uppercase;text-align:center;white-space:nowrap;overflow:hidden}
 #onl .cslot img{width:58%;height:auto;max-height:58%;object-fit:contain;pointer-events:none}
 #onl .cslot b{font-size:7.5px;line-height:1.1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff2da}
@@ -794,7 +794,7 @@ const OnlineUI = (() => {
     const L = v ? v[1] | 0 : 0; let img = it && it.img;
     if (img && it.type === 'weapon' && L && typeof wtier === 'function') { try { const tt = wtier(L); if (tt) img = img.replace('.png', '_t' + tt + '.png'); } catch (e) { } }   // weapon picture changes at +10, +11, +12 (like in the Profile)
     let col = null; try { col = it && RARITY[it.rar] && RARITY[it.rar].color; } catch (e) { }
-    return h('div', { class: 'cslot' + (it ? ' has tap' : ''), style: 'grid-area:' + SLOT_AREA[k] + (col ? ';--rc:' + col : ''), onclick: it ? () => { beep(); itemPop(it, L, img); } : null }, h('small', null, SLOT_LABEL[k]),
+    return h('div', { class: 'cslot' + (it ? ' has tap' : '') + (it && it.rar === 'mythical' ? ' myth' : ''), style: 'grid-area:' + SLOT_AREA[k] + (col ? ';--rc:' + col : ''), onclick: it ? () => { beep(); itemPop(it, L, img); } : null }, h('small', null, SLOT_LABEL[k]),
       it ? [img ? h('img', { src: img, alt: '', draggable: 'false' }) : null, h('b', null, it.name), L ? h('u', null, '+' + L) : null] : h('span', null, 'empty'));
   }
   function itemPop(it, L, img) {   // popup: picture, name, +level, rarity, stats (with the upgrade bonus) and description of ONE item another player wears
@@ -811,7 +811,7 @@ const OnlineUI = (() => {
     let pop = null;
     pop = h('div', { class: 'pop wood', style: 'z-index:60', onclick: e => { if (e.target === pop) pop.remove(); } },
       h('div', { class: 'wpnl', style: 'width:min(330px,92vw)' }, h('div', { class: 'idet', style: '--rc:' + rc },
-        img ? h('img', { src: img, alt: '', draggable: 'false' }) : null,
+        img ? h('img', { src: img, alt: '', draggable: 'false', style: it.rar === 'mythical' ? 'background:url(assets/ui/mythical_background.png) center/cover' : '' }) : null,
         h('div', { class: 'in' }, it.name, L ? h('u', null, '+' + L) : null),
         h('small', null, rn + ' ' + String(it.type || '').replace(/^./, c => c.toUpperCase())),
         h('div', { class: 'st' }, lines),
