@@ -275,7 +275,7 @@ const POTION_FX = {          // sprite animation sheets (assets/fx), same format
 // Tap the Fly button (UNLIMITED uses, never costs a turn), then hold FIRE: the power meter fills, release = your robot launches along the aim arrow
 // (the yellow +angle arrow decides direction, the meter decides distance) and flies until it lands where it drops. No fall damage. The sea is still deadly.
 // After the flight you are back on your normal weapon, with the turn timer still running, so you can fly and still shoot.
-const FLY_ADVENTURE_ONLY = true;   // true = the Fly button only exists in Adventure battles. false = every battle where you play
+const FLY_ADVENTURE_ONLY = false;   // true = the Fly button only exists in Adventure battles. false = every battle where you play (Adventure + Arena)
 const FLY_SPEED = [3.5, 13];       // launch speed for min..full charge (bigger = flies farther)
 const FLY_G = 0.15;                // gravity while flying (the normal fall is 0.3, so it floats)
 const FLY_FX = {                   // sprite animation sheets (assets/fx), same format as assets/fx.json
