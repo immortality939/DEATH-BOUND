@@ -9,6 +9,9 @@ const THEMES = {
 function hash2(x, y, s) { let h = (x * 374761393 + y * 668265263 + s * 1442695041) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
 function vnoise(x, y, s) { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf); return lerp(lerp(hash2(xi, yi, s), hash2(xi + 1, yi, s), u), lerp(hash2(xi, yi + 1, s), hash2(xi + 1, yi + 1, s), u), v); }
 
+// SCRAPHEAP CANYON boss stages: the WHOLE ground is flat (no hill, caves, slopes or corner valleys). y = floor height; keep = runs that end above this y stay (the floating platforms);
+// patch = a rectangle of solid rock of the map picture, tiled to paint the new flat ground (without it the colour of the picture's bottom edge is used).
+const FLAT_ARENAS = { adv_arena: { y: 640, keep: 560, patch: [700, 700, 500, 280] }, adv_canyon_b3: { y: 800 } };
 const EDGE_EXT = 360;   // Adventure: how far the real ground reaches beyond the left / right edge of the map (the picture reaches 400)
 class Terrain {
   // map = an entry of MAPS (maps.js). Its PNG is already painted: opaque pixel = ground. Without a picture the old random terrain is used.
@@ -20,9 +23,13 @@ class Terrain {
     if (im && im.complete && im.naturalWidth && typeof MAP_RUNS !== 'undefined' && MAP_RUNS[map.id]) this.fromImage(im, map.id); else { this.generate(); this.paint(); }
   }
   fromImage(im, id) {   // picture = what you see; MAP_RUNS = what is solid (same shape, exact)
-    const W = this.W, H = this.H, c = this.ctx, m = this.mask, cols = MAP_RUNS[id]; c.clearRect(0, 0, W, H); c.drawImage(im, 0, 0, W, H);
+    const W = this.W, H = this.H, c = this.ctx, m = this.mask, fl = FLAT_ARENAS[id]; let cols = MAP_RUNS[id]; c.clearRect(0, 0, W, H); c.drawImage(im, 0, 0, W, H);
+    if (fl) {   // flat boss ground: new solid runs, and the picture is cut to them (hill / caves / slopes of the picture disappear)
+      cols = MAP_RUNS[id] = Array.from({ length: W }, (_, x) => { const r = cols[x] || [], o = []; if (fl.keep) for (let k = 0; k < r.length; k += 2) if (r[k + 1] <= fl.keep) o.push(r[k], r[k + 1]); o.push(fl.y, H); return o; });
+      c.save(); c.globalCompositeOperation = 'destination-in'; this.runPath(cols); c.fill(); c.restore();
+    }
     for (let x = 0; x < W; x++) { const r = cols[x]; for (let k = 0; k < r.length; k += 2) for (let y = r[k]; y < r[k + 1]; y++) m[y * W + x] = 1; }
-    if (/^adv_/.test(id)) { this.fillGaps(im, cols); this.makeUnder(this.canvas); }   // Adventure: no water -> solid ground below and beside the map so it never looks like it floats
+    if (/^adv_/.test(id)) { this.fillGaps(im, cols, fl); this.makeUnder(this.canvas); }   // Adventure: no water -> solid ground below and beside the map so it never looks like it floats
     if (this.under) {   // ADVENTURE: the ground drawn beside the map is mirrored from the map edge, so make it REAL: copy the edge columns (static, same as the picture)
       const E = EDGE_EXT, H2 = this.H; this.eL = new Uint8Array(E * H2); this.eR = new Uint8Array(E * H2);
       for (let c2 = 0; c2 < E; c2++) for (let y = 0; y < H2; y++) { this.eL[c2 * H2 + y] = m[y * W + c2]; this.eR[c2 * H2 + y] = m[y * W + (W - 1 - c2)]; }
@@ -30,13 +37,16 @@ class Terrain {
   }
   // ADVENTURE: wherever the ground is SOLID (MAP_RUNS) but the picture has nothing drawn (map corners, valleys), paint ground there, BEHIND the picture
   // (destination-over: only the empty pixels change), so a robot never stands on or floats over ground you cannot see. The side / bottom mirror is made from this canvas.
-  fillGaps(im, cols) {
+  runPath(cols) {   // one path with a rectangle for every solid run (neighbouring columns with the same runs are joined)
+    const W = this.W, c = this.ctx, same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]); c.beginPath();
+    for (let x = 0; x < W;) { const r = cols[x]; let x2 = x + 1; while (x2 < W && same(cols[x2], r)) x2++; for (let q = 0; q < r.length; q += 2) c.rect(x, r[q], x2 - x, r[q + 1] - r[q]); x = x2; }
+  }
+  fillGaps(im, cols, fl) {
     const W = this.W, H = this.H, c = this.ctx; let col = null;
     try { const s = document.createElement('canvas'); s.width = s.height = 1; const g = s.getContext('2d'); g.drawImage(im, 0, H - 12, W, 12, 0, 0, 1, 1); const d = g.getImageData(0, 0, 1, 1).data; if (d[3] > 60) col = 'rgb(' + Math.round(d[0] * .9) + ',' + Math.round(d[1] * .9) + ',' + Math.round(d[2] * .9) + ')'; } catch (e) { }
     if (!col) { const dp = this.theme.deep; col = 'rgb(' + dp[0] + ',' + dp[1] + ',' + dp[2] + ')'; }
-    c.save(); c.globalCompositeOperation = 'destination-over'; c.fillStyle = col; c.beginPath();
-    const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
-    for (let x = 0; x < W;) { const r = cols[x]; let x2 = x + 1; while (x2 < W && same(cols[x2], r)) x2++; for (let q = 0; q < r.length; q += 2) c.rect(x, r[q], x2 - x, r[q + 1] - r[q]); x = x2; }
+    if (fl && fl.patch) { try { const [px, py, pw, ph] = fl.patch, kx = im.naturalWidth / W, ky = im.naturalHeight / H, pc = document.createElement('canvas'); pc.width = pw; pc.height = ph; pc.getContext('2d').drawImage(im, px * kx, py * ky, pw * kx, ph * ky, 0, 0, pw, ph); col = c.createPattern(pc, 'repeat') || col; } catch (e) { } }
+    c.save(); c.globalCompositeOperation = 'destination-over'; c.fillStyle = col; this.runPath(cols);
     c.fill(); c.restore();
   }
   // ADVENTURE (no water): the picture is mirrored under the bottom edge and beside the left / right edges (static, never digs away),
