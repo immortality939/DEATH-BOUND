@@ -191,7 +191,7 @@ const OnlineUI = (() => {
 #onl .cslot b{font-size:7.5px;line-height:1.1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff2da}
 #onl .cslot u{position:absolute;top:8px;left:2px;text-decoration:none;font:700 9px/12px var(--body,sans-serif);padding:0 3px;border-radius:4px;background:#b8360f;color:#fff}
 #onl .cslot span{color:rgba(255,255,255,.22);font-size:10px}
-#onl .cport{grid-area:1/2/4/4;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,224,160,.2);display:flex;align-items:center;justify-content:center;overflow:hidden}
+#onl .cport{position:relative;grid-area:1/2/4/4;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,224,160,.2);display:flex;align-items:center;justify-content:center;overflow:hidden}
 #onl .cport img{width:94%;height:94%;object-fit:contain;filter:drop-shadow(0 4px 4px rgba(0,0,0,.5))}
 #onl .pinfo{display:flex;flex-direction:column;justify-content:center;gap:7px;min-width:112px;max-width:150px}
 #onl .pinfo .nm{font:400 19px/1.1 var(--disp,sans-serif);color:#ffd34a;word-break:break-word}#onl .pinfo small{color:#cdb98f;font-size:12px}
@@ -826,7 +826,7 @@ const OnlineUI = (() => {
     const draw = () => {
       if (card) card.remove();
       const r = robotOf(d.robot), eq = d.eq || {};
-      const grid = h('div', { class: 'pgrid' }, h('div', { class: 'cport' }, h('img', { src: 'assets/robots/front/' + r.id + '.webp', alt: '' })), Object.keys(SLOT_AREA).map(k => slotBox(k, eq[k])));
+      const grid = h('div', { class: 'pgrid' }, h('div', { class: 'cport' }, h('img', { src: 'assets/robots/front/' + r.id + '.webp', alt: '' }), (typeof PlusFX !== 'undefined' && eq.weapon) ? PlusFX.el(eq.weapon[1]) : null), Object.keys(SLOT_AREA).map(k => slotBox(k, eq[k])));
       const fbtn = d.me ? h('small', null, 'This is you') : d.friend ? h('div', { class: 'wbtn off' }, 'Friends') : (d.pending || sent) ? h('div', { class: 'wbtn off' }, 'Request sent') : h('div', { class: 'wbtn', onclick: async () => {
         beep(); try { const j = await fapi('request', { to: d.id }); if (j.friends) { d.friend = true; refreshFriends(); toastMsg('You and ' + d.name + ' are now friends.'); } else { sent = true; toastMsg('Friend request sent to ' + d.name); } draw(); }
         catch (e) { if (e.status === 401) return expired(); toastMsg(e.message || 'Could not send the request.'); } } }, 'Add Friend');
