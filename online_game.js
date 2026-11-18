@@ -826,7 +826,7 @@ const OnlineUI = (() => {
     const draw = () => {
       if (card) card.remove();
       const r = robotOf(d.robot), eq = d.eq || {};
-      const grid = h('div', { class: 'pgrid' }, h('div', { class: 'cport' }, h('img', { src: 'assets/robots/front/' + r.id + '.webp', alt: '' })), Object.keys(SLOT_AREA).map(k => slotBox(k, eq[k])));
+      const grid = h('div', { class: 'pgrid' }, h('div', { class: 'cport', style: 'position:relative' }, (() => { let L = 0; try { L = eq.weapon ? eq.weapon[1] | 0 : 0; } catch (e) { } const d = document.createElement('div'); try { d.innerHTML = typeof auraHTML === 'function' ? auraHTML(L) : ''; } catch (e) { } return d.firstChild; })(), h('img', { src: 'assets/robots/front/' + r.id + '.webp', alt: '' })), Object.keys(SLOT_AREA).map(k => slotBox(k, eq[k])));
       const fbtn = d.me ? h('small', null, 'This is you') : d.friend ? h('div', { class: 'wbtn off' }, 'Friends') : (d.pending || sent) ? h('div', { class: 'wbtn off' }, 'Request sent') : h('div', { class: 'wbtn', onclick: async () => {
         beep(); try { const j = await fapi('request', { to: d.id }); if (j.friends) { d.friend = true; refreshFriends(); toastMsg('You and ' + d.name + ' are now friends.'); } else { sent = true; toastMsg('Friend request sent to ' + d.name); } draw(); }
         catch (e) { if (e.status === 401) return expired(); toastMsg(e.message || 'Could not send the request.'); } } }, 'Add Friend');

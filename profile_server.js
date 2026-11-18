@@ -339,6 +339,15 @@ const Stones = {   // 5 kinds of upgrade stones (STONE_TYPES): Adventure loot ca
   refresh() { document.querySelectorAll('.stonebal').forEach(e => e.innerHTML = this.inner()); },
 };
 
+// ===== WEAPON AURA: a round magic ring drawn BEHIND the character, turning very slowly. Weapon +9 = blue, +10 = violet, +11 = yellow, +12 = red. Pictures: assets/aura/aura_9..12.png =====
+function auraHTML(L) {
+  L = Math.min(12, L | 0); if (L < 9) return '';
+  if (!document.getElementById('fxAuraCss')) { const s = document.createElement('style'); s.id = 'fxAuraCss'; s.textContent =
+    '.fx-aura{position:absolute;left:50%;top:56%;width:112%;aspect-ratio:1/1;transform:translate(-50%,-50%);background:center/contain no-repeat;pointer-events:none;z-index:0;animation:fxAuraSpin 80s linear infinite;will-change:transform}' +   // 80 = seconds for one turn: raise it to turn even slower
+    '@keyframes fxAuraSpin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}' +
+    '.pf-port>svg,.cport>img{position:relative;z-index:1}'; document.head.appendChild(s); }
+  return '<div class="fx-aura" style="background-image:url(assets/aura/aura_' + L + '.png)"></div>';
+}
 const Profile = {
   data: null, sel: null, pop: false, tab: 'equip', filter: 'all', msg: null, stoneSel: 1, mode: 'main', pickSel: 0, pickKind: 'first', after: null,   // sel = selected item id; filter = inventory tab; mode = 'main' | 'pick' (character select)
   load() {
@@ -522,7 +531,7 @@ const Profile = {
       ${forgeBtn}
       <div class="pf-main">
         <div class="pf-eq"><div class="pf-name">${rob.name}<small>Lv ${lv} · weapon ${wDmg} dmg${wL ? ' (+' + wL + ')' : ''}</small><span class="pf-pw">Power: <b>${powerOf(tot)}</b></span></div>
-          <div class="pf-grid">${slotHTML('helmet')}${slotHTML('armor')}${slotHTML('shoes')}<div class="pf-port g-port">${frontSVG(rob.id)}</div>${slotHTML('ring1')}${slotHTML('ring2')}${slotHTML('weapon')}${slotHTML('heal')}${slotHTML('wings')}${slotHTML('neck')}${slotHTML('glove')}</div>
+          <div class="pf-grid">${slotHTML('helmet')}${slotHTML('armor')}${slotHTML('shoes')}<div class="pf-port g-port">${auraHTML(wL)}${frontSVG(rob.id)}</div>${slotHTML('ring1')}${slotHTML('ring2')}${slotHTML('weapon')}${slotHTML('heal')}${slotHTML('wings')}${slotHTML('neck')}${slotHTML('glove')}</div>
           <div class="pf-tot pf-char"><div class="pf-lv"><b>Level ${lv}${lv >= LVL_MAX ? ' (MAX)' : ''}</b><span>${lv >= LVL_MAX ? '' : (D.xp | 0) + ' / ' + xpN + ' XP'}</span></div><div class="pf-xpbar"><i style="width:${xpPct}%"></i></div>
             <small>Attributes (+${PTS_PER_LVL} each level, gear included)</small><div class="pf-list">${[['Vitality', tot.vit], ['Agility', tot.agi], ['Dexterity', tot.dex], ['Luck', tot.luk]].map(r => `<div class="pf-row"><span>${r[0]}</span><b>${n1(r[1])}</b></div>`).join('')}</div>
             <small>Stats</small><div class="pf-list"><div class="pf-row"><span>Health</span><b>${n1(100 + tot.hp)}</b></div><div class="pf-row"><span>Damage</span><b>${fmtN(tot.dmg)}</b></div><div class="pf-row"><span>Defense <em>(${defPct(tot).toFixed(1)}% blocked)</em></span><b>${n1(tot.def)}</b></div><div class="pf-row"><span>Crit Damage</span><b>${n1(tot.cdm)}%</b></div><div class="pf-row"><span>Crit Chance</span><b>${n1(tot.crt)}%</b></div></div></div></div>
