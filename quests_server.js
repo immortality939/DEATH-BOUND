@@ -249,21 +249,36 @@ const Quests = (() => {
   function stop() { active = false; clearInterval(tm); tm = 0; if (uiClose) { try { uiClose(); } catch (e) { } } uiClose = null; }
 
   // ---------- claim ----------
-  let busy = false;
+  let busy = false, quiet = false;
   async function claim(qq, done) {
-    if (busy || !C) return; const s = load(); if (!isDone(qq, s) || isClaimed(qq, s)) return;
+    if (busy || !C) return done && done(false); const s = load(); if (!isDone(qq, s) || isClaimed(qq, s)) return done && done(false);
     const rw = rewardOf(qq); busy = true;
     try {
       await C.api('quest/claim', { qid: qq.id, daily: qq.daily ? 1 : 0, day: s.day, title: qq.t, chips: rw.chips, items: rw.items.map(x => ({ item: x.id, qty: x.qty })) });
       const s2 = load(); (qq.daily ? s2.dd : s2.done)[qq.id] = 1; save(s2);
-      C.toast('Reward sent to your envelope! Open the Mail icon and tap Claim.'); try { C.nudge(); } catch (e) { }
+      if (!quiet) C.toast('Reward sent to your envelope! Open the Mail icon and tap Claim.'); try { C.nudge(); } catch (e) { }
       busy = false; tick(); done && done(true);
     } catch (e) {
       busy = false;
-      if (e && e.status === 401) return C.expired();
-      if (e && e.status === 409 && /already claimed/i.test(e.message || '')) { const s2 = load(); (qq.daily ? s2.dd : s2.done)[qq.id] = 1; save(s2); done && done(true); }
-      C.toast((e && e.message) || 'Could not claim. Try again.');
+      if (e && e.status === 401) { done && done(false); return C.expired(); }
+      if (e && e.status === 409 && /already claimed/i.test(e.message || '')) { const s2 = load(); (qq.daily ? s2.dd : s2.done)[qq.id] = 1; save(s2); done && done(true); return; }
+      C.toast((e && e.message) || 'Could not claim. Try again.'); done && done(false);
     }
+  }
+  // Claim All: sends the reward of EVERY finished quest (all six categories) to the envelope, one after another (the server wants a short pause between claims)
+  async function claimAll(after) {
+    if (busy || quiet || !C) return; let n = 0, bad = false; quiet = true;
+    try {
+      for (let guard = 0; guard < 40 && !bad; guard++) {
+        const s = load(), list = CATS.flatMap(c => ready(c.id, s)); if (!list.length) break;
+        for (const qq of list) {
+          const ok = await new Promise(res => claim(qq, res)); if (!ok) { bad = true; break; } n++;
+          await new Promise(r => setTimeout(r, 400));
+        }
+      }
+    } finally { quiet = false; }
+    if (n) C.toast(n + (n === 1 ? ' reward' : ' rewards') + ' sent to your envelope! Open the Mail icon and tap Claim All.');
+    after && after();
   }
 
   // ---------- screens ----------
@@ -336,7 +351,7 @@ const Quests = (() => {
       if (rw.chips) cells.push(h('div', { class: 'cslot has lgn', style: '--rc:#ffd34a' }, h('img', { src: chipsImg(), alt: '' }), h('b', null, 'Chips'), h('u', null, fmt(rw.chips))));
       for (const x of rw.items) cells.push(h('div', { class: 'cslot has tap lgn', style: '--rc:' + (RARITY[x.it.rar] || RARITY.common).color, onclick: () => { C.beep(); showItem(x); } }, x.it.img ? h('img', { src: x.it.img, alt: '' }) : null, h('b', null, x.it.name), x.qty > 1 ? h('u', null, '×' + x.qty) : null));
       const shut = () => { if (pop) pop.remove(); pop = null; };
-      const act = got ? h('div', { class: 'wbtn off' }, 'Claimed') : done ? h('div', { class: 'wbtn', onclick: () => { C.beep(); claim(qq, ok => { shut(); if (box) draw(); }); } }, 'Claim') : h('div', { class: 'wbtn off' }, 'Not finished yet');
+      const act = got ? h('div', { class: 'wbtn off' }, 'Claimed') : done ? h('div', { class: 'wbtn', onclick: () => { C.beep(); claim(qq, ok => { if (!ok) return; shut(); if (box) draw(); }); } }, 'Claim') : h('div', { class: 'wbtn off' }, 'Not finished yet');
       const body = h('div', { class: 'qs-det' }, h('div', { class: 'lgtitle' }, h('span', null, qq.t), h('div', { class: 'lgx wbtn', onclick: () => { C.beep(); shut(); } }, 'X')),
         h('p', { class: 'qs-hint' }, qq.d), bar(v, qq.n), h('div', { class: 'qs-hint' }, 'Reward' + (qq.daily ? '  ·  comes back every day' : '')), h('div', { class: 'qs-cells' }, cells),
         h('p', { class: 'qs-hint' }, 'Tap an item to see its stats. The reward goes to your envelope when you claim.'), h('div', { style: 'display:flex;gap:8px' }, act, h('div', { class: 'wbtn red', onclick: () => { C.beep(); shut(); } }, 'Close')));
@@ -345,6 +360,7 @@ const Quests = (() => {
     }
     function draw() {
       if (!box) return; const s = load(); const sc = right.scrollTop;
+      { const nr = CATS.reduce((a, c) => a + ready(c.id, s).length, 0); allRow.style.display = nr ? 'flex' : 'none'; allBtn.textContent = 'Claim All (' + nr + ')'; }
       left.replaceChildren(...CATS.map(c => {
         const all = ofCat(c.id), n = all.filter(x => isClaimed(x, s)).length, rd = ready(c.id, s).length;
         const b = h('div', { class: 'qs-cat' + (c.id === cat ? ' on' : ''), onclick: () => { C.beep(); cat = lastCat = c.id; draw(); right.scrollTop = 0; } }, h('span', null, c.ico), h('div', null, c.name, h('small', null, n + ' / ' + all.length + ' done' + (c.daily ? ' · daily' : ''))));
@@ -363,9 +379,11 @@ const Quests = (() => {
       else if (nDone) kids.push(h('div', { class: 'qs-done' }, '✓ ' + nDone + ' finished' + (c.daily ? ' (some of them reset every day)' : '')));
       right.replaceChildren(...kids); right.scrollTop = sc;
     }
+    const allBtn = h('div', { class: 'wbtn', style: 'min-width:200px;text-align:center', onclick: () => { C.beep(); claimAll(() => { if (box) draw(); }); } }, 'Claim All');
+    const allRow = h('div', { style: 'display:none;justify-content:center;margin:3px 0 0' }, allBtn);
     const title = h('div', { class: 'lgtitle' }, h('span', null, 'Quests'), h('div', { class: 'lgx wbtn', onclick: () => { C.beep(); close(); } }, 'X'));
-    box = h('div', { class: 'pop wood', style: 'z-index:62', onclick: e => { if (e.target === box) close(); } }, h('div', { class: 'wpnl lgw qs-w' }, title, h('div', { class: 'qs-body' }, left, right),
-      h('p', { class: 'qs-hint', style: 'text-align:center;margin:4px 0 0' }, 'Finish a quest, tap it, press Claim. The reward waits in your envelope (Mail icon).')));
+    box = h('div', { class: 'pop wood', style: 'z-index:62', onclick: e => { if (e.target === box) close(); } }, h('div', { class: 'wpnl lgw qs-w' }, title, h('div', { class: 'qs-body' }, left, right), allRow,
+      h('p', { class: 'qs-hint', style: 'text-align:center;margin:4px 0 0' }, 'Finish a quest, tap it, press Claim (or Claim All). The reward waits in your envelope (Mail icon).')));
     t.append(box); draw();
     const iv = setInterval(() => { if (!box || !box.isConnected) return clearInterval(iv); if (!busy && !pop && !itemPop) draw(); }, 3000);
   }

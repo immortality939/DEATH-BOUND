@@ -225,6 +225,27 @@ const MailUI = (() => {
       } catch (e) { H.fail(e); }
       busy = false; load();
     }
+    // Claim All: claims every envelope in a row (items that do not fit in the Bag are skipped and stay in the envelope)
+    async function claimAll() {
+      if (busy || !mail || !mail.length) return; busy = true; let n = 0, chips = 0, skipped = 0, why = '', failed = '';
+      for (const m of mail.slice()) {
+        const it = m.item ? H.IT(m.item) : null;
+        if (m.kind === 'item') { const w = it ? H.whyCannotAdd(it, m.qty) : 'Unknown item. Update the game first.'; if (w) { skipped++; why = why || w; continue; } }
+        try {
+          const j = await ctx.api('mail/claim', { id: m.id }), mm = j.mail;
+          if (mm.kind === 'item') H.addToBag(it, mm.qty, mm.lvl); else { Wallet.add(mm.chips); chips += mm.chips; }
+          n++;
+        } catch (e) { if (e && e.status === 401) { busy = false; return ctx.expired(); } if (e && e.status === 409) continue; failed = (e && e.message) || 'Could not claim.'; break; }
+        await new Promise(r => setTimeout(r, 120));
+      }
+      sel = null; busy = false;
+      if (failed) ctx.toast(failed);
+      else if (!n && skipped) ctx.toast(why);
+      else ctx.toast('Claimed ' + n + (n === 1 ? ' envelope' : ' envelopes') + (chips ? ' (+' + H.fmt(chips) + ' chips)' : '') + '!' + (skipped ? ' ' + skipped + ' did not fit in your Bag: make space, then press Claim All again.' : ''));
+      load();
+    }
+    const allBtn = h('div', { class: 'wbtn', style: 'min-width:200px;text-align:center', onclick: () => { ctx.beep(); claimAll(); } }, 'Claim All');
+    const allRow = h('div', { style: 'display:flex;justify-content:center;margin:2px 0 5px' }, allBtn);
     function row(m) {
       const it = m.item ? H.IT(m.item) : null, open_ = sel === m.id;
       const pic = m.kind === 'chips' ? h('img', { src: 'assets/chip.png', alt: '' }) : it && it.img ? h('img', { src: it.img, alt: '' }) : h('div', { class: 'lg' }, '?');
@@ -239,13 +260,13 @@ const MailUI = (() => {
       return h('div', { class: 'au-mrow' }, r, h('div', { class: 'au-mdet' }, det));
     }
     function draw() {
-      const sc = list.scrollTop;
+      const sc = list.scrollTop; allRow.style.display = mail && mail.length > 1 ? 'flex' : 'none'; allBtn.textContent = 'Claim All' + (mail ? ' (' + mail.length + ')' : '');
       list.replaceChildren(...(err ? [h('p', null, err)] : !mail ? [h('p', null, 'Loading...')] : mail.length ? mail.map(row) : [h('p', null, 'Your envelope is empty. Bought items wait here.')]));
       list.scrollTop = sc;
     }
     const title = h('div', { class: 'lgtitle' }, h('span', null, 'Envelope'), h('div', { class: 'lgx wbtn', onclick: () => { ctx.beep(); close(); } }, 'X'));
     box = h('div', { class: 'pop wood', style: 'z-index:65', onclick: e => { if (e.target === box) close(); } }, h('div', { class: 'wpnl lgw au-c', style: 'width:min(640px,96vw)' }, title,
-      h('p', { class: 'au-mhint' }, 'Bought items, sale money and returned items. Tap one, then Claim.'), list));
+      h('p', { class: 'au-mhint' }, 'Bought items, sale money and returned items. Tap one, then Claim, or press Claim All.'), allRow, list));
     t.append(box); draw(); load();
     tm = setInterval(() => { if (!box || !box.isConnected) return clearInterval(tm); if (!busy) load(); }, 8000);
   }
