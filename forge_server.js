@@ -45,7 +45,7 @@ MAT_ITEMS.forEach(m => { ITEM_PRICE[m.id] = m.price; });
 const fmtK = n => n >= 100000 ? Math.round(n / 1000) + 'k' : n >= 10000 ? (n / 1000).toFixed(1) + 'k' : n.toLocaleString();
 
 const Forge = {
-  item: null, st: [{ t: 0, n: 0 }, { t: 0, n: 0 }, { t: 0, n: 0 }], pick: null, amu: 0, sup: 0, sel: null, res: null, flash: '', last: { g: '', t: 0 }, drag: null,
+  item: null, st: [{ t: 0, n: 0 }, { t: 0, n: 0 }, { t: 0, n: 0 }], pick: null, amu: 0, sup: 0, sel: null, res: null, info: null, flash: '', last: { g: '', t: 0 }, drag: null,
   open(itemId) {
     Profile.data || Profile.load(); if (itemId) { const it = itemById(itemId); if (it && it.type !== 'mat' && !it.potion && !it.noUp && Profile.data.owned.includes(itemId)) this.item = itemId; }
     this.res = null; this.flash = ''; this.sel = null; this.render(); UI.show('forge');
@@ -114,6 +114,34 @@ const Forge = {
     box.querySelector('.ok').onclick = () => { this.st[p.k] = { t: p.t, n: p.n }; this.pick = null; this.res = null; Snd.play('pick'); this.render(); };
     box.addEventListener('pointerdown', e => { if (e.target === box) { this.pick = null; this.render(); } });
   },
+  // ---- info window: opens when the player touches an item (cell in the lists or a filled slot) ----
+  slotSrc(slot) { return slot === 'item' ? this.item : slot.startsWith('st') ? (this.st[+slot[2]].t ? matOf('stone', this.st[+slot[2]].t).id : null) : slot === 'amu' ? (this.amu ? matOf('amulet', this.amu).id : null) : (this.sup ? matOf('support', this.sup).id : null); },
+  closeInfo() { this.info = null; this.render(); },
+  drawInfo(root) {
+    const old = root.querySelector('#fgInfo'); if (old) old.remove(); const f = this.info; if (!f) return;
+    const id = f.slot ? this.slotSrc(f.slot) : f.g.split(':')[1], it = id && itemById(id); if (!it) { this.info = null; return; }
+    const mat = it.type === 'mat', L = mat ? 0 : Profile.lvl(it.id), rar = RARITY[it.rar] || RARITY.common, col = mat ? it.col : rar.color;
+    let body = '';
+    if (mat) body = `<div class="fg-ik">${it.tag || ''}</div><div class="fg-il" style="color:${col}">${it.line}</div><div class="fg-id">${it.desc}</div><div class="fg-ik">You have ×${Mats.get(it).toLocaleString()}</div>`;
+    else {
+      const st = statsAt(it, L), rows = Object.keys(st).filter(k => STAT_LABEL[k]).map(k => `<span class="${st[k] < 0 ? 'neg' : 'pos'}">${st[k] > 0 ? '+' : ''}${fmtN(st[k])}${STAT_LABEL[k][1]} ${STAT_LABEL[k][0]}</span>`).join('');
+      body = `<div class="fg-ik">${rar.name} ${it.type}${L ? ' · upgraded to +' + L : ''}</div><div class="fg-is">${rows || '<span>No stats</span>'}</div>${it.desc ? `<div class="fg-id">${it.desc}</div>` : ''}${L < UP_MAX && L >= ROLLBACK_FROM ? '<div class="fg-id">A failed upgrade can lower it by one level (a Guardian Scroll stops that).</div>' : ''}`;
+    }
+    let btns = '';
+    if (f.slot) btns = (f.slot.startsWith('st') ? '<button class="ok" data-a="qty">Change amount</button>' : '') + '<button class="rm" data-a="remove">Remove</button>';
+    else btns = (!mat && this.item === it.id) ? '<button class="ok" disabled>Already in the Forge</button>' : '<button class="ok" data-a="place">' + (mat ? 'Use in Forge' : 'Put in Forge') + '</button>';
+    const box = document.createElement('div'); box.id = 'fgInfo'; box.className = 'fg-pk';
+    box.innerHTML = `<div class="fg-pkc fg-ic" style="border-color:${col}"><div class="fg-pkh"><img src="${Profile.imgOf(it)}" alt="" draggable="false"><div><b style="color:${col}">${it.name}${L ? ' +' + L : ''}</b></div></div>${body}<div class="fg-pkb"><button class="no" data-a="close">Close</button>${btns}</div></div>`;
+    root.appendChild(box);
+    box.addEventListener('pointerdown', e => { if (e.target === box) this.closeInfo(); });
+    box.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
+      const a = b.dataset.a; this.info = null;
+      if (a === 'place') { this.auto(id); if (!(it.type === 'mat' && it.kind === 'stone')) this.render(); }
+      else if (a === 'remove') { this.clear(f.slot); this.render(); }
+      else if (a === 'qty') { const x = this.st[+f.slot[2]]; this.ask(+f.slot[2], x.t, x.n); }
+      else this.render();
+    });
+  },
   // ---- the upgrade try ----
   go() {
     const c = this.calc(); if (!c || c.maxed || !c.ok) { Snd.play('dud'); return; }
@@ -162,7 +190,7 @@ const Forge = {
     const amIn = amM ? `<img src="${amM.img}" alt="" draggable="false"><s class="cnt">+${amM.pct}%</s>` : '';
     const spIn = spM ? `<img src="${spM.img}" alt="" draggable="false"><s class="cnt">×${fmtK(Mats.get(spM))}</s>` : '';
     // numbers
-    let stats = '<div class="fg-hint">Drag an item into the middle slot, or double-tap it.</div>', go = false, nx = '', risk = '';
+    let stats = '<div class="fg-hint">Tap an item in the Equipment list to read it, then press Put in Forge (or drag it into the middle slot).</div>', go = false, nx = '', risk = '';
     if (c) {
       go = !c.maxed && c.ok;
       const col = c.total >= 60 ? '#5be37a' : c.total >= 30 ? '#ffd24a' : '#ff7a6a';
@@ -187,25 +215,28 @@ const Forge = {
         <span class="fg-hintTop">Upgrade your gear</span><button class="btn alt sm" id="fgBack">Back</button></div>
       <div class="fg-body">
         <div class="fg-left" data-sc="left">
-          <div class="fg-stage">
-            <div class="fg-col">${this.slotHTML('amu', 'Amulet', amIn)}${this.slotHTML('sup', 'Guardian', spIn)}</div>
-            <div class="fg-mid"><svg class="fg-ring" viewBox="0 0 200 200"><circle cx="100" cy="100" r="92" fill="none" stroke="rgba(120,200,255,.35)" stroke-width="2" stroke-dasharray="3 7"/><circle cx="100" cy="100" r="80" fill="none" stroke="rgba(154,123,255,.45)" stroke-width="2"/><path d="M100 14l8 16h-16zM100 186l8-16h-16zM14 100l16 8v-16zM186 100l-16 8v-16z" fill="rgba(255,210,74,.7)"/></svg>${this.slotHTML('item', 'Item', itemIn, 'big ' + (this.flash ? 'fx-' + this.flash : ''))}</div>
-            <div class="fg-col sc">${[0, 1, 2].map(k => this.slotHTML('st' + k, 'Stone', stIn[k], 's-stone')).join('')}</div>
-          </div>
+          <div class="fg-stage"><div class="fg-box">
+            <svg class="fg-ring" viewBox="0 0 200 200"><circle cx="100" cy="100" r="92" fill="none" stroke="rgba(255,200,90,.35)" stroke-width="2" stroke-dasharray="3 7"/><circle cx="100" cy="100" r="80" fill="none" stroke="rgba(255,160,60,.4)" stroke-width="2"/></svg>
+            <div class="fg-pos" style="--x:50%;--y:50%;--w:38%">${this.slotHTML('item', 'Item', itemIn, 'big ' + (this.flash ? 'fx-' + this.flash : ''))}</div>
+            <div class="fg-pos" style="--x:50%;--y:13%;--w:25%">${this.slotHTML('st0', 'Stone', stIn[0], 's-stone')}</div>
+            <div class="fg-pos" style="--x:87%;--y:50%;--w:25%">${this.slotHTML('st1', 'Stone', stIn[1], 's-stone')}</div>
+            <div class="fg-pos" style="--x:50%;--y:87%;--w:25%">${this.slotHTML('st2', 'Stone', stIn[2], 's-stone')}</div>
+            <div class="fg-pos" style="--x:13%;--y:31%;--w:25%">${this.slotHTML('amu', 'Amulet', amIn)}</div>
+            <div class="fg-pos" style="--x:13%;--y:69%;--w:25%">${this.slotHTML('sup', 'Guardian', spIn)}</div>
+          </div></div>
           ${c ? `<div class="fg-name">${c.it.name}${c.L ? ' <u>+' + c.L + '</u>' : ''}</div>` : ''}
           ${stats}${nx}${risk}
           ${this.res ? `<div class="fg-res ${this.res.ok ? 'ok' : 'bad'}">${this.res.t}</div>` : (c && !c.maxed && !c.used.length ? '<div class="fg-res">Drop a stone in a Stone slot and choose how many. Fill more slots for more chance.</div>' : '')}
           <button class="fg-go" id="fgGo"${go ? '' : ' disabled'}>Fortify</button>
         </div>
         <div class="fg-right">
-          <div class="fg-pan"><div class="fg-ph"><b>Equipment</b><span>${eqList.length}</span></div><div class="fg-grid" data-sc="eq">${eqCells || '<p class="dim">No equipment yet.</p>'}</div></div>
-          <div class="fg-pan"><div class="fg-ph"><b>Items</b><span>${mats.length}</span></div><div class="fg-grid" data-sc="mt">${mtCells || '<p class="dim">No stones or scrolls. Buy them in the Shop.</p>'}</div></div>
-          <div class="fg-info">${info}</div>
+          <div class="fg-pan"><div class="fg-ph"><b>Equipment</b><em class="fg-tip">tap an item to read it</em><span>${eqList.length}</span></div><div class="fg-grid" data-sc="eq">${eqCells || '<p class="dim">No equipment yet.</p>'}</div></div>
+          <div class="fg-pan"><div class="fg-ph"><b>Items</b><em class="fg-tip">tap an item to read it</em><span>${mats.length}</span></div><div class="fg-grid" data-sc="mt">${mtCells || '<p class="dim">No stones or scrolls. Buy them in the Shop.</p>'}</div></div>
           <div class="fg-foot">${Wallet.badge()}</div>
         </div>
       </div></div>`;
     root.querySelectorAll('[data-sc]').forEach(e => { if (keep[e.dataset.sc] != null) e.scrollTop = keep[e.dataset.sc]; });
-    $('fgBack').onclick = () => this.back(); $('fgGo').onclick = () => this.go(); this.drawPick(root);
+    $('fgBack').onclick = () => this.back(); $('fgGo').onclick = () => this.go(); this.drawPick(root); this.drawInfo(root);
   },
   // ---- touch / mouse: tap, double-tap and drag (one set of listeners on the screen) ----
   init() {
@@ -237,10 +268,8 @@ const Forge = {
         else if (tgt) { Snd.play('dud'); this.res = { ok: false, t: 'That does not fit in this slot.' }; this.render(); }
         return;
       }
-      if (s.kind === 'slot') { if (s.slot.startsWith('st')) { const x = this.st[+s.slot[2]]; this.ask(+s.slot[2], x.t, x.n); } else { this.clear(s.slot); this.render(); } return; }   // tap a filled stone slot = change how many; other slots = take it back
-      const now = performance.now(), id = s.g.split(':')[1];
-      if (this.last.g === s.g && now - this.last.t < 380) { this.last = { g: '', t: 0 }; this.auto(id); this.sel = s.g; this.render(); }   // double-tap = place it
-      else { this.last = { g: s.g, t: now }; this.sel = s.g; this.render(); }
+      if (s.kind === 'slot') { this.info = { slot: s.slot }; this.render(); return; }   // tap a filled slot = read it (Change amount / Remove are in the window)
+      this.sel = s.g; this.info = { g: s.g }; Snd.play('pick'); this.render();   // tap = open the info window
     });
     window.addEventListener('pointercancel', () => cleanup());
   },
@@ -328,6 +357,35 @@ const Forge = {
 @keyframes fgSp{0%{transform:translate(0,0) scale(.3);opacity:0}25%{opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(1);opacity:0}}
 @keyframes fgFlash{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){#fgResult *,#fgResult img{animation-duration:.01s!important;animation-iteration-count:1!important}}
+/* ---- clearer arrangement: item in the middle, stones top/right/bottom, amulet + guardian on the left ---- */
+#forge .fg-left{overflow:hidden;gap:4px}
+#forge .fg-stage{flex:1 1 0;min-height:120px;width:100%;margin:0;gap:0;display:flex;align-items:center;justify-content:center}
+#forge .fg-box{position:relative;height:100%;max-width:100%;aspect-ratio:1/1}
+#forge .fg-box .fg-ring{position:absolute;left:19%;top:19%;width:62%;height:62%;inset:auto;left:19%;top:19%}
+#forge .fg-pos{position:absolute;left:var(--x);top:var(--y);width:var(--w);aspect-ratio:1/1;transform:translate(-50%,-50%)}
+#forge .fg-pos .fg-slot{width:100%;height:100%;border-radius:16%;border-width:2px;background:radial-gradient(circle at 50% 30%,rgba(255,170,60,.22),rgba(8,8,30,.92))}
+#forge .fg-pos .fg-slot.big{border-width:3px}
+#forge .fg-pos .fg-slot>small{font-size:clamp(7px,1.9vh,10px);bottom:12%}
+#forge .fg-pos .fg-slot img{width:84%;height:84%}
+#forge .fg-pos .fg-slot .pl{margin-bottom:14%}
+#forge .fg-pos .fg-slot .lv,#forge .fg-pos .fg-slot .cnt{font-size:clamp(9px,2.3vh,12px)}
+#forge .fg-name{font-size:15px;flex:0 0 auto}
+#forge .fg-nums,#forge .fg-bar,#forge .fg-nx,#forge .fg-risk,#forge .fg-res,#forge .fg-hint,#forge .fg-go,#forge .fg-max{flex:0 0 auto}
+#forge .fg-nums span{padding:1px 8px}#forge .fg-nums b{font-size:15px}
+#forge .fg-right{--cs:clamp(46px,12.8vh,66px)}
+#forge .fg-grid{grid-template-columns:repeat(auto-fill,minmax(var(--cs),1fr));grid-auto-rows:var(--cs);gap:9px 7px;padding:8px 5px 4px}
+#forge .fg-cell{border-width:2px;border-radius:12px;background:radial-gradient(circle at 50% 30%,rgba(255,200,110,.16),rgba(10,10,38,.92))}
+#forge .fg-cell img{width:86%;height:86%}
+#forge .fg-cell .lv{font-size:clamp(10px,2.4vh,13px);line-height:16px}
+#forge .fg-cell .cnt{font-size:clamp(10px,2.4vh,12px)}
+#forge .fg-pan:first-child{flex:1.5 1 0}
+.fg-tip{font-style:normal;font-size:10px;color:#9eacc9;margin-left:8px;flex:1;letter-spacing:.5px;text-transform:none;font-family:var(--body);font-weight:600}
+/* info window */
+.fg-ic{width:min(92vw,340px)}.fg-ic .fg-pkh img{width:56px;height:56px}.fg-ic .fg-pkh b{font-size:18px}
+.fg-ik{font-size:12px;color:#9eacc9;font-weight:700;text-transform:capitalize;align-self:stretch}.fg-il{font:800 15px var(--body);align-self:stretch}
+.fg-is{display:flex;flex-direction:column;gap:2px;align-self:stretch;font:800 14px var(--body)}.fg-is .pos{color:#8dff9e}.fg-is .neg{color:#ff9c8a}
+.fg-id{font-size:12px;line-height:1.3;color:#cfd8ff;align-self:stretch;max-height:92px;overflow:auto}
+.fg-pkb button[disabled]{opacity:.45}
 @media (max-width:620px){.fg-body{grid-template-columns:1fr}#forge .fg{height:auto;max-height:none}#forge{overflow:auto}}
 `; document.head.appendChild(css);
 })();
