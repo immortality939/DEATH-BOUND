@@ -1,24 +1,6 @@
 /* ONLINE VERSION of profile.js - upload this file to GitHub (online game only).
    The offline app keeps using profile.js. Edit the two files separately on purpose. */
 'use strict';
-// ===== WEAPON +9 / +10 / +11 / +12 AURA =====
-// A 16-frame magic burst (equal-size frames, 4x4 sheet: assets/fx/plus/plus9..plus12.webp) that plays around the character
-// while the weapon he wears is upgraded to +9 (blue), +10 (purple), +11 (gold) or +12 (pink). Used by the Profile, and online by
-// the Profile and by the player card of the Hall of Fame / World list.
-const PlusFX = {
-  FPS: 12,   // frames per second (the burst grows, then shrinks back = smooth loop)
-  css() {
-    if (document.getElementById('plusfxCss')) return;
-    let k = ''; for (let i = 0; i < 16; i++) { const c = i % 4, r = (i / 4) | 0; k += (i * 100 / 17).toFixed(3) + '%{background-position:' + (c * 100 / 3).toFixed(3) + '% ' + (r * 100 / 3).toFixed(3) + '%}'; }
-    k += '100%{background-position:100% 100%}';
-    const s = document.createElement('style'); s.id = 'plusfxCss';
-    s.textContent = '@keyframes plusfx{' + k + '}.plusfx{position:absolute;left:50%;bottom:-1%;height:94%;aspect-ratio:288/276;max-width:112%;transform:translateX(-50%);background-repeat:no-repeat;background-size:400% 400%;pointer-events:none;z-index:3;mix-blend-mode:screen;animation:plusfx ' + (17 / this.FPS * 2).toFixed(2) + 's steps(1,end) infinite alternate}';
-    document.head.appendChild(s);
-  },
-  src(lvl) { lvl |= 0; return lvl >= 9 ? 'assets/fx/plus/plus' + Math.min(12, lvl) + '.webp' : null; },
-  html(lvl) { const s = this.src(lvl); if (!s) return ''; this.css(); return `<div class="plusfx" style="background-image:url(${s})"></div>`; },
-  el(lvl) { const s = this.src(lvl); if (!s) return null; this.css(); const d = document.createElement('div'); d.className = 'plusfx'; d.style.backgroundImage = 'url(' + s + ')'; return d; }
-};
 // ===== PROFILE + INVENTORY =====
 // Your ONE character (chosen in New Game), its signature weapon, and gear: 1 weapon, 1 helmet, 2 rings, 1 armor, 1 pair of shoes.
 // Every item can be UPGRADED with stones up to +12: each success adds +10% of the item's base stats, and success gets rarer each level.
@@ -540,7 +522,7 @@ const Profile = {
       ${forgeBtn}
       <div class="pf-main">
         <div class="pf-eq"><div class="pf-name">${rob.name}<small>Lv ${lv} · weapon ${wDmg} dmg${wL ? ' (+' + wL + ')' : ''}</small><span class="pf-pw">Power: <b>${powerOf(tot)}</b></span></div>
-          <div class="pf-grid">${slotHTML('helmet')}${slotHTML('armor')}${slotHTML('shoes')}<div class="pf-port g-port">${frontSVG(rob.id)}${PlusFX.html(wL)}</div>${slotHTML('ring1')}${slotHTML('ring2')}${slotHTML('weapon')}${slotHTML('heal')}${slotHTML('wings')}${slotHTML('neck')}${slotHTML('glove')}</div>
+          <div class="pf-grid">${slotHTML('helmet')}${slotHTML('armor')}${slotHTML('shoes')}<div class="pf-port g-port">${frontSVG(rob.id)}</div>${slotHTML('ring1')}${slotHTML('ring2')}${slotHTML('weapon')}${slotHTML('heal')}${slotHTML('wings')}${slotHTML('neck')}${slotHTML('glove')}</div>
           <div class="pf-tot pf-char"><div class="pf-lv"><b>Level ${lv}${lv >= LVL_MAX ? ' (MAX)' : ''}</b><span>${lv >= LVL_MAX ? '' : (D.xp | 0) + ' / ' + xpN + ' XP'}</span></div><div class="pf-xpbar"><i style="width:${xpPct}%"></i></div>
             <small>Attributes (+${PTS_PER_LVL} each level, gear included)</small><div class="pf-list">${[['Vitality', tot.vit], ['Agility', tot.agi], ['Dexterity', tot.dex], ['Luck', tot.luk]].map(r => `<div class="pf-row"><span>${r[0]}</span><b>${n1(r[1])}</b></div>`).join('')}</div>
             <small>Stats</small><div class="pf-list"><div class="pf-row"><span>Health</span><b>${n1(100 + tot.hp)}</b></div><div class="pf-row"><span>Damage</span><b>${fmtN(tot.dmg)}</b></div><div class="pf-row"><span>Defense <em>(${defPct(tot).toFixed(1)}% blocked)</em></span><b>${n1(tot.def)}</b></div><div class="pf-row"><span>Crit Damage</span><b>${n1(tot.cdm)}%</b></div><div class="pf-row"><span>Crit Chance</span><b>${n1(tot.crt)}%</b></div></div></div></div>
