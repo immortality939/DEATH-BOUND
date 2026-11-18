@@ -313,10 +313,10 @@ WEAPONS.push(
 // Bazooka, Spear, Boomerang, Hammer, Soccer Ball. Pictures (4 looks: +0..+9, +10, +11, +12):
 //   held      assets/weapons/S35_Mythic_Bazooka(_t1.._t3).png ... S39_Mythic_Ball   (512x256, drawn without any background)
 //   shop icon assets/items/w_mythic_<name>(_t1.._t3).png      shot  assets/proj/mythic_<name>_t0..t3.png  (Bazooka: 8-frame electric sheet 640x320)
-// Damage is the number on the item (no rarity bonus). One shot normally. With POW: 3 shots 100 ms apart (6 frames), every shot = 40% of the POW damage
+// Damage is the number on the item (no rarity bonus). One shot normally. With POW: 3 shots 100 ms apart (6 frames), every shot = 60% of the normal (no-POW) hit damage
 // (POW = +50%), so the total is 3 x 0.4 x 1.5 = 1.8x the normal damage (e.g. 100 -> 150 -> 3 x 60 = 180). Soccer Ball: held 1.3x bigger, spins slowly in flight.
 const MYTH_VOLLEY = { count: 3, gap: 5, recoil: 1.2, spread: 0 };   // gap 5 = a shot every 6 frames = 100 ms
-const MYTH_POW_SHARE = 0.4;                                          // each POW shot carries 40% of the POW damage
+const MYTH_POW_SHARE = 1;                                            // projectile damage is NOT cut; each POW shot gets 60% of the full (no-POW) hit in POW.mod (pow.js)
 Object.assign(SIG_WMETA, {
   'S35_Mythic_Bazooka': { muzzle: [480, 128], bbox: [90, 20, 490, 236] }, 'S36_Mythic_Spear': { muzzle: [480, 128], bbox: [90, 20, 490, 236] },
   'S37_Mythic_Boomerang': { muzzle: [322, 128], bbox: [90, 20, 490, 236] }, 'S38_Mythic_Hammer': { muzzle: [402, 128], bbox: [90, 20, 490, 236] },

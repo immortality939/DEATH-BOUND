@@ -18,6 +18,7 @@ const POW = (function () {
   const PW_PER_TURN = 10;         // % gained every time the player uses a turn (a shot, or a Fly)
   const PW_HIT_K = 1.6;           // % gained per 1% of the robot's max health lost (a hit for 10% of max health = +16%)
   const PW_HIT_MIN = 3, PW_HIT_MAX = 30;   // a hit always gives at least 3% and at most 30%
+  const PW_MYTH_SHOT = 0.6;       // Mythical weapon + POW: each of the 3 projectiles deals 60% of the normal (no-POW) hit
   const PW_DMG_MUL = 1.5;         // +50% damage on the POW shot (applied to the FINAL damage, after crit and defense)
   const PW_ADVENTURE_ONLY = false;   // true = POW only exists in Adventure
   const PW_CINE = 56;             // frames of the camera focus before the POW shot leaves (60 = 1 second)
@@ -52,7 +53,8 @@ const POW = (function () {
   function mod(w, dmg, opt) {
     if (!G.powShot || (opt && opt.fall)) return dmg;
     const at = G.activeWorm; if (!at || at.team !== G.powTeam || w.team === G.powTeam) return dmg;   // only the shooter's team deals the bonus, only to the other side
-    const out = Math.max(1, Math.round(dmg * PW_DMG_MUL));
+    const _wd = G.teams[at.team] && WEAPONS[G.teams[at.team].sel];
+    const out = Math.max(1, Math.round(dmg * (_wd && _wd.mythic ? PW_MYTH_SHOT : PW_DMG_MUL)));   // Mythical weapon: each of the 3 POW shots = 60% of the normal hit (3 x 60% = 180%); all other weapons +50%
     if (w._powPop == null || G.frame - w._powPop > 30) { w._powPop = G.frame; addPop(w.x, w.y - 82 * (w.sc || 1) - 26, 'POW +' + Math.round((PW_DMG_MUL - 1) * 100) + '%', '#ff7a1a', 16); }
     return out;
   }
