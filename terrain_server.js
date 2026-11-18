@@ -21,12 +21,23 @@ class Terrain {
   }
   fromImage(im, id) {   // picture = what you see; MAP_RUNS = what is solid (same shape, exact)
     const W = this.W, H = this.H, c = this.ctx, m = this.mask, cols = MAP_RUNS[id]; c.clearRect(0, 0, W, H); c.drawImage(im, 0, 0, W, H);
-    if (/^adv_/.test(id)) this.makeUnder(im);   // Adventure: no water -> solid ground below and beside the map so it never looks like it floats
     for (let x = 0; x < W; x++) { const r = cols[x]; for (let k = 0; k < r.length; k += 2) for (let y = r[k]; y < r[k + 1]; y++) m[y * W + x] = 1; }
+    if (/^adv_/.test(id)) { this.fillGaps(im, cols); this.makeUnder(this.canvas); }   // Adventure: no water -> solid ground below and beside the map so it never looks like it floats
     if (this.under) {   // ADVENTURE: the ground drawn beside the map is mirrored from the map edge, so make it REAL: copy the edge columns (static, same as the picture)
       const E = EDGE_EXT, H2 = this.H; this.eL = new Uint8Array(E * H2); this.eR = new Uint8Array(E * H2);
       for (let c2 = 0; c2 < E; c2++) for (let y = 0; y < H2; y++) { this.eL[c2 * H2 + y] = m[y * W + c2]; this.eR[c2 * H2 + y] = m[y * W + (W - 1 - c2)]; }
     }
+  }
+  // ADVENTURE: wherever the ground is SOLID (MAP_RUNS) but the picture has nothing drawn (map corners, valleys), paint ground there, BEHIND the picture
+  // (destination-over: only the empty pixels change), so a robot never stands on or floats over ground you cannot see. The side / bottom mirror is made from this canvas.
+  fillGaps(im, cols) {
+    const W = this.W, H = this.H, c = this.ctx; let col = null;
+    try { const s = document.createElement('canvas'); s.width = s.height = 1; const g = s.getContext('2d'); g.drawImage(im, 0, H - 12, W, 12, 0, 0, 1, 1); const d = g.getImageData(0, 0, 1, 1).data; if (d[3] > 60) col = 'rgb(' + Math.round(d[0] * .9) + ',' + Math.round(d[1] * .9) + ',' + Math.round(d[2] * .9) + ')'; } catch (e) { }
+    if (!col) { const dp = this.theme.deep; col = 'rgb(' + dp[0] + ',' + dp[1] + ',' + dp[2] + ')'; }
+    c.save(); c.globalCompositeOperation = 'destination-over'; c.fillStyle = col; c.beginPath();
+    const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+    for (let x = 0; x < W;) { const r = cols[x]; let x2 = x + 1; while (x2 < W && same(cols[x2], r)) x2++; for (let q = 0; q < r.length; q += 2) c.rect(x, r[q], x2 - x, r[q + 1] - r[q]); x = x2; }
+    c.fill(); c.restore();
   }
   // ADVENTURE (no water): the picture is mirrored under the bottom edge and beside the left / right edges (static, never digs away),
   // so wherever the camera looks past the map there is more of the same ground instead of empty sky.
