@@ -212,27 +212,27 @@ const Forge = {
     const si = this.sel && itemById(this.sel.split(':')[1]); if (si) info = si.type === 'mat' ? `<b style="color:${si.col}">${si.name}</b> <span>${si.line}. ${si.desc}</span>` : `<b>${si.name}${Profile.lvl(si.id) ? ' +' + Profile.lvl(si.id) : ''}</b> <span>${(RARITY[si.rar] || {}).name || ''} ${si.type}</span>`;
     root.innerHTML = `<div class="fg">
       <div class="fg-top"><h2><img src="assets/forge_anvil.png" alt="" draggable="false" style="width:28px;height:28px;object-fit:contain"> Forge</h2>
-        <span class="fg-hintTop">Upgrade your gear</span><button class="btn alt sm" id="fgBack">Back</button></div>
+        <span class="fg-hintTop">Upgrade your gear</span></div>
       <div class="fg-body">
         <div class="fg-left" data-sc="left">
           <div class="fg-stage"><div class="fg-box">
             <svg class="fg-ring" viewBox="0 0 200 200"><circle cx="100" cy="100" r="92" fill="none" stroke="rgba(255,200,90,.35)" stroke-width="2" stroke-dasharray="3 7"/><circle cx="100" cy="100" r="80" fill="none" stroke="rgba(255,160,60,.4)" stroke-width="2"/></svg>
-            <div class="fg-pos" style="--x:50%;--y:50%;--w:38%">${this.slotHTML('item', 'Item', itemIn, 'big ' + (this.flash ? 'fx-' + this.flash : ''))}</div>
-            <div class="fg-pos" style="--x:50%;--y:13%;--w:25%">${this.slotHTML('st0', 'Stone', stIn[0], 's-stone')}</div>
-            <div class="fg-pos" style="--x:87%;--y:50%;--w:25%">${this.slotHTML('st1', 'Stone', stIn[1], 's-stone')}</div>
-            <div class="fg-pos" style="--x:50%;--y:87%;--w:25%">${this.slotHTML('st2', 'Stone', stIn[2], 's-stone')}</div>
-            <div class="fg-pos" style="--x:13%;--y:31%;--w:25%">${this.slotHTML('amu', 'Amulet', amIn)}</div>
-            <div class="fg-pos" style="--x:13%;--y:69%;--w:25%">${this.slotHTML('sup', 'Guardian', spIn)}</div>
+            <div class="fg-pos" style="--x:50%;--y:50%;--w:41%">${this.slotHTML('item', 'Item', itemIn, 'big ' + (this.flash ? 'fx-' + this.flash : ''))}</div>
+            <div class="fg-pos" style="--x:50%;--y:14%;--w:28%">${this.slotHTML('st0', 'Stone', stIn[0], 's-stone')}</div>
+            <div class="fg-pos" style="--x:86%;--y:50%;--w:28%">${this.slotHTML('st1', 'Stone', stIn[1], 's-stone')}</div>
+            <div class="fg-pos" style="--x:50%;--y:86%;--w:28%">${this.slotHTML('st2', 'Stone', stIn[2], 's-stone')}</div>
+            <div class="fg-pos" style="--x:14%;--y:30%;--w:28%">${this.slotHTML('amu', 'Amulet', amIn)}</div>
+            <div class="fg-pos" style="--x:14%;--y:70%;--w:28%">${this.slotHTML('sup', 'Guardian', spIn)}</div>
           </div></div>
           ${c ? `<div class="fg-name">${c.it.name}${c.L ? ' <u>+' + c.L + '</u>' : ''}</div>` : ''}
-          ${stats}${nx}${risk}
-          ${this.res ? `<div class="fg-res ${this.res.ok ? 'ok' : 'bad'}">${this.res.t}</div>` : (c && !c.maxed && !c.used.length ? '<div class="fg-res">Drop a stone in a Stone slot and choose how many. Fill more slots for more chance.</div>' : '')}
+          ${stats}
+          
           <button class="fg-go" id="fgGo"${go ? '' : ' disabled'}>Fortify</button>
         </div>
         <div class="fg-right">
           <div class="fg-pan"><div class="fg-ph"><b>Equipment</b><em class="fg-tip">tap an item to read it</em><span>${eqList.length}</span></div><div class="fg-grid" data-sc="eq">${eqCells || '<p class="dim">No equipment yet.</p>'}</div></div>
           <div class="fg-pan"><div class="fg-ph"><b>Items</b><em class="fg-tip">tap an item to read it</em><span>${mats.length}</span></div><div class="fg-grid" data-sc="mt">${mtCells || '<p class="dim">No stones or scrolls. Buy them in the Shop.</p>'}</div></div>
-          <div class="fg-foot">${Wallet.badge()}</div>
+          <div class="fg-foot">${Wallet.badge()}<button class="btn alt sm" id="fgBack">Back</button></div>
         </div>
       </div></div>`;
     root.querySelectorAll('[data-sc]').forEach(e => { if (keep[e.dataset.sc] != null) e.scrollTop = keep[e.dataset.sc]; });
@@ -285,7 +285,7 @@ const Forge = {
   background:linear-gradient(180deg,rgba(24,20,66,.96),rgba(10,10,34,.97));box-shadow:0 0 0 3px rgba(8,8,26,.8),0 0 30px rgba(110,90,255,.25),inset 0 0 40px rgba(80,120,255,.08);overflow:hidden}
 .fg-top{display:flex;align-items:center;gap:10px;margin-bottom:5px;flex:0 0 auto}.fg-top h2{margin:0;font-size:19px;display:flex;align-items:center;gap:7px;color:#cfd8ff;text-shadow:0 0 12px rgba(120,160,255,.7)}
 .fg-hintTop{color:var(--dim);font-size:12px;letter-spacing:2px;text-transform:uppercase}.fg-top .btn{margin-left:auto;padding:4px 14px;font-size:14px;box-shadow:0 3px 0 #121a30}
-.fg-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(250px,.9fr) minmax(0,1.1fr);gap:12px}
+.fg-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(250px,1fr) minmax(0,1.05fr);gap:12px}
 .fg-left{min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;display:flex;flex-direction:column;align-items:center;gap:3px;padding:2px 2px 4px}
 .fg-stage{display:flex;align-items:center;justify-content:center;gap:calc(var(--s)*.2);margin-top:2px}.fg-col{display:flex;flex-direction:column;gap:calc(var(--s)*.2)}
 .fg-mid{position:relative;display:flex;align-items:center;justify-content:center;width:calc(var(--s)*2.3);height:calc(var(--s)*2.3)}
@@ -358,13 +358,19 @@ const Forge = {
 @keyframes fgFlash{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){#fgResult *,#fgResult img{animation-duration:.01s!important;animation-iteration-count:1!important}}
 /* ---- clearer arrangement: item in the middle, stones top/right/bottom, amulet + guardian on the left ---- */
-#forge .fg-left{overflow:hidden;gap:4px}
-#forge .fg-stage{flex:1 1 0;min-height:120px;width:100%;margin:0;gap:0;display:flex;align-items:center;justify-content:center}
+#forge .fg-left{overflow:hidden;gap:3px;padding:0 2px 2px}
+#forge .fg-go{margin-top:2px;padding:4px 10px}
+#forge .fg-nums span{min-width:54px}
+#forge .fg-stage{flex:1 1 0;min-height:90px;width:100%;margin:0;gap:0;display:flex;align-items:center;justify-content:center}
 #forge .fg-box{position:relative;height:100%;max-width:100%;aspect-ratio:1/1}
 #forge .fg-box .fg-ring{position:absolute;left:19%;top:19%;width:62%;height:62%;inset:auto;left:19%;top:19%}
 #forge .fg-pos{position:absolute;left:var(--x);top:var(--y);width:var(--w);aspect-ratio:1/1;transform:translate(-50%,-50%)}
 #forge .fg-pos .fg-slot{width:100%;height:100%;border-radius:16%;border-width:2px;background:radial-gradient(circle at 50% 30%,rgba(255,170,60,.22),rgba(8,8,30,.92))}
 #forge .fg-pos .fg-slot.big{border-width:3px}
+#forge .fg-foot{align-items:center;gap:10px}
+#forge .fg-foot .btn{color:#fff4d0;text-shadow:0 1px 2px rgba(0,0,0,.8);background:none;border:8px solid transparent;border-radius:0;box-shadow:none;border-image:url(assets/ui/frame_btn.png) 36 fill / 8px stretch;padding:2px 18px;font-size:15px;transition:filter .12s}
+#forge .fg-foot .btn:active{transform:translateY(2px)}
+#forge .fg-top{margin-bottom:0}
 #forge .fg-pos .fg-slot>small{font-size:clamp(7px,1.9vh,10px);bottom:12%}
 #forge .fg-pos .fg-slot img{width:84%;height:84%}
 #forge .fg-pos .fg-slot .pl{margin-bottom:14%}
