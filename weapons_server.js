@@ -324,7 +324,7 @@ Object.assign(SIG_WMETA, {
 });
 WEAPONS.push(
   SHOPW('S35_Mythic_Bazooka', 'Mythic Bazooka', 'mythical', 'Mythical electric bazooka. Fires a crackling ball of lightning. With POW it fires 3 shots.', { k: 'mbaz', c1: '#ffffff', c2: '#40d8ff' }, 320, 54, 'explosion_big', 1.2, 'rocket', 5, false, { hitT: ['volt_hit_t0', 'volt_hit_t1', 'volt_hit_t2', 'volt_hit_t3'] }),
-  SHOPW('S36_Mythic_Spear', 'Mythic Spear', 'mythical', 'Mythical tribal spear. You throw the spear itself, point first. With POW it throws 3.', { k: 'mpic', pic: 'spear', len: 90, spin: 0, glow: '255,80,40' }, 350, 40, 'explosion_big', 1.2, 'axe', 4, false),
+  SHOPW('S36_Mythic_Spear', 'Mythic Spear', 'mythical', 'Mythical tribal spear. You throw the spear itself, point first. With POW it throws 3.', { k: 'mpic', pic: 'spear', len: 65, spin: 0, glow: '255,80,40' }, 350, 40, 'explosion_big', 1.2, 'axe', 4, false),
   SHOPW('S37_Mythic_Boomerang', 'Mythic Boomerang', 'mythical', 'Mythical feathered boomerang, spins fast. With POW it throws 3.', { k: 'mpic', pic: 'boomerang', len: 52, spin: 0.2, glow: '255,150,40' }, 350, 40, 'explosion_big', 1.2, 'axe', 4, false),
   SHOPW('S38_Mythic_Hammer', 'Mythic Hammer', 'mythical', 'Mythical war hammer, thrown end over end. With POW it throws 3.', { k: 'mpic', pic: 'hammer', len: 54, spin: 0.14, glow: '255,200,60' }, 330, 46, 'explosion_big', 1.2, 'axe', 5, false),
   SHOPW('S39_Mythic_Ball', 'Mythic Soccer Ball', 'mythical', 'Mythical soccer ball. The ball itself is the shot and spins slowly. With POW it kicks 3.', { k: 'mpic', pic: 'ball', len: 38, spin: 0.05, glow: '120,200,255' }, 300, 46, 'explosion_big', 1.2, 'shotgun', 5, false),
