@@ -439,7 +439,7 @@ const Profile = {
   copies(id) { if (!this.data) this.load(); const b = baseId(id); return this.data.owned.filter(x => baseId(x) === b).length; },   // how many separate copies of this kind of item you own
   hasBase(id) { if (!this.data) this.load(); const b = baseId(id); return this.data.owned.some(x => baseId(x) === b); },
   addCopy(id) { const D = this.data || this.load(), b = baseId(id); if (!D.owned.includes(b)) D.owned.push(b); else D.owned.push(this.newInstId(b)); },   // bought / looted: the first one is the item itself, every next one is a NEW separate item (+0, own slot)
-  sellValue(it) { return it && !it.potion && it.type !== 'mat' ? Math.floor(itemPrice(it) * 0.25) : 0; },   // you get 25% of the Shop price
+  sellValue(it) { return it && !it.potion && it.type !== 'mat' ? Math.floor(itemPrice(it) * 0.15) : 0; },   // you get 15% of the Shop price
   sellItem(id) {   // sells THIS copy; returns the chips you got (0 = could not sell)
     const D = this.data || this.load(), it = itemById(id), v = this.sellValue(it); if (!it || v <= 0 || !D.owned.includes(id)) return 0;
     const D2 = D; if (it.sig && this.copies(id) <= 1) { D2.sigSold = D2.sigSold || {}; if (D2.sigSold[baseId(id)]) return 0; D2.sigSold[baseId(id)] = 1; }   // your signature weapon CAN be sold, even the last copy: the game gives you a free replacement, but only ONCE (no chip farming)
