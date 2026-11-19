@@ -232,16 +232,21 @@ const MailUI = (() => {
     }
     // Claim All: claims every envelope in a row (items that do not fit in the Bag are skipped and stay in the envelope)
     async function claimAll() {
-      if (busy || !mail || !mail.length) return; busy = true; let n = 0, chips = 0, coinsN = 0, skipped = 0, why = '', failed = '';
-      for (const m of mail.slice()) {
+      if (busy || !mail || !mail.length) return; busy = true; let n = 0, chips = 0, coinsN = 0, skipped = 0, why = '', failed = ''; const take = [], pend = {};
+      for (const m of mail.slice()) {   // decide first what fits in the Bag (potions have a limit), then claim EVERYTHING in ONE request (fast)
         const it = m.item ? H.IT(m.item) : null;
-        if (m.kind === 'item') { const w = it ? H.whyCannotAdd(it, m.qty) : 'Unknown item. Update the game first.'; if (w) { skipped++; why = why || w; continue; } }
+        if (m.kind === 'item') { const w = it ? H.whyCannotAdd(it, m.qty + (pend[it.id] || 0)) : 'Unknown item. Update the game first.'; if (w) { skipped++; why = why || w; continue; } if (it) pend[it.id] = (pend[it.id] || 0) + m.qty; }
+        take.push(m);
+      }
+      if (take.length) {
         try {
-          const j = await ctx.api('mail/claim', { id: m.id }), mm = j.mail;
-          if (mm.kind === 'item') H.addToBag(it, mm.qty, mm.lvl); else if (H.isCoinMail(mm)) { Coins.add(mm.chips); coinsN += mm.chips; } else { Wallet.add(mm.chips); chips += mm.chips; }
-          n++;
-        } catch (e) { if (e && e.status === 401) { busy = false; return ctx.expired(); } if (e && e.status === 409) continue; failed = (e && e.message) || 'Could not claim.'; break; }
-        await new Promise(r => setTimeout(r, 120));
+          const j = await ctx.api('mail/claim_all', { ids: take.map(m => m.id) });
+          for (const mm of (j.mails || [])) {
+            const it = mm.item ? H.IT(mm.item) : null;
+            if (mm.kind === 'item') { if (!it) continue; H.addToBag(it, mm.qty, mm.lvl); } else if (H.isCoinMail(mm)) { Coins.add(mm.chips); coinsN += mm.chips; } else { Wallet.add(mm.chips); chips += mm.chips; }
+            n++;
+          }
+        } catch (e) { if (e && e.status === 401) { busy = false; return ctx.expired(); } failed = (e && e.message) || 'Could not claim.'; }
       }
       sel = null; busy = false;
       if (failed) ctx.toast(failed);

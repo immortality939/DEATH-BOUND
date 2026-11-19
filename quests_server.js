@@ -267,16 +267,22 @@ const Quests = (() => {
   }
   // Claim All: sends the reward of EVERY finished quest (all six categories) to the envelope, one after another (the server wants a short pause between claims)
   async function claimAll(after) {
-    if (busy || quiet || !C) return; let n = 0, bad = false; quiet = true;
+    if (busy || quiet || !C) return; let n = 0; quiet = true; busy = true;
     try {
-      for (let guard = 0; guard < 40 && !bad; guard++) {
-        const s = load(), list = CATS.flatMap(c => ready(c.id, s)); if (!list.length) break;
-        for (const qq of list) {
-          const ok = await new Promise(res => claim(qq, res)); if (!ok) { bad = true; break; } n++;
-          await new Promise(r => setTimeout(r, 400));
-        }
+      for (let round = 0; round < 40; round++) {   // ONE request sends every finished quest; a claimed quest can unlock the next one, so repeat until nothing is left
+        const s = load(), list = CATS.flatMap(c => ready(c.id, s)).slice(0, 40); if (!list.length) break;
+        const j = await C.api('quest/claim_all', { quests: list.map(qq => { const rw = rewardOf(qq); return { qid: qq.id, daily: qq.daily ? 1 : 0, day: s.day, title: qq.t, chips: rw.chips, items: rw.items.map(x => ({ item: x.id, qty: x.qty })) }; }) });
+        const ok = new Set((j && j.done) || []), s2 = load(); let got = 0;
+        for (const qq of list) if (ok.has(qq.id)) { (qq.daily ? s2.dd : s2.done)[qq.id] = 1; got++; }
+        save(s2); n += got; try { C.nudge(); } catch (e) { }
+        if (!got) break;
+        await new Promise(r => setTimeout(r, 350));   // the server wants a short pause between two claim requests
       }
-    } finally { quiet = false; }
+    } catch (e) {
+      if (e && e.status === 401) { quiet = false; busy = false; return C.expired(); }
+      C.toast((e && e.message) || 'Could not claim. Try again.');
+    } finally { quiet = false; busy = false; }
+    tick();
     if (n) C.toast(n + (n === 1 ? ' reward' : ' rewards') + ' sent to your envelope! Open the Mail icon and tap Claim All.');
     after && after();
   }
