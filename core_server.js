@@ -5,7 +5,7 @@
 let WORLD_W = 2800;   // default width; the Molten Quarry (golem.js) sets it to 3400 for its fights (every newGame resets it)
 const WORLD_H = 1000; let WATER_Y = WORLD_H - 78;   // WATER_Y is set per game in newGame(): Adventure has NO water (see world.js), the other modes keep the sea
 const RS = 0.19;              // robot sprite scale (512px source frame -> world px)
-const WS = 0.75;              // weapon scale relative to robot
+const WS = 1;                 // weapon scale relative to robot (1 = same size as before the render fix)
 const G_ACC = 0.25;           // gravity px/frame^2 for projectiles
 const TURN_TIME = 30, RETREAT_TIME = 0;   // RETREAT_TIME = seconds of walking time AFTER a shot. 0 = the turn ends the moment you have used it (no countdown)
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;

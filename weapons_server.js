@@ -330,4 +330,4 @@ WEAPONS.push(
   SHOPW('S39_Mythic_Ball', 'Mythic Soccer Ball', 'mythical', 'Mythical soccer ball. The ball itself is the shot and spins slowly. With POW it kicks 3.', { k: 'mpic', pic: 'ball', len: 38, spin: 0.05, glow: '120,200,255' }, 300, 46, 'explosion_big', 1.2, 'shotgun', 5, false),
 );
 WEAPONS.forEach(w => { if (w.rar === 'mythical') w.mythic = true; });
-{ const bw = WEAPONS.find(w => w.id === 'S39_Mythic_Ball'); bw.hold = 1.3; }   // the ball is held a little bigger
+{ const bw = WEAPONS.find(w => w.id === 'S39_Mythic_Ball'); bw.hold = 1.6; }   // the ball is held bigger (1 = normal, 2 = double)

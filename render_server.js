@@ -81,7 +81,8 @@ function drawWorm(ctx, w, isActive, t) {
     let wd = w.mw || curWeapon(), wi = getImg(wpath(wd.art || wd.id, (wd.sig || wd.shop) ? teamWTier(curTeam()) : 0));
     if (wi && wd.heal && typeof azureHealImg === 'function') wi = azureHealImg(w.team, wi);   // Azure Divine Heal in the robot's hands = light-blue picture
     if (wi) {
-      const wp = an.w || an.n; ctx.save(); ctx.translate(wp[0] - F[0], wp[1] - F[1]); ctx.rotate(-w.aim * D2R);   // an.w = per-robot weapon pivot (robots.json), so every bot's weapon sits right in its own hands; fists (an.n / an.f) stay on the hands ctx.scale(WS * (wd.hold || 1), WS * (wd.hold || 1));
+      const wp = an.w || an.n; ctx.save(); ctx.translate(wp[0] - F[0], wp[1] - F[1]); ctx.rotate(-w.aim * D2R);   // an.w = per-robot weapon pivot (robots.json), so every bot's weapon sits right in its own hands; fists (an.n / an.f) stay on the hands
+      ctx.scale(WS * (wd.hold || 1), WS * (wd.hold || 1));
       const recoil = (G.phase === 'shooting' && G.burst) ? -((G.frame % 4) < 2 ? 5 : 0) : 0; ctx.translate(recoil, 0);
       ctx.drawImage(wi, -170, -128, 512, 256); ctx.restore();
       // fists back on top of the weapon so it looks gripped
