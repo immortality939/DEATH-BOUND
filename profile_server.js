@@ -344,15 +344,15 @@ const healThrows = lvl => HEAL_AMMO + Math.max(0, Math.min(UP_MAX, lvl | 0));   
 const upBonus = lvl => { let b = 0; for (let i = 0; i < lvl && i < UP_MAX; i++) b += UP_STEPS[i]; return b; };   // total bonus at a level (+9 = 90%, +10 = 105%, +11 = 125%, +12 = 150%)
 const UP_RATE = [90, 30, 26, 22.5, 19, 16, 13, 10, 7.5, 5.5, 4, 3];   // success chance of ONE stone (x the stone's mult); every extra stone in the Forge adds its own. A bit lower every level (Sun Stone: +0 100%, +1 39%, then lower every level)
 const UP_COST = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];   // one stone is enough (each Forge stone slot uses 1)
-const STONE_PRICE = 150;   // chips per Blue Stone in the upgrade panel
+const STONE_PRICE = 600;   // chips per Blue Stone in the upgrade panel
 // ---- 5 kinds of upgrade stones ----
 // mult = how strong the stone is: the success chance of an upgrade is UP_RATE[level] x mult (capped at 100%). Better stones are found on later Adventure maps and cost more chips.
 const STONE_TYPES = [
-  { n: 'Blue Stone',     img: 'assets/stone.png',  mult: .6,  price: 150,  col: '#4fb4ff' },
-  { n: 'Jade Stone',     img: 'assets/stone2.png', mult: .8,  price: 300,  col: '#2fd68a' },
-  { n: 'Amethyst Stone', img: 'assets/stone3.png', mult: .9,  price: 550,  col: '#c77bff' },
-  { n: 'Ruby Stone',     img: 'assets/stone4.png', mult: 1.1, price: 900,  col: '#ff5a6a' },
-  { n: 'Sun Stone',      img: 'assets/stone5.png', mult: 1.3, price: 1400, col: '#ffc83a' },
+  { n: 'Blue Stone',     img: 'assets/stone.png',  mult: .6,  price: 600,  col: '#4fb4ff' },
+  { n: 'Jade Stone',     img: 'assets/stone2.png', mult: .8,  price: 2400,  col: '#2fd68a' },
+  { n: 'Amethyst Stone', img: 'assets/stone3.png', mult: .9,  price: 6500,  col: '#c77bff' },
+  { n: 'Ruby Stone',     img: 'assets/stone4.png', mult: 1.1, price: 16000,  col: '#ff5a6a' },
+  { n: 'Sun Stone',      img: 'assets/stone5.png', mult: 1.3, price: 32000, col: '#ffc83a' },
 ];
 const stoneKey = t => t > 1 ? 'stones' + t : 'stones';
 const upRate = (L, t = 1) => Math.min(100, Math.round(UP_RATE[L] * STONE_TYPES[t - 1].mult * 10) / 10);
@@ -698,6 +698,7 @@ ITEM_PRICE['pot_heal'] = 300; ITEM_PRICE['pot_team'] = 600;   // Heal / Team Hea
     L.forEach((it, k) => { const t = hi > lo ? (sc[k] - lo) / (hi - lo) : 0; ITEM_PRICE[it.id] = Math.round((a + (b - a) * t) * 1.5 / 10) * 10; });
   }
 })();
+for (const k in ITEM_PRICE) ITEM_PRICE[k] *= 4;   // ALL Shop prices x4 (mythical items have no chip price; stones are set in STONE_TYPES and scrolls in forge.js, so neither is touched here)
 const itemPrice = it => ITEM_PRICE[it.base || it.id] || 0;   // extra copies have ids like "r_ring#2": price them by their base item so they can be sold too
 const Wallet = {
   get() { return store.get('chips', 0) | 0; },

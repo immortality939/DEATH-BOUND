@@ -18,9 +18,9 @@
 // ============================================================================================================
 const ROLLBACK_FROM = 5;   // an item that is +5 or higher loses ONE level when an upgrade fails (unless a Guardian Scroll protects it). Set to 99 to switch rollback off.
 const AMULET_TYPES = [
-  { n: 'Minor Amulet',   img: 'assets/items/amulet_1.png', pct: 10, price: 1200, col: '#ff6a3d', rar: 'rare' },
-  { n: 'Blessed Amulet', img: 'assets/items/amulet_2.png', pct: 25, price: 3500, col: '#4fc8ff', rar: 'epic' },
-  { n: 'Divine Amulet',  img: 'assets/items/amulet_3.png', pct: 50, price: 9000, col: '#b45cff', rar: 'legendary' },
+  { n: 'Minor Amulet',   img: 'assets/items/amulet_1.png', pct: 10, price: 4800, col: '#ff6a3d', rar: 'rare' },
+  { n: 'Blessed Amulet', img: 'assets/items/amulet_2.png', pct: 25, price: 14000, col: '#4fc8ff', rar: 'epic' },
+  { n: 'Divine Amulet',  img: 'assets/items/amulet_3.png', pct: 50, price: 36000, col: '#b45cff', rar: 'legendary' },
 ];
 const SUPPORT_TYPES = [
   { n: 'Guardian Scroll', img: 'assets/items/support_1.png', price: 4000, col: '#3d7bff', rar: 'epic' },

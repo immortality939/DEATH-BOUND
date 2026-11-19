@@ -7,7 +7,7 @@
    In battle the flying orb, its sparkle trail, the blast, the "healed" glow, the robot's hand-held picture and the pop-up texts are light blue (world.js / render.js check isAzureHeal; the blue sheets are made here from your own Divine Heal pictures when the game loads).
    Drops: one card on EVERY boss loot board (all maps, all difficulties). Also listed in the map's boss drop list.
    To rebalance: change RARE_HEAL_PRICE / the stats below. */
-const RARE_HEAL_ID = 'heal_divine_rare', RARE_HEAL_PRICE = 2500;
+const RARE_HEAL_ID = 'heal_divine_rare', RARE_HEAL_PRICE = 10000;
 HEAL_ITEMS.push({ id: RARE_HEAL_ID, img: 'assets/items/heal_divine_rare.png', name: 'Azure Divine Heal', type: 'heal', rar: 'rare', stats: { hp: 125, heal: 53 }, heal: true,
   desc: 'Light-blue angelic orb. Hold FIRE and release to throw it: everyone in its blast heals together (the Heal is split between them), no terrain damage. Half as strong as the legendary Divine Heal, with the same upgrades. Every upgrade adds +1 throw.' });
 ITEM_PRICE[RARE_HEAL_ID] = RARE_HEAL_PRICE;
