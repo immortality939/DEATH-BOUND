@@ -372,8 +372,10 @@ const charStats = (lvl, g, wmul = 1, wlvl = 0) => {   // g = totals from gear {h
 };
 // ---- POWER: one number for how strong your robot is (shown in Profile, compared with the boss on the Adventure map) ----
 // More health, defense, attack, crits and a better upgraded weapon all raise it. A fresh level 1 robot is about 145.
+const MYTH_POWER_REF = 297;   // POWER only: a legendary weapon = 297 shot + 53 rarity bonus (350 shown). A mythical weapon's shown Damage above 297 counts the same way as that rarity bonus, so Power matches the real fight. Battle damage is NOT changed.
+const mythPowerBonus = it => (it && it.rar === 'mythical' && it.stats) ? Math.max(0, (it.stats.dmg || 0) - MYTH_POWER_REF) : 0;
 const POWER_BASE_HP = 100, POWER_BASE_DMG = 30;   // 30 = about the damage of a typical weapon: +30 flat Damage on top doubles your hits
-const powerOf = b => { const crt = Math.min(100, b.crt != null ? b.crt : CRIT_BASE) / 100, cd = (b.cdm != null ? b.cdm : CRITDMG_BASE) / 100; return Math.round(100 * (1 + (b.hp || 0) / POWER_BASE_HP) / (1 - defPct(b) / 100) * (1 + (b.xdmg || 0) / POWER_BASE_DMG) * (1 + ((b.wmul || 1) - 1) * .5) * (1 + crt * (cd - 1))); };
+const powerOf = b => { const crt = Math.min(100, b.crt != null ? b.crt : CRIT_BASE) / 100, cd = (b.cdm != null ? b.cdm : CRITDMG_BASE) / 100; return Math.round(100 * (1 + (b.hp || 0) / POWER_BASE_HP) / (1 - defPct(b) / 100) * (1 + ((b.xdmg || 0) + (b.pwx || 0)) / POWER_BASE_DMG) * (1 + ((b.wmul || 1) - 1) * .5) * (1 + crt * (cd - 1))); };
 const statsAt = (it, lvl = 0) => { const o = {}; for (const s in it.stats) { const v = it.stats[s]; o[s] = v > 0 ? (s === 'heal' ? Math.round(v * (1 + healBonus(lvl))) : Math.round(v * (1 + upBonus(lvl)) * 10) / 10) : v; } return o; };   // negative stats (heavy armor) stay as they are
 const fmtN = n => Number.isInteger(n) ? String(n) : n.toFixed(1);
 
@@ -466,10 +468,10 @@ const Profile = {
   eqOf(id) { return this.data.eq[id] || (this.data.eq[id] = {}); },
   wornBy(itemId) { for (const rid in this.data.eq) for (const k in this.data.eq[rid]) if (this.data.eq[rid][k] === itemId) return { rid, slot: k }; return null; },
   bonuses(robotIdx) {   // totals used in battle: gear (upgrade levels included) + character level. wmul = damage multiplier of the signature weapon
-    const rid = Assets.robots.robots[robotIdx].id, eq = this.data.eq[rid] || {}, g = { hp: 0, def: 0, dmg: 0, xdmg: 0, vit: 0, agi: 0, dex: 0, luk: 0, crt: 0, cdm: 0 }; let wmul = 1, wlvl = 0, wid = null, hid = null, heal = 0, hammo = 0, wbon = 0, wing = null, neck = 0;
-    for (const k in eq) { const it = itemById(eq[k]); if (!it) continue; const st = statsAt(it, this.lvl(it.id)); if (it.type === 'wings') wing = baseId(it.id); if (it.type === 'necklace') { neck = (it.stats.nhp || 0) / 100; continue; } if (it.type === 'heal') { hid = baseId(it.id); heal = st.heal || 0; hammo = healThrows(this.lvl(it.id)); } if (it.type === 'weapon') { wlvl = this.lvl(it.id); wmul = 1 + upBonus(wlvl); wid = baseId(it.id); wbon = (WEAPON_DMG_BONUS[it.rar] || 0) * wmul; } for (const s in st) if (s in g) g[s] += st[s]; if (it.type !== 'weapon' && st.dmg) g.xdmg += st.dmg; }
+    const rid = Assets.robots.robots[robotIdx].id, eq = this.data.eq[rid] || {}, g = { hp: 0, def: 0, dmg: 0, xdmg: 0, vit: 0, agi: 0, dex: 0, luk: 0, crt: 0, cdm: 0 }; let wmul = 1, wlvl = 0, wid = null, hid = null, heal = 0, hammo = 0, wbon = 0, pwx = 0, wing = null, neck = 0;
+    for (const k in eq) { const it = itemById(eq[k]); if (!it) continue; const st = statsAt(it, this.lvl(it.id)); if (it.type === 'wings') wing = baseId(it.id); if (it.type === 'necklace') { neck = (it.stats.nhp || 0) / 100; continue; } if (it.type === 'heal') { hid = baseId(it.id); heal = st.heal || 0; hammo = healThrows(this.lvl(it.id)); } if (it.type === 'weapon') { wlvl = this.lvl(it.id); wmul = 1 + upBonus(wlvl); wid = baseId(it.id); wbon = (WEAPON_DMG_BONUS[it.rar] || 0) * wmul; pwx = mythPowerBonus(it) * wmul; } for (const s in st) if (s in g) g[s] += st[s]; if (it.type !== 'weapon' && st.dmg) g.xdmg += st.dmg; }
     g.xdmg += wbon;   // the rarity Damage bonus sits on the weapon: it is added to every hit and grows with the weapon's upgrade level
-    const out = charStats(this.level(), g, wmul, wlvl); out.neck = neck; if (neck) out.hp += Math.round((POWER_BASE_HP + out.hp) * neck);   // NECKLACE: +% of the TOTAL health (100 base + gear + attributes), added last
+    const out = charStats(this.level(), g, wmul, wlvl); out.neck = neck; out.pwx = pwx; if (neck) out.hp += Math.round((POWER_BASE_HP + out.hp) * neck);   // NECKLACE: +% of the TOTAL health (100 base + gear + attributes), added last
     out.wid = wid; out.wing = wing; out.hid = hid; out.heal = heal; out.hammo = hammo; out.pots = POTION_ITEMS.map(it => ({ id: it.id, img: it.img, name: it.name, kind: it.potion, pct: it.pct, uses: this.stockOf(it.id) })); return out;   // wid = the weapon item you wear (battle uses it)
   },
   equip(itemId, slotKey) {
