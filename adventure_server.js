@@ -253,16 +253,17 @@ const ENEMY_MULT = 3;
 // DIFFICULTY: every Adventure map can be played on NORMAL, HARD or HEROIC. mult = extra Health AND Damage for every enemy/boss on top of ENEMY_MULT.
 // HARD unlocks when you conquer the map on NORMAL, HEROIC when you conquer it on HARD. Change mult / xp / chips here to rebalance.
 const ADV_DIFFS = [
-  { id: 'normal', name: 'NORMAL', mult: 1,   xp: 1,   chips: 1,   color: '#5be37a' },
-  { id: 'hard',   name: 'HARD',   mult: 1.6, xp: 1.5, chips: 1.5, color: '#ffb23c' },
-  { id: 'heroic', name: 'HEROIC', mult: 2.5, xp: 2.2, chips: 2,   color: '#ff4a4a' },
+  { id: 'normal', name: 'NORMAL', mult: 1,   dmg: 1,    xp: 1,   chips: 1,   color: '#5be37a' },
+  { id: 'hard',   name: 'HARD',   mult: 1.6, dmg: 1.35, xp: 1.5, chips: 1.5, color: '#ffb23c' },
+  { id: 'heroic', name: 'HEROIC', mult: 2.5, dmg: 1.8,  xp: 2.2, chips: 2,   color: '#ff4a4a' },
 ];
 const advDM = () => (ADV_DIFFS[typeof Adventure !== 'undefined' ? Adventure.diff | 0 : 0] || ADV_DIFFS[0]).mult;
+const advDD = () => (ADV_DIFFS[typeof Adventure !== 'undefined' ? Adventure.diff | 0 : 0] || ADV_DIFFS[0]).dmg;   // dmg = the DAMAGE multiplier of a difficulty (HP uses mult): HARD hits 1.35x, HEROIC 1.8x harder than NORMAL
 const ENEMY_DMG = 2;   // extra damage multiplier for the normal (non-boss) stage enemies: they hit twice as hard. Set to 1 for the old damage.
 const COOP_HP_FULL = 4 / 3;   // ONLINE: every enemy and boss always has this x the table HP (the 4-player value) no matter how many players are in the room. Used by coop_server.js, the lobby boss HP and Power needed.
 const BOSS_HP_MULT = 0.5;   // every boss (both bosses, all maps, NORMAL / HARD / HEROIC) AND the small minions summoned in boss stages have HALF health. 1 = old health. Also used by summonMinions in world.js.
 const BOSS_HP_CUT = 0.65;   // every BOSS has 35% less health on top of BOSS_HP_MULT (stage enemies and the minions are NOT changed). 1 = off. Used by eHp, so the lobby HP line, the stage info and Power needed follow it.
-const eHp = st => Math.round(st.hp * ENEMY_MULT * advDM() * (st.boss ? BOSS_HP_MULT * BOSS_HP_CUT : 1)), ePow = st => Math.round(ENEMY_MULT * advDM() * (st.boss ? 1 : ENEMY_DMG) * (100 + (st.pow || 0)) - 100);   // attack bonus %: 1 + ePow/100 = ENEMY_MULT x (1 + pow/100)
+const eHp = st => Math.round(st.hp * ENEMY_MULT * advDM() * (st.boss ? BOSS_HP_MULT * BOSS_HP_CUT : 1)), ePow = st => Math.round(ENEMY_MULT * advDD() * (st.boss ? 1 : ENEMY_DMG) * (100 + (st.pow || 0)) - 100);   // attack bonus %: 1 + ePow/100 = ENEMY_MULT x (1 + pow/100)
 const NEED_K = 15 * ENEMY_MULT * ENEMY_MULT;   // enemies have ENEMY_MULT x the Health AND ENEMY_MULT x the Damage, so they are ENEMY_MULT^2 x harder: the first boss now needs 15 x 9 = 135 Power (Power scale is POWER_SCALE = 10 in profile.js)
 // damage one boss turn really does BEFORE the attack bonus: rockets x damage (+ cluster bomblets) of the boss weapon, so a weak-weapon boss needs less Power and a strong-weapon boss needs more
 const bossVolley = id => { const w = bossWeaponOf(id); if (!w) return 1; const n = w.rockets || 1; return n * w.proj.dmg + (w.cluster && w.proj.bomblet ? w.cluster * w.proj.bomblet.dmg : 0); };
@@ -281,7 +282,7 @@ const Adventure = {
   bossRobot() { const st = this.stagesOf(ADV_MAPS[this.mi])[this.si]; if (st && st.boss2) return Object.assign({}, Assets.robots.robots[6], { id: st.bossId, name: st.bossName, sheet: st.sheet, death: st.death, act: st.act, spec: st.spec, anchors: st.anchors, b3: st.b3 || null }); return Object.assign({}, Assets.robots.robots[6], { id: 'boss_' + ADV_MAPS[this.mi].id, name: st.bossName, sheet: st.sheet, death: st.death }); },
   playerRobot() { try { if (typeof Profile !== 'undefined') { if (!Profile.data) Profile.load(); return Profile.data.char | 0; } } catch (e) { } return UI.setup.teams[0].robot | 0; },
   enemyRobot(st) { const me = this.playerRobot(); let k = st.robot; if (k === me) k = (k + 1) % Assets.robots.robots.length; return k; },
-  needPower(M) { const b = this.stagesOf(M).filter(s => s.boss).pop(); if (!b) return 0; if (M.need) return M.need; const f = ADV_MAPS[0].stages.find(s => s.boss); return Math.max(1, Math.round(NEED_K * COOP_HP_FULL * advDM() * advDM() * Math.pow(bossRating(b, b.bossId || 'boss_' + M.id) / bossRating(f, 'boss_' + ADV_MAPS[0].id), 1.2))); },
+  needPower(M) { const b = this.stagesOf(M).filter(s => s.boss).pop(); if (!b) return 0; if (M.need) return M.need; const f = ADV_MAPS[0].stages.find(s => s.boss); return Math.max(1, Math.round(NEED_K * COOP_HP_FULL * advDM() * advDD() * Math.pow(bossRating(b, b.bossId || 'boss_' + M.id) / bossRating(f, 'boss_' + ADV_MAPS[0].id), 1.2))); },
   myPower() { try { if (!Profile.data) Profile.load(); return powerOf(Profile.bonuses(Profile.data.char | 0)); } catch (e) { return 100; } },
   stageInfo(st) {
     if (st.boss) { const bw = bossWeaponOf(st.bossId || 'boss_' + ADV_MAPS[this.mi].id); return `BOSS · ${st.bossName} · ${eHp(st)} HP · ${st.def || 0}% armor${bw ? ' · ' + bw.name + ' (' + Math.round(bw.proj.dmg * (1 + ePow(st) / 100)) + ' dmg)' : ''}`; }

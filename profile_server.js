@@ -358,10 +358,11 @@ const stoneKey = t => t > 1 ? 'stones' + t : 'stones';
 const upRate = (L, t = 1) => Math.min(100, Math.round(UP_RATE[L] * STONE_TYPES[t - 1].mult * 10) / 10);
 // ===== CHARACTER LEVEL + ATTRIBUTES =====
 // Your robot levels up from 1 to LVL_MAX by playing (XP from matches and Adventure stages). EVERY level gives +PTS_PER_LVL to each attribute.
-// vit: +5 health each | dex: +2 health and +1 defense each (10 defense = 1% less damage) | agi: +0.25% crit damage and +1 damage each | luk: +0.15% crit chance each. Gear adds to the same attributes.
+// vit: +5 health each | dex: +2 health and +1 defense each (Defense / (Defense + 600) = % less damage, max 2000 counted) | agi: +0.25% crit damage and +1 damage each | luk: +0.15% crit chance each. Gear adds to the same attributes.
 const VIT_HP = 5, DEX_HP = 2, DEX_DEF = 1, AGI_CDM = .25, AGI_DMG = 1, LUK_CRT = .10;   // what ONE point of each attribute gives (change these to rebalance)
-const DEF_DIV = 10;   // Defense points -> damage blocked %: 100 Defense = 10% (blocks 10 of a 100 hit), max 60%. Enemy / boss armor (`armor`) is already a percent.
-const defPct = b => Math.min(60, (b.armor || 0) + (b.def || 0) / DEF_DIV);
+const DEF_K = 600, DEF_MAX = 2000, DEF_CAP = 80;   // Defense -> damage blocked %: Defense / (Defense + DEF_K). 100 = 14%, 400 = 40%, 800 = 57%, 1200 = 67%, 2000 (max counted) = 76.9%. Smaller DEF_K = Defense works faster. Enemy / boss armor (`armor`) is already a percent and is added on top.
+const defFromPts = d => { d = Math.min(Math.max(0, d || 0), DEF_MAX); return 100 * d / (d + DEF_K); };
+const defPct = b => Math.min(DEF_CAP, (b.armor || 0) + defFromPts(b.def));
 const LVL_MAX = 50, PTS_PER_LVL = 3, CRIT_BASE = 5, CRITDMG_BASE = 150;   // base crit chance 5%, a crit hit deals 150% damage
 const XP_NEED_MUL = 6;   // XP needed per level is multiplied by this (3 = levelling takes 3 times as much XP)
 const xpNeed = L => (40 + 12 * L) * XP_NEED_MUL;   // XP needed to go from level L to L+1
@@ -508,7 +509,7 @@ const Profile = {
   statText(stats) {   // every item shows its Defense: the item's own Defense + what its Dexterity gives (dex x DEX_DEF), and how much damage that blocks
     const st = Object.assign({}, stats), defTot = Math.round(((st.def || 0) + (st.dex || 0) * DEX_DEF) * 10) / 10; delete st.def;
     const row = s => `<span class="${st[s] < 0 ? 'neg' : 'pos'}">${st[s] > 0 ? '+' : ''}${fmtN(st[s])}${STAT_LABEL[s][1]} ${STAT_LABEL[s][0]}</span>`;
-    return Object.keys(st).map(row).join('') + (('def' in stats || 'dex' in stats) ? `<span class="pos">+${fmtN(defTot)} Defense (${(defTot / DEF_DIV).toFixed(1)}% blocked)</span>` : '');
+    return Object.keys(st).map(row).join('') + (('def' in stats || 'dex' in stats) ? `<span class="pos">+${fmtN(defTot)} Defense (${defFromPts(defTot).toFixed(1)}% blocked)</span>` : '');
   },
   // ---------- New Game: choose your ONE robot ----------
   openPick(kind, after) { this.load(); this.mode = 'pick'; this.pickKind = kind; this.after = after || null; this.pickSel = this.data.char; this.render(); UI.show('profile'); },
