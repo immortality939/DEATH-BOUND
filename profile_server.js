@@ -371,11 +371,12 @@ const charStats = (lvl, g, wmul = 1, wlvl = 0) => {   // g = totals from gear {h
   return { lvl, vit, agi, dex, luk, hp: Math.round((g.hp || 0) + vit * VIT_HP + dex * DEX_HP), def: r1((g.def || 0) + dex * DEX_DEF), dmg: r1((g.dmg || 0) + agi * AGI_DMG), xdmg: r1((g.xdmg || 0) + agi * AGI_DMG), crt: r1(CRIT_BASE + (g.crt || 0) + luk * LUK_CRT), cdm: r1(CRITDMG_BASE + (g.cdm || 0) + agi * AGI_CDM), wmul, wlvl };
 };
 // ---- POWER: one number for how strong your robot is (shown in Profile, compared with the boss on the Adventure map) ----
-// More health, defense, attack, crits and a better upgraded weapon all raise it. A fresh level 1 robot is about 145.
+// More health, defense, attack, crits and a better upgraded weapon all raise it. A fresh level 1 robot is about 14.
 const MYTH_POWER_REF = 297;   // POWER only: a legendary weapon = 297 shot + 53 rarity bonus (350 shown). A mythical weapon's shown Damage above 297 counts the same way as that rarity bonus, so Power matches the real fight. Battle damage is NOT changed.
 const mythPowerBonus = it => (it && it.rar === 'mythical' && it.stats) ? Math.max(0, (it.stats.dmg || 0) - MYTH_POWER_REF) : 0;
+const POWER_SCALE = 10;   // Power = POWER_SCALE x (all the factors). It was 100; now 10, so every Power number is 10 times smaller (a fresh level 1 robot is about 14). If you change it, change NEED_K in adventure.js by the same factor.
 const POWER_BASE_HP = 100, POWER_BASE_DMG = 30;   // 30 = about the damage of a typical weapon: +30 flat Damage on top doubles your hits
-const powerOf = b => { const crt = Math.min(100, b.crt != null ? b.crt : CRIT_BASE) / 100, cd = (b.cdm != null ? b.cdm : CRITDMG_BASE) / 100; return Math.round(100 * (1 + (b.hp || 0) / POWER_BASE_HP) / (1 - defPct(b) / 100) * (1 + ((b.xdmg || 0) + (b.pwx || 0)) / POWER_BASE_DMG) * (1 + ((b.wmul || 1) - 1) * .5) * (1 + crt * (cd - 1))); };
+const powerOf = b => { const crt = Math.min(100, b.crt != null ? b.crt : CRIT_BASE) / 100, cd = (b.cdm != null ? b.cdm : CRITDMG_BASE) / 100; return Math.round(POWER_SCALE * (1 + (b.hp || 0) / POWER_BASE_HP) / (1 - defPct(b) / 100) * (1 + ((b.xdmg || 0) + (b.pwx || 0)) / POWER_BASE_DMG) * (1 + ((b.wmul || 1) - 1) * .5) * (1 + crt * (cd - 1))); };
 const statsAt = (it, lvl = 0) => { const o = {}; for (const s in it.stats) { const v = it.stats[s]; o[s] = v > 0 ? (s === 'heal' ? Math.round(v * (1 + healBonus(lvl))) : Math.round(v * (1 + upBonus(lvl)) * 10) / 10) : v; } return o; };   // negative stats (heavy armor) stay as they are
 const fmtN = n => Number.isInteger(n) ? String(n) : n.toFixed(1);
 
