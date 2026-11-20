@@ -298,9 +298,9 @@ const NECK_ITEMS = [
 // Fixed stats exactly as listed (no rarity split, no rarity Damage bonus). FREE for now (test): tap an item in the Coin Shop and take it. The Necklace can NOT be upgraded.
 const mythSt = o => Object.assign({}, o);
 const MYTH_FIXED = {
-  w_mythic_bazooka: { dmg: 320, hp: 50, def: 20, vit: 14, dex: 42, agi: 13, luk: 31 }, w_mythic_spear: { dmg: 350, hp: 30, def: 25, vit: 23, dex: 25, agi: 27, luk: 25 },
-  w_mythic_boomerang: { dmg: 350, hp: 30, def: 10, vit: 16, dex: 17, agi: 18, luk: 49 }, w_mythic_hammer: { dmg: 330, hp: 80, def: 30, vit: 37, dex: 36, agi: 13, luk: 14 },
-  w_mythic_ball: { dmg: 300, hp: 100, def: 35, vit: 34, dex: 13, agi: 14, luk: 39 },
+  w_mythic_bazooka: { dmg: 370, hp: 80, def: 40, vit: 35, dex: 35, agi: 20, luk: 10 }, w_mythic_spear: { dmg: 400, hp: 30, def: 10, vit: 30, dex: 30, agi: 30, luk: 10 },
+  w_mythic_boomerang: { dmg: 400, hp: 30, def: 10, vit: 10, dex: 10, agi: 40, luk: 40 }, w_mythic_hammer: { dmg: 380, hp: 80, def: 30, vit: 37, dex: 36, agi: 13, luk: 14 },
+  w_mythic_ball: { dmg: 370, hp: 100, def: 35, vit: 25, dex: 25, agi: 25, luk: 25 },
 };
 const MYTH_WEAPON_ITEMS = WEAPONS.filter(w => w.mythic).map(w => ({ id: w.shop, img: 'assets/items/' + w.shop + '.png', name: w.name, type: 'weapon', rar: 'mythical', stats: mythSt(MYTH_FIXED[w.shop]), baseDmg: MYTH_FIXED[w.shop].dmg, desc: w.desc + ' Lobbed shot, unlimited ammo. Looks change at +10, +11 and +12.', shop: true, myth: true }));
 const MYTH_GEAR_ST = { dmg: 20, hp: 25, vit: 15, agi: 15, luk: 15, def: 15 };
