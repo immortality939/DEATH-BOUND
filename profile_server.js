@@ -164,7 +164,7 @@ const SHOP_W4 = {
   w_dragon_king: { vit: 29, dex: 30, agi: 10, luk: 11 },
   w_galaxy_eye: { vit: 11, dex: 10, agi: 27, luk: 32 },
   w_titan_cannon: { vit: 30, dex: 12, agi: 13, luk: 25 },
-  w_shuriken: { vit: 11, dex: 11, agi: 45, luk: 13 },
+  w_shuriken: { vit: 19, dex: 18, agi: 30, luk: 13 },
   w_tempest_arc: { vit: 38, dex: 14, agi: 12, luk: 16 },
   w_doom_axe: { vit: 13, dex: 27, agi: 10, luk: 30 },
 };
