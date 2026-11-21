@@ -150,9 +150,9 @@ const Daily = (() => {
 #onl .dl-cal .gr{position:absolute;left:5.2%;right:5.2%;top:8%;bottom:25%;overflow-y:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:.5em .4em;align-content:start;scrollbar-width:none}
 #onl .dl-cal .gr::-webkit-scrollbar{display:none}
 #onl .dl-sl{position:relative;aspect-ratio:210/128;background-size:100% 100%;background-repeat:no-repeat;cursor:pointer}
-#onl .dl-sl .ic{position:absolute;left:12%;right:12%;top:37%;bottom:16%;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
-#onl .dl-sl .ic img{max-width:100%;max-height:64%;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
-#onl .dl-sl .ic b{font:400 .95em/1 var(--disp,sans-serif);color:#6a3407;margin-top:.1em;white-space:nowrap}
+#onl .dl-sl .ic{position:absolute;left:14%;right:14%;top:37%;bottom:9%;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+#onl .dl-sl .ic img{width:100%;height:100%;object-fit:contain;transform:scale(1.5);transform-origin:50% 55%;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+#onl .dl-sl .ic b{position:absolute;right:-6%;bottom:-4%;font:400 1.15em/1 var(--disp,sans-serif);color:#fff;text-shadow:0 0 3px #4a1f06,1px 1px 0 #4a1f06,-1px -1px 0 #4a1f06,1px -1px 0 #4a1f06,-1px 1px 0 #4a1f06;white-space:nowrap}
 #onl .dl-sl .ad{position:absolute;right:-3%;bottom:-6%;width:38%;pointer-events:none;filter:drop-shadow(0 2px 2px rgba(0,0,0,.6))}
 #onl .dl-sl .ok{position:absolute;left:24%;top:34%;width:52%;pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6))}
 #onl .dl-sl.got .ic{opacity:.45}
@@ -164,6 +164,7 @@ const Daily = (() => {
 #onl .dl-cal .ft img.cb.off{filter:grayscale(1) brightness(.75);cursor:default}
 #onl .dl-cal .ft small{font-size:.78em;color:#7a4a14}
 #onl .dl-cal .xx{position:absolute;right:1.2%;top:-3%;width:7%;aspect-ratio:1;border-radius:50%;background:linear-gradient(#e0583f,#9a1f12);border:.2em solid #ffe3a0;color:#fff;font:400 1.6em/1.35 var(--disp,sans-serif);text-align:center;cursor:pointer}
+#onl .dl-ip{position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(4,6,14,.6)}
 #onl .dl-pp{position:absolute;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(4,6,14,.6)}
 #onl .dl-pb{position:relative;height:min(92vh,360px);aspect-ratio:604/323;background:url(${IMG}panel_cal.png) 0 0/100% 100% no-repeat;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6% 10%;box-sizing:border-box;text-align:center;font-size:min(3.2vh,15px);color:#6a3407;font-family:var(--disp,sans-serif)}
 #onl .dl-pb h3{margin:0;font:400 1.5em/1 var(--disp,sans-serif);color:#6a3407}
@@ -187,6 +188,7 @@ const Daily = (() => {
     btnEl._dot = dot; refresh(true); return btnEl;
   }
   function closeAll() {
+    if (infoPop) { infoPop.remove(); infoPop = null; }
     if (chestPop) { chestPop.remove(); chestPop = null; } if (calBox) { calBox.remove(); calBox = null; }
     if (panel) { panel.remove(); panel = null; } if (backEl) { backEl.remove(); backEl = null; } if (btnEl) btnEl.classList.remove('open');
   }
@@ -232,10 +234,29 @@ const Daily = (() => {
     const body = el('div', { class: 'dl-pb' }, el('div', { class: 'xx dl-x', style: 'position:absolute;right:2%;top:-2%;width:2em;height:2em;border-radius:50%;background:linear-gradient(#e0583f,#9a1f12);border:.15em solid #ffe3a0;color:#fff;font:400 1.2em/1.7 var(--disp,sans-serif);cursor:pointer', onclick: () => { C.beep(); chestPop.remove(); chestPop = null; } }, 'X'),
       el('h3', null, C_.name + (done ? '' : '  ' + (st + 1) + '/' + C_.list.length)),
       el('div', { class: 'cc' }, el('img', { src: IMG + C_.img + (go ? '_open' : '_closed') + '.png', alt: '' }), rw && rw.ads ? el('img', { class: 'ad', src: IMG + 'ads.png', alt: 'ADS' }) : null),
-      done ? el('div', { class: 'rw' }, 'All 6 rewards claimed. Come back tomorrow!') : el('div', { class: 'rw' }, ...rwIcons(rw), rewardText(rw)),
+      done ? el('div', { class: 'rw' }, 'All 6 rewards claimed. Come back tomorrow!') : el('div', { class: 'rw', style: 'cursor:pointer', onclick: () => { C.beep(); showInfo(rw, C_.name + ' reward'); } }, ...rwIcons(rw), rewardText(rw)),
       done ? null : el('div', { class: 'st' }, go ? (rw.ads ? 'Watch the ad to claim' : 'Ready to claim!') : 'Ready in ' + clock(left)),
       done ? null : el('img', { class: 'cb' + (go ? '' : ' off'), src: IMG + 'claim_btn.png', alt: 'Claim', onclick: () => { if (!go) return C.toast('Not ready yet: ' + clock(s[k].at - Date.now())); C.beep(); claimChest(k); } }));
     chestPop.replaceChildren(body); chestPop._k = k;
+  }
+
+  // ---------- reward info popup (picture, name, stats, description) - tap a reward in the calendar or in a chest ----------
+  let infoPop = null;
+  const statHtml = it => { try { if (it.type === 'necklace') return '<span class="pos">+' + ((it.stats && it.stats.nhp) || 0) + '% of total Health</span>'; if (it.potion || it.type === 'mat') return it.line ? '<span class="pos">' + it.line + '</span>' : ''; return Profile.statText(statsAt(it, 0)); } catch (e) { return ''; } };
+  function showInfo(rw, head) {
+    const t = C.parent(); if (!t) return; if (infoPop) infoPop.remove();
+    const cards = [];
+    if (rw.chips) cards.push(el('div', { class: 'idet', style: '--rc:#ffd34a' }, el('img', { src: 'assets/chip.png', alt: '' }), el('div', { class: 'in' }, fmt(rw.chips) + ' Chips'), el('small', null, 'Currency'), el('p', { style: 'margin:0;font-size:13px;color:#fff2da' }, 'Chips are the money of the game. Spend them in the Shop and the Auction House.')));
+    for (const x of rw.items) {
+      const it = x.it, st = el('div', { class: 'st' }); st.innerHTML = statHtml(it); let rc = '#aab4cc', rn = '';
+      try { const R = RARITY[it.rar] || RARITY.common; rc = R.color; rn = R.name + ' '; } catch (e) { }
+      cards.push(el('div', { class: 'idet', style: '--rc:' + rc }, it.img ? el('img', { src: it.img, alt: '', draggable: 'false' }) : null, el('div', { class: 'in' }, it.name + (x.qty > 1 ? ' x' + x.qty : '')),
+        el('small', null, it.type === 'mat' ? (it.kind === 'stone' ? 'Upgrade stone' : it.tag || 'Material') : rn + it.type), st, el('p', { style: 'margin:0;font-size:13px;color:#fff2da' }, it.desc || '')));
+    }
+    const shut = () => { if (infoPop) infoPop.remove(); infoPop = null; };
+    infoPop = el('div', { class: 'dl-ip', onclick: e => { if (e.target === infoPop) shut(); } }, el('div', { class: 'wpnl lgw', style: 'width:min(330px,92vw);max-height:94vh;overflow-y:auto' },
+      el('div', { style: 'font:400 15px var(--disp,sans-serif);color:#ffd34a;margin-bottom:4px' }, head || 'Reward'), ...cards, el('div', { class: 'wbtn', style: 'margin-top:6px;display:inline-block', onclick: () => { C.beep(); shut(); } }, 'Close')));
+    t.append(infoPop);
   }
 
   // ---------- the calendar (slides in from the right) ----------
@@ -248,7 +269,7 @@ const Daily = (() => {
     for (let d = 1; d <= 30; d++) {
       const rw = rewardOfDay(d), got = d <= s.cal.c, now = d === next && calReady(s) , cur = d === next;
       const ic = el('div', { class: 'ic' }, ...rwIcons(rw), el('b', null, rw.chips ? fmt(rw.chips) : rw.items[0].qty > 1 ? 'x' + rw.items[0].qty : ''));
-      gr.append(el('div', { class: 'dl-sl' + (got ? ' got' : '') + (cur && !got ? ' now' + (now ? ' can' : '') : ''), style: 'background-image:url(' + IMG + 'slot_' + String(d).padStart(2, '0') + '.png)', onclick: () => { C.beep(); C.toast('Day ' + d + ': ' + rewardText(rw) + (got ? '  (claimed)' : '')); } },
+      gr.append(el('div', { class: 'dl-sl' + (got ? ' got' : '') + (cur && !got ? ' now' + (now ? ' can' : '') : ''), style: 'background-image:url(' + IMG + 'slot_' + String(d).padStart(2, '0') + '.png)', onclick: () => { C.beep(); showInfo(rw, 'Day ' + d + (got ? '  -  claimed' : '')); } },
         ic, rw.ads ? el('img', { class: 'ad', src: IMG + 'ads.png', alt: 'ADS' }) : null, got ? el('img', { class: 'ok', src: IMG + 'claimed.png', alt: '' }) : null));
     }
     const can = calReady(s), r = can ? rewardOfDay(next) : null;
