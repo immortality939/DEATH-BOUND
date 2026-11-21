@@ -23,7 +23,7 @@
 const COOP_COLORS = ['#4da3ff', '#5be37a', '#ffd24a', '#d38bff'];
 const COOP_STEP_MS = 1000 / 60;
 const AWAY_TURN_SEC = 0;     // an AWAY player's turn (disconnected / lagging): his turn timer still runs but only this many seconds, then the turn passes, so the others never wait 30 s for him
-const STALL_AWAY_MS = 2500;  // the player whose turn it is sent nothing for this long: the host takes his turn over (he is marked away)
+const STALL_AWAY_MS = 1500;  // the player whose turn it is sent nothing for this long: the host takes his turn over (he is marked away)
 const CTL_DELAY = 36;        // frames: away / back records are scheduled a little into the future, so no phone has already passed their frame (phones free-run a bit during enemy turns)
 const COOP_GRACE = 36;   // frames at the start of every turn where the player cannot act yet (same on every phone): the phone that just finished its shot can keep going instead of waiting for the next player's phone
 
@@ -54,7 +54,7 @@ const Coop = (() => {
         ws.onopen = () => { opened = true; net.tries = 0; res(); if (net.gapAt) { const gap = performance.now() - net.gapAt; net.gapAt = 0; if (gap > 2500 && S && S.sim && !S.host) setTimeout(() => needResync('connection gap ' + Math.round(gap)), 300); } };   // back online after a long gap: messages were missed, rebuild the stage from the host's log
         setTimeout(() => { if (!opened && net && net.ws === ws) { try { ws.close(); } catch (e) { } rej(new Error('server did not answer (is it updated and awake?)')); } }, 70000);
         ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m && m.d) onMsg(m.from, m.d); };
-        ws.onclose = () => { if (!net || net.closed || net.ws !== ws) return; if (!opened) { rej(new Error('no connection')); return; } if (!net.gapAt) net.gapAt = performance.now(); if (net.tries++ < 5) { toast('Connection lost... trying again'); setTimeout(() => { if (net && !net.closed) open(); }, 1500); } else { toast('Connection lost'); if (hooks.onLost) hooks.onLost(); } };
+        ws.onclose = () => { if (!net || net.closed || net.ws !== ws) return; if (!opened) { rej(new Error('no connection')); return; } if (!net.gapAt) net.gapAt = performance.now(); if (net.tries++ < 5) { toast('Connection lost... trying again'); setTimeout(() => { if (net && !net.closed) open(); }, 600); } else { toast('Connection lost'); if (hooks.onLost) hooks.onLost(); } };
         ws.onerror = () => { };
       };
       open();
@@ -69,6 +69,10 @@ const Coop = (() => {
   const amHost = () => !!net && net.myId === net.hostId;
 
   function onMsg(from, d) {
+    if (from === 'srv' && d && d.k === 'pres') {   // the SERVER says (instantly, no waiting for the poll): a player went silent / the host changed
+      try { if (d.host) setHost(d.host); if (S && S.init && Array.isArray(d.away)) for (const m of S.members) setAway(m.id, d.away.includes(m.id)); } catch (e) { }
+      return;
+    }
     if (!d || !d.k || !d.sk) return;
     if (d.k === 'load') { if (!amHost()) return; (loads[d.sk] = loads[d.sk] || {})[from] = d.load; if (S && S.sk === d.sk) { if (S.init) sendInit(from); else tryInit(); } return; }   // a phone that asks again after the stage was started (late, or came back after a disconnect) gets my 'init' again + everything that happened so far
     if (d.k === 'here') { if (!amHost()) return; if (S && S.sk === d.sk && S.sim) { const k = S.members.findIndex(m => m.id === from); if (k >= 0) S.here[k] = performance.now(); } return; }   // an away player says: I am back and caught up
@@ -381,7 +385,7 @@ const Coop = (() => {
       const now = performance.now(); if (!S.stall) S.stall = now;
       else {
         const mineDead = !net.ws || net.ws.readyState > 1;
-        if (now - S.stall > 2500 && !S.stallMsg) { S.stallMsg = true; toast('A player lost connection... his turn is skipped in a moment'); }
+        if (now - S.stall > 1200 && !S.stallMsg) { S.stallMsg = true; toast('A player lost connection... his turn is skipped in a moment'); }
         if (S.host && now - S.stall > STALL_AWAY_MS) autoAway();   // the host takes the silent player's turn over (the server also marks him away after a few seconds); nobody else waits
         // We only give up if OUR connection is dead (or after a really long silence): a silent teammate never throws the others out
         if ((mineDead && now - S.stall > 6000 || now - S.stall > 120000) && !S.bad) { S.bad = true; toast('Connection lost'); if (hooks.onLost) hooks.onLost(); }
