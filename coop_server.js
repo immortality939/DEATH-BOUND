@@ -22,9 +22,9 @@
 // Enemy and boss HP is FIXED in online Adventure: always COOP_HP_FULL (4 / 3 = the 4-player value, defined in adventure_server.js) x the table HP, whether 1, 2, 3 or 4 players are in the room.
 const COOP_COLORS = ['#4da3ff', '#5be37a', '#ffd24a', '#d38bff'];
 const COOP_STEP_MS = 1000 / 60;
-const AWAY_TURN_SEC = 3;     // an AWAY player's turn (disconnected / lagging): his turn timer still runs but only this many seconds, then the turn passes, so the others never wait 30 s for him
-const STALL_AWAY_MS = 4000;  // the player whose turn it is sent nothing for this long: the host takes his turn over (he is marked away)
-const CTL_DELAY = 72;        // frames: away / back records are scheduled a little into the future, so no phone has already passed their frame (phones free-run a bit during enemy turns)
+const AWAY_TURN_SEC = 2;     // an AWAY player's turn (disconnected / lagging): his turn timer still runs but only this many seconds, then the turn passes, so the others never wait 30 s for him
+const STALL_AWAY_MS = 2500;  // the player whose turn it is sent nothing for this long: the host takes his turn over (he is marked away)
+const CTL_DELAY = 36;        // frames: away / back records are scheduled a little into the future, so no phone has already passed their frame (phones free-run a bit during enemy turns)
 const COOP_GRACE = 36;   // frames at the start of every turn where the player cannot act yet (same on every phone): the phone that just finished its shot can keep going instead of waiting for the next player's phone
 
 const Coop = (() => {
