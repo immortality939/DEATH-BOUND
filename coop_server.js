@@ -22,7 +22,7 @@
 // Enemy and boss HP is FIXED in online Adventure: always COOP_HP_FULL (4 / 3 = the 4-player value, defined in adventure_server.js) x the table HP, whether 1, 2, 3 or 4 players are in the room.
 const COOP_COLORS = ['#4da3ff', '#5be37a', '#ffd24a', '#d38bff'];
 const COOP_STEP_MS = 1000 / 60;
-const AWAY_TURN_SEC = 2;     // an AWAY player's turn (disconnected / lagging): his turn timer still runs but only this many seconds, then the turn passes, so the others never wait 30 s for him
+const AWAY_TURN_SEC = 0;     // an AWAY player's turn (disconnected / lagging): his turn timer still runs but only this many seconds, then the turn passes, so the others never wait 30 s for him
 const STALL_AWAY_MS = 2500;  // the player whose turn it is sent nothing for this long: the host takes his turn over (he is marked away)
 const CTL_DELAY = 36;        // frames: away / back records are scheduled a little into the future, so no phone has already passed their frame (phones free-run a bit during enemy turns)
 const COOP_GRACE = 36;   // frames at the start of every turn where the player cannot act yet (same on every phone): the phone that just finished its shot can keep going instead of waiting for the next player's phone
@@ -231,10 +231,10 @@ const Coop = (() => {
     if (r.drop != null) { S.gone = S.gone || {}; S.gone[r.drop] = 3; for (const w of G.worms) if (w.team === r.drop && w.state !== 'dead' && w.state !== 'drown') { w.hp = 0; killWorm(w); } return; }   // a player left: his robot goes down on the same frame everywhere
     if (r.aw != null) {   // a player is away (disconnected / lagging): his robot STAYS (he can come back), but nobody waits for him: his turn runs without input and with a short timer
       const k = r.aw; S.away[k] = 3; S.awayReq[k] = 0; delete S.simIn[k];
-      const w = G.activeWorm; if (w && w.team === k && G.mode === 'play' && !G.swarm && G.phase === 'aim') { G.charging = false; G.charge = 0; G.timer = Math.min(G.timer, AWAY_TURN_SEC * 60); }
+      const w = G.activeWorm; if (w && w.team === k && G.mode === 'play' && !G.swarm && G.phase === 'aim') { G.charging = false; G.charge = 0; if (AWAY_TURN_SEC > 0) G.timer = Math.min(G.timer, AWAY_TURN_SEC * 60); }   // the turn timer simply keeps running from where it was (AWAY_TURN_SEC > 0 would shorten it)
       return;
     }
-    if (r.bk != null) { const k = r.bk; S.away[k] = 0; S.awayReq[k] = 0; const w = G.activeWorm; if (w && w.team === k) S.holdTurn[k] = G.turnCount; return; }   // he is back: he plays again from his NEXT turn (the host keeps numbering the frames of the turn that is running)
+    if (r.bk != null) { const k = r.bk; S.away[k] = 0; S.awayReq[k] = 0; return; }   // he is back: if it is his turn right now he takes it over with the time that is left on the timer
     if (S.away[r.tm] === 3) return;   // an input of a player who is away: ignored (same on every phone)
     const s = r.s || ZERO;
     S.simIn[r.tm] = { l: s.l, r: s.r, u: s.u, d: s.d, fi: s.fi, fa: s.fa, fp: (r.ev || []).includes('fp'), j: (r.ev || []).includes('j'), fl: (r.ev || []).includes('fl') };
@@ -315,7 +315,7 @@ const Coop = (() => {
     toast(((S.members[k] && S.members[k].name) || 'A player') + ' lost connection. The fight goes on.');
   }
   function endCatch() {
-    S.catching = false; S.holdTurn[S.myTeam] = G.turnCount;   // I sit out the turn that is running right now (the others number its frames)
+    S.catching = false;
     toast('Back in the fight!');
   }
   function hereBeat() {   // I was marked away and I am back and caught up: tell the host so he lets me play again
@@ -405,7 +405,7 @@ const Coop = (() => {
         }
       }
       const rv = st.apply(this, arguments);
-      if (on() && G.mode === 'play' && G.activeWorm && !G.swarm && S.away[G.activeWorm.team] === 3 && G.phase === 'aim') G.timer = Math.min(G.timer, AWAY_TURN_SEC * 60);   // an away player's turn: short timer
+      if (on() && G.mode === 'play' && G.activeWorm && !G.swarm && AWAY_TURN_SEC > 0 && S.away[G.activeWorm.team] === 3 && G.phase === 'aim') G.timer = Math.min(G.timer, AWAY_TURN_SEC * 60);   // an away player's turn: short timer
       return rv;
     };
     orig.doTeleport = window.doTeleport;
