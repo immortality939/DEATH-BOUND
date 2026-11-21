@@ -243,12 +243,12 @@ const OnlineUI = (() => {
   const robotImg = (r, cls) => h('img', { src: 'assets/robots/front/' + r.id + '.webp', alt: '', class: cls || null });
 
   // ---------- separate ONLINE save (keys are prefixed while you are online) ----------
-  const GAME_KEYS = ['profile', 'chips', 'stones', 'amu', 'adv', 'wins', 'sup1', 'setup', 'quests'];
+  const GAME_KEYS = ['profile', 'chips', 'stones', 'amu', 'adv', 'wins', 'sup1', 'setup', 'quests', 'daily'];
   let ns = null, setupBackup = null, storePatched = false;
 
   // ---------- CLOUD SAVE: a copy of this character's progress lives on the server, tied to your code ----------
   // Items, chips, stones, level / XP and Adventure progress are uploaded while you play and loaded again when you log in on a new phone / after a re-install.
-  const CLOUD_KEYS = ['profile', 'chips', 'stones', 'sup1', 'adv', 'wins', 'stones2', 'stones3', 'stones4', 'stones5', 'amu1', 'amu2', 'amu3', 'quests'];
+  const CLOUD_KEYS = ['profile', 'chips', 'stones', 'sup1', 'adv', 'wins', 'stones2', 'stones3', 'stones4', 'stones5', 'amu1', 'amu2', 'amu3', 'quests', 'daily'];
   const Cloud = (() => {
     let ready = false, dirty = false, timer = 0, gen = 0, retry = 0, waiting = null;
     const tKey = () => 'rwo_cloudt_' + ns;
@@ -324,7 +324,7 @@ const OnlineUI = (() => {
     } catch (e) { }
   }
   function deactivateChar() {   // back to the OFFLINE save
-    if (!ns) return; Cloud.flush(true); try { Quests.stop(); } catch (e) { } ns = null; unpatchShop();
+    if (!ns) return; Cloud.flush(true); try { Quests.stop(); } catch (e) { } try { Daily.stop(); } catch (e) { } ns = null; unpatchShop();
     try { Profile.data = null; Profile.load(); if (setupBackup) UI.setup = JSON.parse(setupBackup); } catch (e) { } setupBackup = null;
   }
   function myInfo() {   // level + weapon + equipment, shown to other players
@@ -645,7 +645,7 @@ const OnlineUI = (() => {
     busy('Loading your saved progress...');
     const c = await Cloud.wait();   // a new phone / re-install gets its items, chips and level back from the server here
     if (!c.ok && !c.had) { toastMsg('Could not load your saved progress. Check your internet and try again.'); return serverList(); }   // never start a fresh empty save over a real one
-    mailN = 0; Live.start(curServer); refreshFriends(); try { Quests.start(questCtx()); } catch (e) { } town();
+    mailN = 0; Live.start(curServer); refreshFriends(); try { Quests.start(questCtx()); } catch (e) { } try { Daily.start(questCtx()); } catch (e) { } town();
   }
 
   // ---------- 5. TOWN ----------
@@ -682,7 +682,8 @@ const OnlineUI = (() => {
       btn('Exit', leave, 'alt sm'));
     const bar = h('div', { class: 'ibar' }, ICONS.map(ic => h('button', { 'aria-label': ic.name, onclick: () => { beep(); iconPop(ic); } }, h('img', { src: 'assets/online/i_' + ic.id + '.webp', alt: ic.name }))));
     applyPrefs(true);   // Settings: volume, vibration, chat box, keep screen on
-    set(h('div', { class: 'town' }, stage, top, chatBox(p), bar));
+    let dly = null; try { dly = Daily.button(); } catch (e) { }   // the arrow-down button on the very right side (daily_server.js)
+    set(h('div', { class: 'town' }, stage, top, chatBox(p), bar, dly));
     try { Quests.paint(); } catch (e) { }   // red number on the scroll icon when a quest is finished
   }
 
