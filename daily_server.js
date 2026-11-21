@@ -116,20 +116,21 @@ const Daily = (() => {
 
   // ---------- look ----------
   const CSS = `
-#onl .dl-btn{position:absolute;right:max(6px,env(safe-area-inset-right,0px));top:50%;margin-top:calc(clamp(44px,13vh,70px) / -2);height:clamp(44px,13vh,70px);z-index:35;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s,filter .12s}
+#onl{--dlbh:clamp(34px,10vh,52px);--dlbt:50px;--dlph:calc(100vh - var(--dlbt) - var(--dlbh) - 4px - clamp(40px,12vh,74px) - 20px);--dlpw:calc(var(--dlph) * .379);--dlr:max(8px,env(safe-area-inset-right,0px))}
+#onl .dl-btn{position:absolute;right:var(--dlr);top:var(--dlbt);height:var(--dlbh);z-index:35;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s,filter .12s}
 #onl .dl-btn img{height:100%;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.55));pointer-events:none}
 #onl .dl-btn:active{transform:scale(1.07);filter:brightness(1.15)}
 #onl .dl-btn.open img{transform:rotate(180deg)}
 #onl .dl-dot{position:absolute;top:-3px;right:-3px;width:16px;height:16px;border-radius:50%;background:#e8402f;border:2px solid #fff2da;box-sizing:border-box;pointer-events:none;display:none;animation:dlpulse 1s infinite}
 @keyframes dlpulse{50%{transform:scale(1.25)}}
 #onl .dl-back{position:absolute;inset:0;z-index:25}
-#onl .dl-panel{--ph:calc(100vh - 16px);position:absolute;top:8px;right:calc(max(6px,env(safe-area-inset-right,0px)) + clamp(44px,13vh,70px) * 1.48 + 8px);height:var(--ph);width:calc(var(--ph) * .379);z-index:30;background:url(${IMG}panel_tall.png) 0 0/100% 100% no-repeat;animation:dlin .22s ease-out;filter:drop-shadow(0 6px 10px rgba(0,0,0,.55))}
-@keyframes dlin{from{transform:translateX(40px);opacity:0}}
-#onl .dl-in{position:absolute;left:21%;right:21%;top:14%;bottom:7%;display:flex;flex-direction:column;justify-content:space-around;align-items:center}
-#onl .dl-it{position:relative;width:100%;cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent}
+#onl .dl-panel{position:absolute;top:calc(var(--dlbt) + var(--dlbh) + 4px);right:var(--dlr);height:var(--dlph);width:var(--dlpw);z-index:30;background:url(${IMG}panel_tall.png) 0 0/100% 100% no-repeat;animation:dlin .22s ease-out;filter:drop-shadow(0 6px 10px rgba(0,0,0,.55))}
+@keyframes dlin{from{transform:translateY(-30px);opacity:0}}
+#onl .dl-in{position:absolute;left:15%;right:15%;top:13%;bottom:6%;display:flex;flex-direction:column;justify-content:space-evenly;align-items:center}
+#onl .dl-it{position:relative;width:82%;cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent}
 #onl .dl-it>img.m{width:100%;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.45));pointer-events:none}
 #onl .dl-it:active>img.m{transform:scale(1.05)}
-#onl .dl-it .tx{display:block;margin-top:2px;font:400 clamp(10px,3vh,15px)/1.1 var(--disp,sans-serif);color:#fff;text-shadow:0 1px 0 #4a1f06,0 0 4px #4a1f06,1px 1px 0 #4a1f06,-1px -1px 0 #4a1f06}
+#onl .dl-it .tx{display:block;margin-top:2px;font:400 clamp(9px,2.7vh,14px)/1.1 var(--disp,sans-serif);color:#fff;text-shadow:0 1px 0 #4a1f06,0 0 4px #4a1f06,1px 1px 0 #4a1f06,-1px -1px 0 #4a1f06}
 #onl .dl-it .tx.rd{color:#7dff7d}
 #onl .dl-it .dot{position:absolute;top:-4px;right:-4px;width:15px;height:15px;border-radius:50%;background:#e8402f;border:2px solid #fff2da;box-sizing:border-box;display:none;animation:dlpulse 1s infinite}
 #onl .dl-it .ad{position:absolute;right:-12%;bottom:12%;width:50%;pointer-events:none;filter:drop-shadow(0 2px 2px rgba(0,0,0,.6))}
@@ -144,7 +145,7 @@ const Daily = (() => {
 @keyframes dlop{0%,45%{opacity:0}55%,100%{opacity:1}}
 @keyframes dlhop{0%,45%,100%{transform:translateY(0)}25%{transform:translateY(-4%)}75%{transform:translateY(-4%)}}
 #onl .dl-it.done .cc{filter:grayscale(1) brightness(.7)}
-#onl .dl-cal{position:absolute;top:50%;right:calc(max(6px,env(safe-area-inset-right,0px)) + clamp(44px,13vh,70px) * 1.48 + 8px + (100vh - 16px) * .379 + 6px);transform:translateY(-50%);width:min(calc(100vw - (100vh - 16px) * .379 - clamp(44px,13vh,70px) * 1.48 - 30px),calc((100vh - 16px) * 1.76));aspect-ratio:604/323;z-index:30;background:url(${IMG}panel_cal.png) 0 0/100% 100% no-repeat;animation:dlcalin .28s ease-out;filter:drop-shadow(0 6px 10px rgba(0,0,0,.55));font-size:calc(min(100vw - (100vh - 16px) * .379 - 120px,(100vh - 16px) * 1.76) / 40)}
+#onl .dl-cal{position:absolute;top:50%;right:calc(var(--dlr) + var(--dlpw) + 10px);transform:translateY(-50%);width:min(calc(100vw - var(--dlpw) - var(--dlr) - 24px),calc((100vh - 16px) * 1.76));aspect-ratio:604/323;z-index:30;background:url(${IMG}panel_cal.png) 0 0/100% 100% no-repeat;animation:dlcalin .28s ease-out;filter:drop-shadow(0 6px 10px rgba(0,0,0,.55));font-size:calc(min(100vw - var(--dlpw) - var(--dlr) - 24px,(100vh - 16px) * 1.76) / 40)}
 @keyframes dlcalin{from{transform:translate(60px,-50%);opacity:0}}
 #onl .dl-cal .gr{position:absolute;left:5.2%;right:5.2%;top:8%;bottom:25%;overflow-y:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:.5em .4em;align-content:start;scrollbar-width:none}
 #onl .dl-cal .gr::-webkit-scrollbar{display:none}
