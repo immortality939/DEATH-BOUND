@@ -20,7 +20,7 @@ const ArenaFight = (() => {
   const BUF = 4;                  // frames of input the watcher keeps in hand before it (re)starts after a wait (smooth play on slow phones)
   const POLL_MS = 100, POLL_FAST_MS = 50;
   const GRACE = 36;               // frames at the start of every turn where nobody can act (same on every phone): hides the network delay of the hand-over, so nobody freezes after a shot
-  const SNAP_WAIT_MS = 1500, STALL_GIVEUP_MS = 20000, LOST_MS = 20000;
+  const SNAP_WAIT_MS = 1500, STALL_GIVEUP_MS = 6000, LOST_MS = 20000;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   let F = null;                   // the running fight (null = none)
   let H = null;                   // the game functions we replaced (to put them back)
@@ -236,6 +236,7 @@ const ArenaFight = (() => {
     const f = F; if (!f) return;
     f.lastData = Date.now();
     if (Array.isArray(j.gone)) f.gone = new Set(j.gone.filter(id => id !== f.me));
+    f.lost = new Set((Array.isArray(j.lost) ? j.lost : Array.isArray(j.gone) ? j.gone : []).filter(id => id !== f.me));   // really left (8 s of silence): decides a win. 'gone' (3 s) only makes the others skip his turn
     if (j.go && j.loads && !f.loads) { f.loads = j.loads; if (f.goRes) f.goRes(); }
     for (const ev of (j.events || [])) ingest(ev);
     if (typeof j.upto === 'number' && j.upto > f.seen) f.seen = j.upto;
@@ -243,7 +244,7 @@ const ArenaFight = (() => {
     if (j.over && !f.over) { f.over = j.over; if (!f.ended) endByServer(j.over); }
     if (f.live && !f.ended) {   // all the other team's players are gone = they left
       const foes = f.members.flatMap((t, i) => i === f.myTeam ? [] : t);
-      if (foes.length && foes.every(id => f.gone.has(id))) { f.report = f.report || { w: f.myTeam }; showResult({ win: true, why: 'The other team left the fight.' }); }
+      if (foes.length && foes.every(id => f.lost.has(id))) { f.report = f.report || { w: f.myTeam }; showResult({ win: true, why: 'The other team left the fight.' }); }
     }
   }
 
