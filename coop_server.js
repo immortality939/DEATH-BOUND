@@ -386,7 +386,11 @@ const Coop = (() => {
       else {
         const mineDead = !net.ws || net.ws.readyState > 1;
         if (now - S.stall > 1200 && !S.stallMsg) { S.stallMsg = true; toast('A player lost connection... his turn is skipped in a moment'); }
-        if (S.host && now - S.stall > STALL_AWAY_MS) autoAway();   // the host takes the silent player's turn over (the server also marks him away after a few seconds); nobody else waits
+        if (S.host && now - S.stall > STALL_AWAY_MS) autoAway();
+        else if (!S.host && now - S.stall > 1500 && now - (S.susAt || 0) > 800) {   // I am not the host: ask the server to check the silent player (it marks him away if his phone is really gone)
+          S.susAt = now; const w = G.activeWorm, t = w && G.teams[w.team];
+          if (t && !t.cpu && t.pid && t.pid !== net.myId) tx('srv', { k: 'sus', id: t.pid });
+        }   // the host takes the silent player's turn over (the server also marks him away after a few seconds); nobody else waits
         // We only give up if OUR connection is dead (or after a really long silence): a silent teammate never throws the others out
         if ((mineDead && now - S.stall > 6000 || now - S.stall > 120000) && !S.bad) { S.bad = true; toast('Connection lost'); if (hooks.onLost) hooks.onLost(); }
       }
