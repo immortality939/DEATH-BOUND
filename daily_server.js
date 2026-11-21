@@ -26,12 +26,12 @@ const Daily = (() => {
     { chips: 100 }, { pick: 'weapon', rar: 'common' }, { id: 'mat_stone1' }, { id: 'mat_amu1' },                                     // 1-4
     { chips: 200 }, { pick: 'weapon', rar: 'rare' }, { id: 'mat_stone2' }, { id: 'mat_amu2' },                                       // 5-8
     { chips: 300 }, { pick: 'wings', rar: 'common', ads: true },                                                                     // 9, 10 (ADS)
-    { pick: 'glove', rar: 'common' }, { id: 'mat_stone3' }, { id: 'mat_sup1' }, { chips: 400 },                                      // 11-14
-    { pick: 'glove', rar: 'rare' }, { id: 'mat_stone4' }, { id: 'mat_amu1' }, { chips: 500 },                                        // 15-18
-    { pick: 'weapon', rar: 'epic' }, { id: 'mat_amu3', ads: true },                                                                  // 19, 20 (ADS)
-    { id: 'mat_stone5' }, { id: 'mat_amu2' }, { chips: 300 }, { pick: 'glove', rar: 'epic' },                                        // 21-24
-    { id: 'mat_stone2' }, { id: 'mat_sup1' }, { chips: 500 }, { pick: 'weapon', rar: 'rare' },                                       // 25-28
-    { id: 'mat_stone3' }, { id: 'heal_divine_rare', ads: true },                                                                     // 29, 30 (ADS)
+    { pick: 'glove', rar: 'common' }, { id: 'mat_stone3' }, { id: 'mat_sup1' }, { chips: 300 },                                      // 11-14
+    { pick: 'glove', rar: 'rare' }, { id: 'mat_stone3' }, { id: 'mat_sup1' }, { chips: 400 },                                        // 15-18
+    { pick: 'glove', rar: 'rare' }, { id: 'mat_amu3', ads: true },                                                                   // 19, 20 (ADS)
+    { id: 'mat_stone4' }, { id: 'mat_amu2' }, { chips: 500 }, { pick: 'weapon', rar: 'epic' },                                       // 21-24  (epic weapon)
+    { id: 'mat_stone4' }, { id: 'mat_amu2' }, { chips: 500 }, { pick: 'glove', rar: 'epic' },                                        // 25-28  (epic gloves)
+    { id: 'mat_stone5' }, { id: 'heal_divine_rare', ads: true },                                                                     // 29, 30 (ADS)  strongest at the end
   ];
   // chests: 6 steps a day. wait = minutes until the reward is ready (it counts from the moment the previous reward was claimed; the first one from the start of the day)
   const GOLD = [{ m: 5, chips: 200 }, { m: 15, chips: 300 }, { m: 30, chips: 500 }, { m: 5, chips: 300, ad: 1 }, { m: 15, chips: 500, ad: 1 }, { m: 30, chips: 700, ad: 1 }];
