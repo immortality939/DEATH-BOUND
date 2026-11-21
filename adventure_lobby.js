@@ -213,7 +213,7 @@ const AdvLobbyUI = (() => {
       return repaint();
     }
     if (r.state === 'starting') { if (S.view !== 'starting') starting(); return; }
-    if (r.state === 'running') { if (!run) { if (r.run && r.run.id === leftId) { act('leave').catch(() => { }); return; } beginRun(r); } return; }   // the party goes into the map's stages
+    if (r.state === 'running') { if (!run) { if (r.run && r.run.id === leftId) { act('leave').catch(() => { }); return; } if (lostAt && Date.now() - lostAt < 4000) return; if (lostN > 6) { lostN = 0; act('leave').catch(() => { }); return; } beginRun(r); } return; }   // the party goes into the map's stages
     if (S.view !== 'room') return room();
     repaint();
   }
@@ -410,6 +410,7 @@ const AdvLobbyUI = (() => {
   // Loot cards (1 flip per stage, 2 on the boss stage) and character XP are the game's own Adventure.onOver / Loot code, so they work exactly like offline.
   let run = null;       // { id, mi, diff, total, si, phase: 'fight' | 'loot' | 'over' | 'wait', st, cur (last room data), tick, unsub, hud, wait }
   let hooked = false;
+  let lostAt = 0, lostN = 0;   // RECONNECT: when my connection to a running stage is lost I do NOT leave the room on the server: I stay in the party (marked away) and come back by myself
   let leftId = 0;       // id of the run I walked out of (so a room that still lists me never pulls me back into a stage I already left)
   const ST = { fight: ['Fighting', '#ffb23c'], won: ['Cleared', '#5be37a'], dead: ['Down', '#ff5a4d'] };
   function runCss() {
@@ -484,7 +485,7 @@ const AdvLobbyUI = (() => {
     if (typeof Coop === 'undefined') throw new Error('coop missing');
     setLp(14, 'Connecting to the server...');
     const ss = C.session(), base = String(ONLINE_API).replace(/^http/, 'ws'), url = base + '/ws?t=' + ss.token + '&sv=' + (ss.player.server | 0);
-    const hooks = { toast: m => C.toast(m), onLost: () => { leaveRun('You lost your connection to the room.'); }, onAgain: (si, att) => { if (run) startStage(si, att); }, onProg: (p, t) => setLp(p, t) };
+    const hooks = { toast: m => C.toast(m), onLost: () => { lostRun('Connection lost. Reconnecting...'); }, onResync: () => { if (run) startStage(run.si, run.att | 0); }, onAgain: (si, att) => { if (run) startStage(si, att); }, onProg: (p, t) => setLp(p, t) };
     let err = null;
     for (let a = 1; a <= 4; a++) {   // the server can be slow to answer the first time: try a few times before giving up
       try { await Coop.connect(url, ss.player.id, r.hostId, hooks); err = null; break; }
@@ -496,7 +497,7 @@ const AdvLobbyUI = (() => {
   }
   function startStage(si, att) {
     if (!run) return;
-    clearWait(); run.si = si; run.st = 'fight'; run.phase = 'fight';
+    clearWait(); run.si = si; run.att = att | 0; run.st = 'fight'; run.phase = 'fight';
     run.lp = 36; run.lpt = 'Loading stage ' + (si + 1) + '...'; hideLoad(); if (run.cur && run.cur.members) run.roster = run.cur.members.map(m => ({ id: m.id, name: m.name, robot: m.robot | 0 })); showLoad();
     Adventure.diff = run.diff; try { $('over').hidden = true; } catch (e) { }
     drawRun(); runBeat();
@@ -607,12 +608,13 @@ const AdvLobbyUI = (() => {
     run.beating = true;
     let ok = false;
     try { await C.live.call('adv/report', { stage: run.si, st: run.st, lp: run.lp }); ok = true; } catch (e) { }
-    if (run) { const nw = Date.now(); if (ok) run.lastOk = nw; else if (!run.ending && run.lp >= 100 && (() => { const q = nw - (run.lastOk || run.t0 || nw); return q > 20000 && ((typeof Coop === 'undefined' || !Coop.wsOpen) || q > 45000); })()) { run.beating = false; return leaveRun('You lost your connection to the room.'); } }   // no answer from the server for 20 s (my signal is gone): do not sit there for minutes, go back
+    if (run) { const nw = Date.now(); if (ok) run.lastOk = nw; else if (!run.ending && run.lp >= 100 && (() => { const q = nw - (run.lastOk || run.t0 || nw); return q > 20000 && ((typeof Coop === 'undefined' || !Coop.wsOpen) || q > 45000); })()) { run.beating = false; return lostRun('Connection lost. Reconnecting...'); } }   // no answer from the server for 20 s (my signal is gone): do not sit there for minutes, go back
     if (run) { run.beating = false; if (run.again) { run.again = false; runBeat(); } }
   }
   function onRunData(j) {
     if (!run) return; run.cur = j.myAdv || null;
     if (run.cur && run.hostId && run.cur.hostId !== run.hostId) { run.hostId = run.cur.hostId; try { Coop.setHost(run.hostId); } catch (e) { } C.toast('The host left. The adventure goes on.'); }   // the server picked a new host: he becomes the clock of the enemy turns
+    if (run.cur && typeof Coop !== 'undefined') for (const m of run.cur.members) { try { Coop.setAway(m.id, !!m.away); } catch (e) { } }   // the server says who is silent (away) / back: the host takes the turn of an away player over
     if (run.cur) { const ids = new Set(run.cur.members.map(m => m.id)); const st = typeof Coop !== 'undefined' ? Coop.state : null; if (st) for (const m of st.members) if (!ids.has(m.id)) Coop.dropMember(m.id); }
     evalRun(); drawRun(); if (run && run.ov) drawLoad();
   }
@@ -624,10 +626,10 @@ const AdvLobbyUI = (() => {
   }
   function drawRun() {
     if (!run) return; const r = run.cur, rm = r && r.run, me_ = C.player ? C.player.id : null;
-    const rows = (r ? r.members : []).map(m => ({ name: m.name, id: m.id, st: (rm && rm.m && rm.m[m.id]) || 'fight' }));
-    const sig = [run.phase, run.si, run.total, !!run.wait, rows.map(m => m.id + m.st).join('|')].join('~'); if (run.dsig === sig) return; run.dsig = sig;   // the poll comes every 1.5 s: only rebuild the HUD when something really changed (no needless hitches mid-fight)
+    const rows = (r ? r.members : []).map(m => ({ name: m.name, id: m.id, away: !!m.away, st: (rm && rm.m && rm.m[m.id]) || 'fight' }));
+    const sig = [run.phase, run.si, run.total, !!run.wait, rows.map(m => m.id + m.st + (m.away ? 'z' : '')).join('|')].join('~'); if (run.dsig === sig) return; run.dsig = sig;   // the poll comes every 1.5 s: only rebuild the HUD when something really changed (no needless hitches mid-fight)
     run.hud.style.display = run.phase === 'fight' ? 'flex' : 'none';
-    run.hud.replaceChildren(h('span', { class: 'cs' }, 'Stage ' + (run.si + 1) + ' / ' + run.total), ...rows.map(m => h('span', { style: '--c:' + ST[m.st][1] }, h('i'), m.name + (m.id === me_ ? ' (you)' : ''))));
+    run.hud.replaceChildren(h('span', { class: 'cs' }, 'Stage ' + (run.si + 1) + ' / ' + run.total), ...rows.map(m => h('span', { style: '--c:' + ST[m.st][1] }, h('i'), m.name + (m.id === me_ ? ' (you)' : '') + (m.away ? ' (offline)' : ''))));
     if (run.wait) {
       const mem = run.wait.querySelector('.mem'), left = rows.filter(m => m.st !== 'won').length, last = run.si + 1 >= run.total;
       mem.replaceChildren(...rows.map(m => h('div', { style: '--c:' + ST[m.st][1] }, h('span', null, m.name + (m.id === me_ ? ' (you)' : '')), h('span', null, h('i'), ST[m.st][0]))));
@@ -640,6 +642,10 @@ const AdvLobbyUI = (() => {
     try { await Promise.race([C.live.call('adv/leave').then(() => { ok = true; }), new Promise(res => setTimeout(res, 3000))]); } catch (e) { }   // with no signal the call hung for over a minute and the others waited for me all that time: after 3 s I go anyway
     endRun('left', why);
     if (!ok) retryLeave();
+  }
+  function lostRun(why) {   // my connection to the fight is gone: back to the room screen, but I stay in the party on the server. The others go on without me; when my signal is back I rejoin by myself (route -> beginRun)
+    if (!run || run.ending) return;
+    lostAt = Date.now(); lostN++; endRun('lost', why);
   }
   function retryLeave() {   // my 'leave' did not reach the server (no signal): keep trying until the server lets me go, so the others are never held by a player who is already gone
     let n = 0;
@@ -664,8 +670,9 @@ const AdvLobbyUI = (() => {
     run = null;
     try { Loot.cb = null; clearInterval(Loot.timer); if (Loot.el) Loot.el.hidden = true; } catch (e) { }
     try { $('over').hidden = true; $('hud').hidden = true; $('touch').hidden = true; G.mode = 'menu'; Adventure.active = false; } catch (e) { }
+    if (kind === 'done' || kind === 'between') lostN = 0;
     if (kind === 'done') { C.toast('Adventure complete! Back to your room.'); UI.show('title'); return; }
-    if (kind === 'between') { C.toast(why); UI.show('title'); return; }
+    if (kind === 'between' || kind === 'lost') { C.toast(why); UI.show('title'); return; }
     if (why === null) { UI.show('title'); return; }
     showDefeat(why || 'You left the adventure.', () => UI.show('title'));   // 'Back to room' brings the player back to the room (or the Adventure lobby)
   }
@@ -680,5 +687,5 @@ const AdvLobbyUI = (() => {
     route();
   }
   function close() { removeEventListener('resize', onResize); if (unsub) { unsub(); unsub = null; } if (S.banner) { S.banner.dead = true; S.banner.remove(); } }
-  return { open, close };
+  return { open, close, get running() { return !!run; }, canRejoin(j) { const r = j && j.myAdv; return !!(r && r.state === 'running' && r.run && !run && r.run.id !== leftId); } };
 })();

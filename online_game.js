@@ -409,10 +409,20 @@ const OnlineUI = (() => {
     };
     return { show, clear: () => { if (box) box.replaceChildren(); } };
   })();
+  let advRejoinAt = 0;
   function globalAlerts(j) {   // called for every answer of the live poll, wherever the player is (town, Bag, Shop, Armory, other lobby)
     if (!session || !root) return;
     if (j.mail != null) { if (j.mail > mailN) toastMsg(j.mail === 1 ? 'You have new mail in your envelope!' : 'You have ' + j.mail + ' items in your envelope!'); mailN = j.mail | 0; }
     paintMailBadge();
+    try {   // RECONNECT: I closed the game / lost signal while my party was still playing a stage: take me back into it
+      const adv = typeof AdvLobbyUI !== 'undefined' ? AdvLobbyUI : null;
+      if (j.myAdv && j.myAdv.state === 'running' && j.myAdv.run && Date.now() - advRejoinAt > 15000 && (!adv || !adv.canRejoin || adv.canRejoin(j)) && !(!root.hidden && root.querySelector('.av'))) {
+        advRejoinAt = Date.now(); toastMsg('Your party is still playing! Rejoining...');
+        try { if (typeof ArenaUI !== 'undefined' && ArenaUI.close) ArenaUI.close(); } catch (e) { }
+        if (fromTown) { retFn = openAdventure; try { UI.show('title'); } catch (e) { backToTown(); } } else { root.hidden = false; openAdventure(); }
+        return;
+      }
+    } catch (e) { }
     const fighting = (j.myRoom && (j.myRoom.state === 'vs' || j.myRoom.state === 'searching')) || (j.myAdv && (j.myAdv.state === 'starting' || j.myAdv.state === 'running'));
     if (fighting) return;   // not in the middle of a fight / run: it shows after (the invitation lives 60 s)
     const onScreen = c => !root.hidden && !!root.querySelector('.' + c);   // the Arena / Adventure screens show their own banner

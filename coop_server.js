@@ -22,6 +22,9 @@
 // Enemy and boss HP is FIXED in online Adventure: always COOP_HP_FULL (4 / 3 = the 4-player value, defined in adventure_server.js) x the table HP, whether 1, 2, 3 or 4 players are in the room.
 const COOP_COLORS = ['#4da3ff', '#5be37a', '#ffd24a', '#d38bff'];
 const COOP_STEP_MS = 1000 / 60;
+const AWAY_TURN_SEC = 3;     // an AWAY player's turn (disconnected / lagging): his turn timer still runs but only this many seconds, then the turn passes, so the others never wait 30 s for him
+const STALL_AWAY_MS = 4000;  // the player whose turn it is sent nothing for this long: the host takes his turn over (he is marked away)
+const CTL_DELAY = 72;        // frames: away / back records are scheduled a little into the future, so no phone has already passed their frame (phones free-run a bit during enemy turns)
 const COOP_GRACE = 36;   // frames at the start of every turn where the player cannot act yet (same on every phone): the phone that just finished its shot can keep going instead of waiting for the next player's phone
 
 const Coop = (() => {
@@ -30,9 +33,12 @@ const Coop = (() => {
   let S = null;              // the stage that is being played: see begin()
   const pend = {};           // messages that came for a stage this phone has not started yet: sk -> [d...]
   const attempts = {};       // host: how many times each stage was restarted
+  const resyncs = {};        // how many times THIS phone rebuilt a stage (sk -> n): a phone that is out of sync / was offline rebuilds the stage from the log
+  const cuJobs = {};         // host: catch-up streams that are being sent (player id -> job id)
+  let cuSeq = 0;
   const loads = {};          // host: loadouts received per stage key: sk -> { playerId: load }
   let installed = false, orig = {};
-  const hooks = { onAgain: null, onLost: null, onDesync: null, toast: null, onProg: null };
+  const hooks = { onAgain: null, onLost: null, onDesync: null, onResync: null, toast: null, onProg: null };
   const prog = (p, t) => { try { if (hooks.onProg) hooks.onProg(p, t); } catch (e) { } };   // loading progress (0..100) for the loading screen
   const toast = m => { try { (hooks.toast || (() => { }))(m); } catch (e) { } };
 
@@ -40,15 +46,15 @@ const Coop = (() => {
   function connect(url, myId, hostId, h) {
     close();
     Object.assign(hooks, h || {});
-    net = { myId, hostId, closed: false, ws: null, tries: 0, url };
+    net = { myId, hostId, closed: false, ws: null, tries: 0, url, gapAt: 0 };
     return new Promise((res, rej) => {
       let opened = false;
       const open = () => {
         const ws = new WebSocket(url); net.ws = ws;
-        ws.onopen = () => { opened = true; net.tries = 0; res(); };
+        ws.onopen = () => { opened = true; net.tries = 0; res(); if (net.gapAt) { const gap = performance.now() - net.gapAt; net.gapAt = 0; if (gap > 2500 && S && S.sim && !S.host) setTimeout(() => needResync('connection gap ' + Math.round(gap)), 300); } };   // back online after a long gap: messages were missed, rebuild the stage from the host's log
         setTimeout(() => { if (!opened && net && net.ws === ws) { try { ws.close(); } catch (e) { } rej(new Error('server did not answer (is it updated and awake?)')); } }, 70000);
         ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m && m.d) onMsg(m.from, m.d); };
-        ws.onclose = () => { if (!net || net.closed || net.ws !== ws) return; if (!opened) { rej(new Error('no connection')); return; } if (net.tries++ < 5) { toast('Connection lost... trying again'); setTimeout(() => { if (net && !net.closed) open(); }, 1500); } else { toast('Connection lost'); if (hooks.onLost) hooks.onLost(); } };
+        ws.onclose = () => { if (!net || net.closed || net.ws !== ws) return; if (!opened) { rej(new Error('no connection')); return; } if (!net.gapAt) net.gapAt = performance.now(); if (net.tries++ < 5) { toast('Connection lost... trying again'); setTimeout(() => { if (net && !net.closed) open(); }, 1500); } else { toast('Connection lost'); if (hooks.onLost) hooks.onLost(); } };
         ws.onerror = () => { };
       };
       open();
@@ -57,18 +63,20 @@ const Coop = (() => {
   function close() {
     if (net) { net.closed = true; try { net.ws.close(); } catch (e) { } }
     net = null; endStage();
-    for (const k in pend) delete pend[k]; for (const k in loads) delete loads[k]; for (const k in attempts) delete attempts[k];
+    for (const k in pend) delete pend[k]; for (const k in loads) delete loads[k]; for (const k in attempts) delete attempts[k]; for (const k in resyncs) delete resyncs[k]; for (const k in cuJobs) delete cuJobs[k];
   }
   function tx(to, d) { if (!net || !net.ws || net.ws.readyState !== 1) return; try { net.ws.send(JSON.stringify({ to, d })); } catch (e) { } }
   const amHost = () => !!net && net.myId === net.hostId;
 
   function onMsg(from, d) {
     if (!d || !d.k || !d.sk) return;
-    if (d.k === 'load') { if (!amHost()) return; (loads[d.sk] = loads[d.sk] || {})[from] = d.load; if (S && S.sk === d.sk) { if (S.init) tx(from, S.init); else tryInit(); } return; }   // a phone that asks again after the stage was started missed my 'init': send it again
+    if (d.k === 'load') { if (!amHost()) return; (loads[d.sk] = loads[d.sk] || {})[from] = d.load; if (S && S.sk === d.sk) { if (S.init) sendInit(from); else tryInit(); } return; }   // a phone that asks again after the stage was started (late, or came back after a disconnect) gets my 'init' again + everything that happened so far
+    if (d.k === 'here') { if (!amHost()) return; if (S && S.sk === d.sk && S.sim) { const k = S.members.findIndex(m => m.id === from); if (k >= 0) S.here[k] = performance.now(); } return; }   // an away player says: I am back and caught up
     if (d.k === 'retry') { if (!amHost()) return; if (S && S.sk === d.sk) doAgain(); return; }
     if (d.k === 'again') { if (from === net.hostId && hooks.onAgain) hooks.onAgain(d.si, d.att); return; }
     if (d.k === 'init') { if (from !== net.hostId) return; }
-    else if (d.k !== 'in' && d.k !== 'hb') return;
+    else if (d.k !== 'in' && d.k !== 'hb' && d.k !== 'cu') return;
+    else if (d.k === 'cu' && from !== net.hostId) return;
     else if (S && !S.members.some(m => m.id === from)) return;
     if (!S || S.sk !== d.sk) { (pend[d.sk] = pend[d.sk] || []).push(d); if (pend[d.sk].length > 4000) pend[d.sk].shift(); return; }
     handle(d);
@@ -76,9 +84,26 @@ const Coop = (() => {
   function handle(d) {
     if (!S) return;
     if (d.k === 'init') { if (!S.init) startSim(d); return; }
-    if (d.k === 'in') { S.q.push(d); if (d.f > S.limit) S.limit = d.f; return; }
+    if (d.k === 'in') {
+      if (S.dedupe) { if (S.f > S.dedupeF + 900) S.dedupe = null; else if (S.dedupe.has(recKey(d))) return; }
+      S.log.push(d);
+      if (S.sim && !S.cuWait && d.f < S.f && isCtl(d) && !S.host) { needResync('late control record'); return; }   // a drop / away / back that belongs to a frame I already passed: I was ahead of everybody (lagging phone that caught up) -> rebuild from the log
+      qInsert(d); if (d.f > S.limit && !isCtl(d)) S.limit = d.f; return;   // (a control record is scheduled ahead: it must not let the phones run past the frames the clock has not numbered yet)
+    }
+    if (d.k === 'cu') {   // catch-up stream from the host: everything that happened in this stage so far
+      if (!S.cuWait) return;
+      if (!S.cu || d.cid > S.cu.cid) S.cu = { cid: d.cid, n: d.n, f: d.f, parts: [], got: 0 };
+      if (d.cid < S.cu.cid) return;
+      if (!S.cu.parts[d.i]) { S.cu.parts[d.i] = d.recs || []; S.cu.got++; }
+      if (S.cu.got >= S.cu.n) finishCu();
+      return;
+    }
     if (d.k === 'hb') { if (d.f > S.limit) S.limit = d.f; if (d.h != null) S.hashes[d.f] = d.h; return; }
   }
+
+  const isCtl = r => r.drop != null || r.aw != null || r.bk != null;   // records that change WHO plays (drop = left for good, aw = away, bk = back): applied before the inputs of the same frame, the same on every phone
+  function qInsert(d) { const q = S.q; let i = q.length; while (i > 0 && q[i - 1].f > d.f) i--; q.splice(i, 0, d); }
+  const recKey = r => JSON.stringify([r.f, r.tm, r.s, r.ev, r.drop, r.aw, r.bk]);
 
   // ---------------- one stage ----------------
   // opts: { sk, mi, si, diff, members: [{id,name,robot}] }   members = the players in the room, host first
@@ -86,7 +111,7 @@ const Coop = (() => {
     if (!net) throw new Error('no connection');
     install(); endStage();
     { const cur = String(opts.sk).split(':'); for (const k of Object.keys(pend)) { const p = k.split(':'); if (p[0] !== cur[0] || (+p[1] < +cur[1]) || (+p[1] === +cur[1] && +p[2] < +cur[2])) delete pend[k]; } }   // messages of old stages / old runs are useless: drop them (they piled up on the phone)
-    S = { sk: opts.sk, mi: opts.mi, si: opts.si, diff: opts.diff, members: opts.members.slice(), host: amHost(), init: null, sim: false, f: 0, limit: 0, q: [], simIn: {}, hashes: {}, myTeam: -1, rng: null, lastHb: 0, over: false, t0: performance.now(), turnF: 0, applying: false, stepping: false, lastSent: null, bad: false, pre: [], uiq: [] };
+    S = { sk: opts.sk, mi: opts.mi, si: opts.si, diff: opts.diff, members: opts.members.slice(), host: amHost(), init: null, sim: false, f: 0, limit: 0, q: [], simIn: {}, hashes: {}, myTeam: -1, rng: null, lastHb: 0, over: false, t0: performance.now(), turnF: 0, applying: false, stepping: false, lastSent: null, bad: false, pre: [], uiq: [], away: {}, awayReq: {}, srvAway: {}, holdTurn: {}, here: {}, log: [], cu: null, cuWait: false, catching: false };
     const mine = { robot: opts.members.find(m => m.id === net.myId).robot, bonus: JSON.parse(JSON.stringify(profileBonuses(opts.members.find(m => m.id === net.myId).robot))) };
     S.mine = mine;
     toast(S.host ? 'Waiting for the other players...' : 'Waiting for the host to start...');
@@ -109,6 +134,39 @@ const Coop = (() => {
     const d = { k: 'init', sk: S.sk, seed: (REAL_RANDOM() * 2 ** 31) | 0, mem };
     tx('*', d); startSim(d);
   }
+  function sendInit(to) {   // host: (re)send the start of the stage; to a phone that comes late (S.f > 0) also the whole log so it can replay the fight and catch up
+    const late = !!(S.sim && S.f > 0);
+    tx(to, late ? Object.assign({}, S.init, { late: 1 }) : S.init);
+    if (late) sendCatchUp(to);
+  }
+  function sendCatchUp(to) {
+    const job = ++cuSeq; cuJobs[to] = job;
+    const recs = S.log.slice(), f = S.f, CH = 200, n = Math.max(1, Math.ceil(recs.length / CH)); let i = 0;
+    const next = () => { if (cuJobs[to] !== job || !S || S.dead) return; tx(to, { k: 'cu', sk: S.sk, cid: job, i, n, f, recs: recs.slice(i * CH, (i + 1) * CH) }); if (++i < n) setTimeout(next, 50); };   // paced: the server drops a phone that sends too many messages per second
+    next();
+  }
+  function finishCu() {   // I got the whole log: merge it with what came live meanwhile, then replay the fight at high speed up to the present
+    if (!S || !S.cu) return; const seen = new Set(), all = [];
+    for (const r of [].concat(...S.cu.parts).concat(S.log)) { const k = recKey(r); if (seen.has(k)) continue; seen.add(k); all.push(r); }
+    all.sort((a, b) => a.f - b.f);
+    S.log = all.slice(); S.q = all; if (S.cu.f > S.limit) S.limit = S.cu.f;
+    S.dedupe = seen; S.dedupeF = S.cu.f;   // records that come live a moment later but are already in the log must not be applied twice
+    S.cu = null; S.cuWait = false; S.catching = true; clearTimeout(S.cuRt);
+    toast('Catching up with the fight...'); prog(100, 'Catching up with the fight...');
+  }
+  function retryCu() {
+    if (!S || S.dead || !S.cuWait) return;
+    if (++S.cuTries > 6) { toast('Could not catch up with the fight'); if (hooks.onLost) hooks.onLost(); return; }
+    tx('h', { k: 'load', sk: S.sk, load: S.mine }); S.cuRt = setTimeout(retryCu, 6000);
+  }
+  function needResync(why) {   // this phone no longer matches the others (it was offline, lagged, or missed messages): build the stage again and replay it from the host's log
+    if (!S || S.dead || S.host || S.rsAsked) return false;
+    const n = resyncs[S.sk] = (resyncs[S.sk] | 0) + 1; if (n > 3) return false;
+    console.warn('COOP resync (' + n + '):', why); S.rsAsked = true;
+    toast('Reconnecting to the fight...');
+    if (hooks.onResync) hooks.onResync(); else if (hooks.onLost) hooks.onLost();
+    return true;
+  }
   function doAgain() {   // host: restart the stage (everybody), after a defeat
     if (!S || !S.host) return;
     const att = (attempts[S.si] = (attempts[S.si] || 0) + 1);
@@ -120,6 +178,7 @@ const Coop = (() => {
     if (!S || S.init) return; clearTimeout(S.timer); clearTimeout(S.rt);
     toast('Building the shared map...'); prog(68, 'Building the shared map...');
     S.init = init; S.members = init.mem; S.myTeam = init.mem.findIndex(m => m.id === net.myId); S.rng = mulberry(init.seed);
+    if (init.late) { S.cuWait = true; S.cuTries = 0; S.cuRt = setTimeout(retryCu, 6000); }   // I come into a fight that is already running: wait for the log, then catch up
     if (S.myTeam < 0) { toast('The stage started without you (loading took too long)'); if (hooks.onLost) hooks.onLost(); return; }
     const my = S, o = { newGame: window.newGame, pr: Adventure.playerRobot };
     const wrap = function (setup) { window.newGame = o.newGame; return coopNewGame(setup, my, o.newGame); };   // Adventure.start calls newGame once: we reshape what it asks for
@@ -170,6 +229,13 @@ const Coop = (() => {
   const ZERO = { l: 0, r: 0, u: 0, d: 0, fi: 0, fa: 0 };
   function applyRec(r) {   // one stamped input: the buttons + one-shot actions of the player whose turn it is
     if (r.drop != null) { S.gone = S.gone || {}; S.gone[r.drop] = 3; for (const w of G.worms) if (w.team === r.drop && w.state !== 'dead' && w.state !== 'drown') { w.hp = 0; killWorm(w); } return; }   // a player left: his robot goes down on the same frame everywhere
+    if (r.aw != null) {   // a player is away (disconnected / lagging): his robot STAYS (he can come back), but nobody waits for him: his turn runs without input and with a short timer
+      const k = r.aw; S.away[k] = 3; S.awayReq[k] = 0; delete S.simIn[k];
+      const w = G.activeWorm; if (w && w.team === k && G.mode === 'play' && !G.swarm && G.phase === 'aim') { G.charging = false; G.charge = 0; G.timer = Math.min(G.timer, AWAY_TURN_SEC * 60); }
+      return;
+    }
+    if (r.bk != null) { const k = r.bk; S.away[k] = 0; S.awayReq[k] = 0; const w = G.activeWorm; if (w && w.team === k) S.holdTurn[k] = G.turnCount; return; }   // he is back: he plays again from his NEXT turn (the host keeps numbering the frames of the turn that is running)
+    if (S.away[r.tm] === 3) return;   // an input of a player who is away: ignored (same on every phone)
     const s = r.s || ZERO;
     S.simIn[r.tm] = { l: s.l, r: s.r, u: s.u, d: s.d, fi: s.fi, fa: s.fa, fp: (r.ev || []).includes('fp'), j: (r.ev || []).includes('j'), fl: (r.ev || []).includes('fl') };
     for (const e of r.ev || []) if (typeof e === 'object') { try { applyUi(r.tm, e); } catch (x) { console.warn('coop ui', x); } }
@@ -195,11 +261,14 @@ const Coop = (() => {
     } finally { S.applying = false; }
     UI.lastSig = '';
   }
-  function myTurn() { return !!(S && S.sim && S.myTeam >= 0 && G.mode === 'play' && G.activeWorm && G.activeWorm.team === S.myTeam && !G.swarm && !S.over && S.f >= S.turnF + COOP_GRACE); }
+  const awayNow = k => !!(S.away[k] || S.awayReq[k] || S.srvAway[k] || S.holdTurn[k] === G.turnCount);   // this player cannot be the clock right now (away, being taken over, or just back and sitting out the running turn)
+  function myTurn() { return !!(S && S.sim && !S.catching && S.myTeam >= 0 && G.mode === 'play' && G.activeWorm && G.activeWorm.team === S.myTeam && !G.swarm && !S.over && !awayNow(S.myTeam) && S.limit <= S.f + 2 && S.f >= S.turnF + COOP_GRACE); }   // (S.limit > S.f = others are ahead of me, e.g. my phone lagged: I am not the clock, I must catch up first and send nothing)
   function freeRun() {   // a phone may run on without the clock when nobody can send input: enemy turns and the first frames of a turn
     if (!S || G.mode !== 'play' || !G.activeWorm) return false;
     if (S.gone) for (const k in S.gone) if (S.gone[k] === 1 || S.gone[k] === 2) return false;   // only while a player's drop is still waiting to be applied (same frame on every phone). Once it is applied (3) the phones free-run again: before, ONE disconnect made every other phone depend on the network for every single frame = stutter on every hit
+    for (const k in S.awayReq) if (S.awayReq[k] === 1 || S.awayReq[k] === 2) return false;   // the host is taking a player's turn over: wait for his frames (same frame everywhere)
     const t = G.teams[G.activeWorm.team]; if (G.swarm || (t && t.cpu)) return true;
+    if (S.away[G.activeWorm.team] === 3) return true;   // an away player's turn: nobody can send input, every phone runs it by itself (short timer)
     return S.f < S.turnF + COOP_GRACE;
   }
   function submit(payload) {   // my buttons / actions -> the host (or straight to the stamp if I am the host)
@@ -209,11 +278,11 @@ const Coop = (() => {
   function stamp(tm, s, ev) {   // I am the clock: give my input the next frame number, apply it, tell everybody
     if (!G.activeWorm || G.activeWorm.team !== tm || G.mode !== 'play') return;
     const rec = { k: 'in', sk: S.sk, f: S.f, tm, s, ev };
-    tx('*', rec); S.pre.push(rec);
+    tx('*', rec); S.pre.push(rec); S.log.push(rec);
   }
   function clockId() {   // who numbers the frames right now: the player whose turn it is, otherwise the host
     const w = G.activeWorm;
-    if (w && G.mode === 'play' && !G.swarm) { const t = G.teams[w.team]; if (t && !t.cpu && t.pid && !(S.gone && S.gone[w.team])) return t.pid; }
+    if (w && G.mode === 'play' && !G.swarm) { const t = G.teams[w.team]; if (t && !t.cpu && t.pid && !(S.gone && S.gone[w.team]) && !awayNow(w.team)) return t.pid; }
     return net.hostId;
   }
   function sampleLocal() {   // read my real fingers (the game's own In), turn them into an input message
@@ -228,13 +297,40 @@ const Coop = (() => {
   }
   function emitUi(u) { if (!S || !S.sim) return false; if (!myTurn()) { try { Snd.play('dud'); } catch (e) { } return true; } S.uiq.push(u); return true; }
 
+  function emitCtl(extra, delay) { const rec = Object.assign({ k: 'in', sk: S.sk, f: S.f + (delay | 0), tm: -1 }, extra); tx('*', rec); if (delay) qInsert(rec); else S.pre.push(rec); S.log.push(rec); }   // a control record (drop / away / back): applied on its frame (a few frames ahead for away / back) on every phone
+  function hostCtl() {   // the host decides who is away and who is back (ONE decider, so every phone gets the same records)
+    if (!S.host || S.f < S.limit) return;
+    for (let k = 0; k < S.members.length; k++) {
+      if (S.gone && S.gone[k]) continue;
+      const want = !!(S.srvAway[k] || S.awayReq[k] === 1);
+      if (want && S.away[k] !== 3 && S.awayReq[k] !== 2) { S.awayReq[k] = 2; emitCtl({ aw: k }, CTL_DELAY); }
+      else if (!want && S.away[k] === 3 && S.here[k] && performance.now() - S.here[k] < 6000) { S.here[k] = 0; emitCtl({ bk: k }, CTL_DELAY); }
+    }
+  }
+  function autoAway() {   // host: the player whose turn it is has sent nothing for STALL_AWAY_MS (closed the game, no signal, frozen phone): take his turn over, he is marked away
+    const w = G.activeWorm; if (!w || G.swarm || G.mode !== 'play') return;
+    const t = G.teams[w.team]; if (!t || t.cpu || !t.pid || t.pid === net.myId) return;
+    const k = w.team; if (S.away[k] || S.awayReq[k] || (S.gone && S.gone[k])) return;
+    S.awayReq[k] = 1; S.stall = performance.now();
+    toast(((S.members[k] && S.members[k].name) || 'A player') + ' lost connection. The fight goes on.');
+  }
+  function endCatch() {
+    S.catching = false; S.holdTurn[S.myTeam] = G.turnCount;   // I sit out the turn that is running right now (the others number its frames)
+    toast('Back in the fight!');
+  }
+  function hereBeat() {   // I was marked away and I am back and caught up: tell the host so he lets me play again
+    if (S.myTeam < 0 || S.away[S.myTeam] !== 3 || S.catching || S.cuWait || S.f < S.limit - 60) return;
+    const now = performance.now(); if (now - (S.hereAt || 0) < 1500) return; S.hereAt = now;
+    if (S.host) { S.here[S.myTeam] = now; return; } tx('h', { k: 'here', sk: S.sk });
+  }
   function step(orig_, iAmClock) {   // exactly one frame of the fight, the same on every phone
     const rnd0 = Math.random; Math.random = S.rng; S.stepping = true;
     const ph = { left: In.left, right: In.right, up: In.up, down: In.down, fire: In.fire, fast: In.fast, firePressed: In.firePressed, jump: In.jump, flip: In.flip };
     try {
       // 1. inputs that belong to this frame
-      { const pre = S.pre; S.pre = []; for (const r of pre) applyRec(r); }
-      while (S.q.length && S.q[0].f <= S.f) applyRec(S.q.shift());
+      { const due = S.pre; S.pre = []; while (S.q.length && S.q[0].f <= S.f) due.push(S.q.shift());
+        if (due.length > 1) { const c = [], n = []; for (const r of due) (isCtl(r) ? c : n).push(r); due.length = 0; due.push(...c, ...n); }   // drop / away / back first: the same order on every phone
+        for (const r of due) applyRec(r); }
       // 2. my buttons are replaced by the stamped ones of whoever's turn it is
       const aw = G.activeWorm, si = (aw && S.simIn[aw.team]) || null;
       In.left = !!(si && si.l); In.right = !!(si && si.r); In.up = !!(si && si.u); In.down = !!(si && si.d); In.fire = !!(si && si.fi); In.fast = !!(si && si.fa);
@@ -246,7 +342,7 @@ const Coop = (() => {
       Math.random = rnd0; S.stepping = false;
     }
     S.f++;
-    if (S.f % 60 === 0) { const h = hash(); if (iAmClock) S.myHash = h; else { const hh = S.hashes[S.f]; if (hh != null) { delete S.hashes[S.f]; S.checks = (S.checks || 0) + 1; if (hh !== h && !S.bad) { S.bad = true; console.warn('COOP out of sync at frame', S.f); toast('Out of sync with the host (leave and join again)'); if (hooks.onDesync) hooks.onDesync(S.f); } } } }
+    if (S.f % 60 === 0) { const h = hash(); if (iAmClock) S.myHash = h; else { const hh = S.hashes[S.f]; if (hh != null) { delete S.hashes[S.f]; S.checks = (S.checks || 0) + 1; if (hh !== h && !S.bad) { if (needResync('out of sync at frame ' + S.f)) return; S.bad = true; console.warn('COOP out of sync at frame', S.f); toast('Out of sync with the host (leave and join again)'); if (hooks.onDesync) hooks.onDesync(S.f); } } } }
     if (G.mode !== 'play') {
       S.over = true;
       if (iAmClock) {   // the stage ended on THIS frame: tell everybody the final frame number right now (the normal 40 ms heartbeat stops here, so the other phones waited for frames that never came and showed "Connection lost"). Sent 3 times so one lost message cannot freeze anybody.
@@ -259,30 +355,36 @@ const Coop = (() => {
   function coopUpdate(orig_) {   // replaces the game's updateGame while a co-op stage is on
     if (!S || !S.sim || S.dead || G.mp !== S) return orig_.call(null);
     if (G.mode !== 'play') { if (S.over) return orig_.call(null); return; }
-    const me = clockId() === net.myId;
-    sampleLocal();
+    if (S.cuWait) return;   // I am waiting for the log of a fight that is already running
+    const me = !S.catching && clockId() === net.myId && S.limit <= S.f + 2;
+    if (!S.catching) sampleLocal();
+    hereBeat();
     if (me) {   // my turn (or an enemy turn and I am the host): I number the frames, nobody can run ahead of me
       S.stall = 0; step(orig_, true);
       if (clockId() !== net.myId) { S.limit = S.f; S.lastHb = 0; }   // the turn went to somebody else: I wait for him at this frame
       const now = performance.now();
       if (now - S.lastHb >= 40 || S.f % 60 === 0) { S.lastHb = now; tx('*', { k: 'hb', sk: S.sk, f: S.f, h: S.f % 60 === 0 ? S.myHash : undefined }); }
-      if (S.gone) for (const k in S.gone) if (S.gone[k] === 1 && S.f >= S.limit) { S.gone[k] = 2; const rec = { k: 'in', sk: S.sk, f: S.f, tm: -1, drop: +k }; tx('*', rec); S.pre.push(rec); }
+      if (S.gone) for (const k in S.gone) if (S.gone[k] === 1 && S.f >= S.limit) { S.gone[k] = 2; emitCtl({ drop: +k }); }
+      hostCtl();
       return;
     }
-    let n = 1, behind = S.limit - S.f; if (behind > 120) n = 12; else if (behind > 24) n = 4; else if (behind > 3) n = 2;
+    let n = 1, behind = S.limit - S.f, budget = 12; if (behind > 120) n = 12; else if (behind > 24) n = 4; else if (behind > 3) n = 2;
+    if (S.catching) { n = 600; budget = 30; }   // replaying a fight I missed: as fast as the phone can
     const t0 = performance.now();
     for (let i = 0; i < n; i++) {
-      if (S.f >= S.limit && !freeRun()) break;
-      const c = clockId() === net.myId; step(orig_, c); if (G.mode !== 'play') break; if (c) break; if (performance.now() - t0 > 12) break;
+      if (S.f >= S.limit && (S.catching || !freeRun())) break;   // catching up: never run past the present, even in free-run phases
+      const c = !S.catching && clockId() === net.myId && S.limit <= S.f + 2; step(orig_, c); if (S.dead || G.mp !== S) return; if (G.mode !== 'play') break; if (c) break; if (performance.now() - t0 > budget) break;
     }
+    if (S.catching && S.f >= S.limit - 4) endCatch();
     if (S.f >= S.limit && !freeRun()) {
       if (G.cam && G.cam.shake > 0.05) G.cam.shake *= 0.8;   // the shake only fades while the fight runs: fade it by hand while we wait
       const now = performance.now(); if (!S.stall) S.stall = now;
       else {
         const mineDead = !net.ws || net.ws.readyState > 1;
-        if (now - S.stall > 3000 && !S.stallMsg) { S.stallMsg = true; toast('A player lost connection... waiting a moment'); }
-        // the server removes a silent player after a few seconds and then his robot goes down: the others just carry on. We only give up if OUR connection is dead (or after a very long silence).
-        if ((mineDead && now - S.stall > 6000 || now - S.stall > 40000) && !S.bad) { S.bad = true; toast('Connection lost'); if (hooks.onLost) hooks.onLost(); }
+        if (now - S.stall > 2500 && !S.stallMsg) { S.stallMsg = true; toast('A player lost connection... his turn is skipped in a moment'); }
+        if (S.host && now - S.stall > STALL_AWAY_MS) autoAway();   // the host takes the silent player's turn over (the server also marks him away after a few seconds); nobody else waits
+        // We only give up if OUR connection is dead (or after a really long silence): a silent teammate never throws the others out
+        if ((mineDead && now - S.stall > 6000 || now - S.stall > 120000) && !S.bad) { S.bad = true; toast('Connection lost'); if (hooks.onLost) hooks.onLost(); }
       }
     } else { S.stall = 0; S.stallMsg = false; }
   }
@@ -302,12 +404,14 @@ const Coop = (() => {
           if (!hum.length) { endGame(en[0]); return; }
         }
       }
-      return st.apply(this, arguments);
+      const rv = st.apply(this, arguments);
+      if (on() && G.mode === 'play' && G.activeWorm && !G.swarm && S.away[G.activeWorm.team] === 3 && G.phase === 'aim') G.timer = Math.min(G.timer, AWAY_TURN_SEC * 60);   // an away player's turn: short timer
+      return rv;
     };
     orig.doTeleport = window.doTeleport;
     window.doTeleport = function (x, y) { if (on() && !S.applying && !S.stepping) { emitUi({ u: 'tp', x: Math.round(x), y: Math.round(y) }); return; } return orig.doTeleport.apply(this, arguments); };
     // anything random that only makes noise must not use the shared random numbers
-    for (const k of ['play', 'noise', 'tone']) { const f = Snd[k]; Snd[k] = function () { const cur = Math.random; if (cur === REAL_RANDOM) return f.apply(this, arguments); Math.random = REAL_RANDOM; try { return f.apply(this, arguments); } finally { Math.random = cur; } }; }
+    for (const k of ['play', 'noise', 'tone']) { const f = Snd[k]; Snd[k] = function () { if (S && S.catching) return; const cur = Math.random; if (cur === REAL_RANDOM) return f.apply(this, arguments); Math.random = REAL_RANDOM; try { return f.apply(this, arguments); } finally { Math.random = cur; } }; }
     // potions are used up on the phone of the player who drinks them, not on every phone
     if (typeof Profile !== 'undefined' && Profile.addStock) { const as = Profile.addStock; Profile.addStock = function () { if (on() && S.stepping && G.activeWorm && G.activeWorm.team !== S.myTeam) return; return as.apply(this, arguments); }; }
     // no pause that stops only one phone: the pause screen is only a menu (Quit still works)
@@ -344,6 +448,10 @@ const Coop = (() => {
     if (S && !S.init && S.members.some(m => m.id === id)) { S.members = S.members.filter(m => m.id !== id); if (S.host) tryInit(); return; }   // he left while the stage was still loading: nobody waits for him any more
     if (!on() || S.over) return; const k = S.members.findIndex(m => m.id === id); if (k < 0) return; S.gone = S.gone || {}; if (!S.gone[k]) S.gone[k] = 1;
   }
+  function setAway(id, on) {   // lobby: the server says this player is silent (on) or back (off)
+    if (!S || !S.init || S.dead) return; const k = S.members.findIndex(m => m.id === id); if (k < 0) return;
+    S.srvAway[k] = !!on;
+  }
   function setHost(id) {   // the old host left: the server made somebody else host. He now numbers the frames during enemy turns.
     if (!net || net.hostId === id) return; net.hostId = id;
     if (!S) return; S.host = amHost();
@@ -352,5 +460,5 @@ const Coop = (() => {
       else tx('h', { k: 'load', sk: S.sk, load: S.mine });
     }
   }
-  return { connect, close, begin, retry, endStage, dropMember, setHost, get active() { return on(); }, get host() { return amHost(); }, get wsOpen() { return !!(net && net.ws && net.ws.readyState === 1); }, get desync() { return !!(S && S.bad); }, get frame() { return S ? S.f : 0; }, get state() { return S; } };
+  return { connect, close, begin, retry, endStage, dropMember, setAway, setHost, get active() { return on(); }, get host() { return amHost(); }, get wsOpen() { return !!(net && net.ws && net.ws.readyState === 1); }, get desync() { return !!(S && S.bad); }, get frame() { return S ? S.f : 0; }, get state() { return S; } };
 })();
