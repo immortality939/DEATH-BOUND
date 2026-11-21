@@ -21,16 +21,20 @@ const Daily = (() => {
   const IMG = 'assets/online/daily/', MIN = 60000;
 
   // ---------- THE REWARDS (edit here) ----------
+  // EVERY MONTH the gear changes: slot 'A' and slot 'B' below are two kinds of gear, taken from SETS (a different pair each month, then it starts over). Chips, stones, amulets, scrolls and the ADS days stay the same every month.
+  //   this month: weapon + glove | next month: armor + shoes | then helmet + ring | then armor + weapon | then it starts again.  (the month changes at midnight UTC+8; add or reorder pairs freely)
   // chips: { chips: N }   item by id: { id, qty }   a shop item picked by type + rarity: { pick: 'weapon' | 'glove' | 'wings', rar }   ads: true  (the slot shows ads.png)
+  const SETS = [['helmet', 'ring'], ['armor', 'weapon'], ['weapon', 'glove'], ['armor', 'shoes']];   // [A, B]  (kinds: weapon, glove, helmet, armor, shoes, ring)
+  const monthKey = () => dayKey().slice(0, 7), monthSet = () => { const y = +dayKey().slice(0, 4), m = +dayKey().slice(5, 7); return SETS[(y * 12 + m - 1) % SETS.length]; };
   const CAL = [null,
-    { chips: 100 }, { pick: 'weapon', rar: 'common' }, { id: 'mat_stone1' }, { id: 'mat_amu1' },                                     // 1-4
-    { chips: 200 }, { pick: 'weapon', rar: 'rare' }, { id: 'mat_stone2' }, { id: 'mat_amu2' },                                       // 5-8
+    { chips: 100 }, { slot: 'A', rar: 'common' }, { id: 'mat_stone1' }, { id: 'mat_amu1' },                                     // 1-4
+    { chips: 200 }, { slot: 'A', rar: 'rare' }, { id: 'mat_stone2' }, { id: 'mat_amu2' },                                       // 5-8
     { chips: 300 }, { pick: 'wings', rar: 'common', ads: true },                                                                     // 9, 10 (ADS)
-    { pick: 'glove', rar: 'common' }, { id: 'mat_stone3' }, { id: 'mat_sup1' }, { chips: 300 },                                      // 11-14
-    { pick: 'glove', rar: 'rare' }, { id: 'mat_stone3' }, { id: 'mat_sup1' }, { chips: 400 },                                        // 15-18
-    { pick: 'glove', rar: 'rare' }, { id: 'mat_amu3', ads: true },                                                                   // 19, 20 (ADS)
-    { id: 'mat_stone4' }, { id: 'mat_amu2' }, { chips: 500 }, { pick: 'weapon', rar: 'epic' },                                       // 21-24  (epic weapon)
-    { id: 'mat_stone4' }, { id: 'mat_amu2' }, { chips: 500 }, { pick: 'glove', rar: 'epic' },                                        // 25-28  (epic gloves)
+    { slot: 'B', rar: 'common' }, { id: 'mat_stone3' }, { id: 'mat_sup1' }, { chips: 300 },                                      // 11-14
+    { slot: 'B', rar: 'rare' }, { id: 'mat_stone3' }, { id: 'mat_sup1' }, { chips: 400 },                                        // 15-18
+    { slot: 'B', rar: 'rare' }, { id: 'mat_amu3', ads: true },                                                                   // 19, 20 (ADS)
+    { id: 'mat_stone4' }, { id: 'mat_amu2' }, { chips: 500 }, { slot: 'A', rar: 'epic' },                                       // 21-24  (epic weapon)
+    { id: 'mat_stone4' }, { id: 'mat_amu2' }, { chips: 500 }, { slot: 'B', rar: 'epic' },                                        // 25-28  (epic gloves)
     { id: 'mat_stone5' }, { id: 'heal_divine_rare', ads: true },                                                                     // 29, 30 (ADS)  strongest at the end
   ];
   // chests: 6 steps a day. wait = minutes until the reward is ready (it counts from the moment the previous reward was claimed; the first one from the start of the day)
@@ -60,17 +64,19 @@ const Daily = (() => {
   const strHash = t => { let x = 2166136261; for (let i = 0; i < t.length; i++) { x ^= t.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; };
   const itemOf = id => { try { return itemById(id) || null; } catch (e) { return null; } };
   function pool(kind, rar) {   // the same kind of list the Quests use: only items that exist in the game and are sold (price > 0)
-    const src = kind === 'weapon' ? (typeof SHOP_WEAPON_ITEMS !== 'undefined' ? SHOP_WEAPON_ITEMS : []) : kind === 'glove' ? (typeof GLOVE_ITEMS !== 'undefined' ? GLOVE_ITEMS : []) : (typeof WING_ITEMS !== 'undefined' ? WING_ITEMS : []);
-    return src.filter(it => it && it.rar === rar && !it.mythic && (() => { try { return itemPrice(it) > 0; } catch (e) { return true; } })()).sort((a, b) => a.id < b.id ? -1 : 1);
+    const g = n => typeof window[n] !== 'undefined' ? window[n] : (() => { try { return eval(n); } catch (e) { return []; } })();
+    const src = kind === 'weapon' ? g('SHOP_WEAPON_ITEMS') : kind === 'glove' ? g('GLOVE_ITEMS') : kind === 'wings' ? g('WING_ITEMS') : [].concat(g('ITEMS') || [], g('SHOP_GEAR_ITEMS') || []).filter(it => it && it.type === kind);
+    const seen = new Set();
+    return src.filter(it => it && it.rar === rar && !it.mythic && !it.sig && !it.potion && !it.heal && !seen.has(it.id) && seen.add(it.id) && (() => { try { return itemPrice(it) > 0; } catch (e) { return true; } })()).sort((a, b) => a.id < b.id ? -1 : 1);
   }
   const memo = {};
   function rewardOfDay(d) {   // { chips, items:[{ it, id, qty }], ads }
-    if (memo[d]) return memo[d]; const r = CAL[d] || {}; let out = { chips: 0, items: [], ads: !!r.ads };
+    const mk = monthKey() + ':' + d; if (memo[mk]) return memo[mk]; const r = Object.assign({}, CAL[d] || {}); if (r.slot) r.pick = monthSet()[r.slot === 'A' ? 0 : 1]; let out = { chips: 0, items: [], ads: !!r.ads };
     if (r.chips) out.chips = r.chips;
     else if (r.id) { const it = itemOf(r.id); if (it) out.items.push({ it, id: it.id, qty: r.qty || 1 }); }
-    else if (r.pick) { const L = pool(r.pick, r.rar); if (L.length) { const it = L[strHash('daily' + d) % L.length]; out.items.push({ it, id: it.id, qty: 1 }); } }
+    else if (r.pick) { const L = pool(r.pick, r.rar); if (L.length) { const it = L[strHash('daily' + monthKey() + d) % L.length]; out.items.push({ it, id: it.id, qty: 1 }); } }
     if (!out.chips && !out.items.length) out.chips = 300;   // the item is missing in this build: never give an empty reward
-    return memo[d] = out;
+    return memo[mk] = out;
   }
   function rewardOfStep(k, i) {
     const r = CHESTS[k].list[i]; if (k === 'g') return { chips: r.chips, items: [], ads: !!r.ad };
