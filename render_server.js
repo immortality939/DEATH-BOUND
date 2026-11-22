@@ -2,7 +2,7 @@
    The offline app keeps using render.js. Edit the two files separately on purpose. */
 'use strict';
 const PROJ_ANCHOR = { proj_bolt_cyan: [77, 16], proj_bolt_orange: [77, 16], proj_bullet: [38, 6], proj_plasma: [32, 32], proj_fire: [35, 32], proj_ice: [56, 16], proj_rocket: [128, 32], proj_missile: [128, 32], proj_bomblet: [32, 32], proj_meteor: [128, 40], proj_banana_small: [32, 32], proj_meteorlet: [32, 32] };
-const ADDITIVE = { fly_trail: 1, heal_pulse: 1, team_heal_wave: 1, divine_trail: 1, divine_burst: 1, divine_heal_on: 1, divine_trail_b: 1, divine_burst_b: 1, divine_heal_on_b: 1, teleport: 1, energy_hit: 1, plasma_hit: 1, spark_hit: 1, slash_cyan: 1, slash_orange: 1, heal: 1, proj_fire: 1, proj_plasma: 1, proj_bolt_cyan: 1, proj_bolt_orange: 1, proj_bullet: 1 };
+const ADDITIVE = { fly_trail: 1, heal_pulse: 1, team_heal_wave: 1, divine_trail: 1, divine_burst: 1, divine_heal_on: 1, divine_trail_b: 1, divine_burst_b: 1, divine_heal_on_b: 1, divine_trail_m: 1, divine_burst_m: 1, divine_heal_on_m: 1, teleport: 1, energy_hit: 1, plasma_hit: 1, spark_hit: 1, slash_cyan: 1, slash_orange: 1, heal: 1, proj_fire: 1, proj_plasma: 1, proj_bolt_cyan: 1, proj_bolt_orange: 1, proj_bullet: 1 };
 Object.assign(ADDITIVE, { axe_trail_t0: 1, axe_trail_t1: 1, axe_trail_t2: 1, axe_trail_t3: 1 });   // Doom Axe trails glow
 Object.assign(ADDITIVE, { volt_hit_t0: 1, volt_hit_t1: 1, volt_hit_t2: 1, volt_hit_t3: 1 });   // Tempest Arc hit effects glow
 const BG_FILL = { day: [[84, 112, 144], [66, 98, 119], [42, 77, 70]], sunset: [[91, 49, 84], [70, 35, 70], [42, 21, 49]], night: [[24, 28, 63], [17, 20, 48], [10, 11, 29]] };
@@ -80,6 +80,7 @@ function drawWorm(ctx, w, isActive, t) {
   if (isActive && (G.phase === 'aim' || G.phase === 'shooting' || G.phase === 'retreat') && w.frozen <= 0) {
     let wd = w.mw || curWeapon(), wi = getImg(wpath(wd.art || wd.id, (wd.sig || wd.shop) ? teamWTier(curTeam()) : 0));
     if (wi && wd.heal && typeof azureHealImg === 'function') wi = azureHealImg(w.team, wi);   // Azure Divine Heal in the robot's hands = light-blue picture
+    if (wi && wd.heal && typeof mythHealImg === 'function') wi = mythHealImg(w.team, wi);   // Mythical Divine Heal in the robot's hands = green picture
     if (wi) {
       const wp = an.w || an.n; ctx.save(); ctx.translate(wp[0] - F[0], wp[1] - F[1]); ctx.rotate(-w.aim * D2R);   // an.w = per-robot weapon pivot (robots.json), so every bot's weapon sits right in its own hands; fists (an.n / an.f) stay on the hands
       ctx.scale(WS * (wd.hold || 1), WS * (wd.hold || 1));
@@ -93,7 +94,7 @@ function drawWorm(ctx, w, isActive, t) {
   const tint = (col, a) => { tintCtx.clearRect(0, 0, 192, 192); tintCtx.globalCompositeOperation = 'source-over'; tintCtx.drawImage(img, sx, sy, FR, FR, 0, 0, FR, FR); tintCtx.globalCompositeOperation = 'source-atop'; tintCtx.globalAlpha = a; tintCtx.fillStyle = col; tintCtx.fillRect(0, 0, 192, 192); tintCtx.globalAlpha = 1; ctx.drawImage(tintCv, 0, 0, FR, FR, -F[0], -F[1], 512, 512); };
   if (w.frozen > 0) tint('#9fe4ff', .55);
   if (w.flash > 0 && (w.flash % 4) < 2) tint('#ff4a2a', .6);
-  else if (w.healT > 0) tint(w.healBlue ? '#cfeaff' : '#e8ffee', .55 * w.healT / 36);   // Divine Heal glow
+  else if (w.healT > 0) tint(w.healMyth ? '#b9ffb0' : w.healBlue ? '#cfeaff' : '#e8ffee', .55 * w.healT / 36);   // Divine Heal glow
   ctx.restore();
   if (w.state === 'drown') return;
   // labels
@@ -235,7 +236,7 @@ function drawSigShot(ctx, L, p, t, ss) {
   if (tier) epicFront(ctx, L, a, tier);
 }
 function drawDivineShot(ctx, p) {   // ctx is already translated to the orb; flapping wings + glowing comet trail
-  const az = isAzureHeal(p), c1 = az ? '120,200,255' : '255,120,235', c2 = az ? '190,240,255' : '120,230,255', c3 = az ? '225,245,255' : '255,225,255';   // Azure Divine Heal = light-blue trail
+  const az = isAzureHeal(p), my = isMythHeal(p), c1 = my ? '70,255,90' : az ? '120,200,255' : '255,120,235', c2 = my ? '200,255,70' : az ? '190,240,255' : '120,230,255', c3 = my ? '225,255,215' : az ? '225,245,255' : '255,225,255';   // Azure Divine Heal = light-blue trail
   const tr = p.tr || []; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
   for (let i = 1; i < tr.length; i++) { const a = tr[i - 1], b = tr[i], u = i / tr.length; ctx.strokeStyle = i % 2 ? `rgba(${c1},${.55 * u})` : `rgba(${c2},${.55 * u})`; ctx.lineWidth = 2 + 11 * u; ctx.beginPath(); ctx.moveTo(a[0] - p.x, a[1] - p.y); ctx.lineTo(b[0] - p.x, b[1] - p.y); ctx.stroke(); }
   const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 36); g.addColorStop(0, `rgba(${c3},.6)`); g.addColorStop(1, `rgba(${c1},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 36, 0, 6.283); ctx.fill(); ctx.restore();

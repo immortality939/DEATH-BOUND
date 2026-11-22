@@ -40,7 +40,7 @@ function azureHealImg(team, wi) {
 document.head.appendChild(Object.assign(document.createElement('style'), { textContent: '#hbtn.azure.on{border-color:#8fd8ff;box-shadow:0 0 0 2px #8fd8ff,0 0 14px rgba(120,200,255,.55)}' }));
 // Heal button picture in battle follows the worn Divine Heal
 setInterval(() => {
-  try { const im = document.getElementById('himg'); if (!im || typeof G === 'undefined' || !G.teams) return; const t = G.teams[G.cur], blue = !!(t && t.bonus && t.bonus.hid === RARE_HEAL_ID), want = blue ? 'assets/items/heal_divine_rare.png' : 'assets/items/heal_divine.png'; if (!im.src.endsWith(want)) im.src = want; const hb = document.getElementById('hbtn'); if (hb) hb.classList.toggle('azure', blue); } catch (e) { }
+  try { const im = document.getElementById('himg'); if (!im || typeof G === 'undefined' || !G.teams) return; const t = G.teams[G.cur], blue = !!(t && t.bonus && t.bonus.hid === RARE_HEAL_ID), myth = !!(t && t.bonus && t.bonus.hid === 'heal_divine_myth'), want = myth ? 'assets/items/heal_divine_myth.png' : blue ? 'assets/items/heal_divine_rare.png' : 'assets/items/heal_divine.png'; if (!im.src.endsWith(want)) im.src = want; const hb = document.getElementById('hbtn'); if (hb) hb.classList.toggle('azure', blue); } catch (e) { }
 }, 400);
 
 // ---------- BOSS LOOT: one rare Divine Heal card on every boss board (replaces one chips card, positions stay random) ----------

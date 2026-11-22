@@ -229,21 +229,22 @@ function detonate(p) {
 }
 // ---- Divine Heal: sparkle trail while flying, and the healing blast ----
 const isAzureHeal = p => { const o = p && p.owner, tb = o ? teamBonus(o.team) : null; return !!(tb && tb.hid === 'heal_divine_rare'); };   // Azure Divine Heal (rare, light blue) worn by the thrower
-const divFx = (n, p) => isAzureHeal(p) && Assets.fx[n + '_b'] ? n + '_b' : n;   // effect sheet name: the light-blue copy for the Azure Divine Heal
+const isMythHeal = p => { const o = p && p.owner, tb = o ? teamBonus(o.team) : null; return !!(tb && tb.hid === 'heal_divine_myth'); };   // Mythical Divine Heal (green) worn by the thrower (mythdivine.js)
+const divFx = (n, p) => isMythHeal(p) && Assets.fx[n + '_m'] ? n + '_m' : isAzureHeal(p) && Assets.fx[n + '_b'] ? n + '_b' : n;   // effect sheet name: the light-blue copy for the Azure Divine Heal
 function divineTrail(p) {
   (p.tr = p.tr || []).push([p.x, p.y]); if (p.tr.length > 16) p.tr.shift();
   if (p.age % 2 === 0) addFx(divFx('divine_trail', p), p.x + rnd(-8, 8), p.y + rnd(-5, 12), rnd(.4, .75));   // divFx: light-blue sheet when the thrower wears the Azure (rare) Divine Heal
 }
 function divineBurst(p) {   // everyone inside the blast (the thrower too) shares the heal: total / number of robots, capped at each robot's max health
   const pr = p.p, own = p.owner, R = pr.healR || DIVINE_RADIUS, tb = own ? teamBonus(own.team) : null, total = tb && tb.heal ? tb.heal : pr.heal;
-  const az = isAzureHeal(p), pc = az ? '#cdeeff' : '#ffd0f5', hc = az ? '#9fdcff' : '#8dff9e';   // pop colours (Azure = light blue)
+  const az = isAzureHeal(p), my = isMythHeal(p), pc = my ? '#d8ffd0' : az ? '#cdeeff' : '#ffd0f5', hc = my ? '#6dff7a' : az ? '#9fdcff' : '#8dff9e';   // pop colours (Azure = light blue)
   addFx(divFx('divine_burst', p), p.x, p.y, R / 112); shake(2); Snd.play('divine');
   const hit = aliveWorms().filter(w => { const [cx, cy] = bodyCenter(w); return dist(p.x, p.y, cx, cy) - 22 * (w.sc || 1) < R && (DIVINE_HEALS_ENEMIES || !own || allies(w, own)); });
   if (!hit.length) { addPop(p.x, p.y - 30, 'No one in range', pc, 16); return; }
   const share = total / hit.length;
   if (hit.length > 1) addPop(p.x, p.y - R * .55, 'Heal ' + Math.round(total) + ' ÷ ' + hit.length, pc, 20);
   for (const w of hit) {
-    const h = Math.max(0, Math.min((w.maxHp || 100) - w.hp, Math.round(share))); w.hp += h; w.healT = 36; w.healBlue = az;
+    const h = Math.max(0, Math.min((w.maxHp || 100) - w.hp, Math.round(share))); w.hp += h; w.healT = 36; w.healBlue = az; w.healMyth = my;
     addFx(divFx('divine_heal_on', p), w.x, w.y - 40 * (w.sc || 1), .72 * (w.sc || 1));
     addPop(w.x, w.y - 92 * (w.sc || 1), h > 0 ? '+' + h + ' HP' : 'FULL', hc, 22);
   }
