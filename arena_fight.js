@@ -23,7 +23,7 @@ const ArenaFight = (() => {
   const BUF = 3;                  // frames of input the watcher keeps in hand before it (re)starts after a wait (smooth play on slow phones)
   const POLL_MS = 100, POLL_FAST_MS = 50;
   const GRACE = 36;               // frames at the start of every turn where nobody can act (same on every phone): hides the network delay of the hand-over, so nobody freezes after a shot
-  const SNAP_WAIT_MS = 1500, LOST_MS = 20000, CATCH_MS = 40;   // CATCH_MS = how long one picture may spend on replaying (catching up) after a reconnect
+  const SNAP_WAIT_MS = 1500, LOST_MS = 9000, CATCH_MS = 40;   // CATCH_MS = how long one picture may spend on replaying (catching up) after a reconnect
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   let F = null;                   // the running fight (null = none)
   let H = null;                   // the game functions we replaced (to put them back)
@@ -204,9 +204,16 @@ const ArenaFight = (() => {
   function ingest(ev) {   // an event from the HTTP log
     const f = F; if (!f || !ev) return; const R = f.rem[ev.from];
     if (R && ev.n != null) { if (ev.n <= R.lastN) return; R.lastN = ev.n; }
-    if (ev.from === 'srv') { if (ev.k === 'sk') gotSkip(ev); return; }
+    if (ev.from === 'srv') { if (ev.k === 'sk') gotSkip(ev); else if (ev.k === 'out' && typeof ev.of === 'string') f.outs.set(ev.of, ev.tc | 0); return; }   // out: a player LEFT the fight; from turn tc on his robot is dead (same turn on every phone)
     if (ev.from === f.me && !f.catching) return;   // my own old events only matter while I rebuild the fight
     if (ev.k === 'sn') { if (Array.isArray(ev.d)) f.snaps.push(ev); } else if (R) R.q.push(ev);
+  }
+  function applyOuts() {
+    const f = F;
+    for (const [id, tc] of f.outs) {
+      if (G.turnCount + 1 < tc) continue;
+      for (const w of G.worms) if (ownerOf(w) === id && w.state !== 'dead' && w.state !== 'drown') { w.hp = 0; killWorm(w); w.exploded = true; addPop(w.x, w.y - 90 * (w.sc || 1), 'LEFT', '#ff8a7a', 20); }
+    }
   }
   function gotSkip(ev) {   // the server skipped somebody's turn
     const f = F; if (!f || !ev || f.sks.has(ev.tc | 0)) return;
@@ -247,6 +254,7 @@ const ArenaFight = (() => {
     while (f && !f.stop) {
       const t0 = Date.now(); let sent = 0;
       const body = { match: f.id, since: f.seen, live: f.loads ? 1 : 0 };
+      if (f.live && G) body.tc = G.turnCount | 0;   // how far my battle is (the server picks the turn at which a leaver's robot dies from this)
       if (f.catching) body.all = 1;   // rebuilding after a reconnect: give me EVERYTHING from the start, my own old events too
       if (f.ready && !f.loads) body.ready = f.loadout;
       if (f.live && !f.catching && f.stallSince && f.stallOwner && !f.ended) {   // I have been waiting for somebody a while: the server decides whether his turn is skipped (one decision for everybody)
@@ -278,7 +286,8 @@ const ArenaFight = (() => {
     const f = F; if (!f) return;
     f.lastData = Date.now();
     if (Array.isArray(j.gone)) f.gone = new Set(j.gone.filter(id => id !== f.me));
-    f.lost = new Set((Array.isArray(j.lost) ? j.lost : Array.isArray(j.gone) ? j.gone : []).filter(id => id !== f.me));   // really left (8 s of silence): decides a win. 'gone' (3 s) only makes the others skip his turn
+    if (j.kicked) { f.report = f.report || { forfeit: 1 }; return finish({ gone: true, msg: 'You are out of the fight.' }); }   // the server says I left (or was silent too long): no way back
+    f.lost = new Set((Array.isArray(j.lost) ? j.lost : []).filter(id => id !== f.me));   // players who LEFT the fight for good. 'gone' (3 s of silence) only makes the others skip his turn
     if (j.go && j.loads && !f.loads) { f.loads = j.loads; if (f.goRes) f.goRes(); }
     if (typeof j.tail === 'number') f.tail = j.tail;
     if (f.rebuild) {   // first answer of a rebuild: where my own numbering and my own old input stand
@@ -301,7 +310,7 @@ const ArenaFight = (() => {
     const me = C.player.id, members = match.teams.map(t => t.map(x => x.id)), teamOf = {};
     members.forEach((t, i) => t.forEach(id => { teamOf[id] = i; }));
     if (teamOf[me] == null) return Promise.reject(new Error('You are not in this match.'));
-    const f = F = { C, cb: cb || {}, match, id: match.id, me, myTeam: teamOf[me], members, pl: members.flat(), teamOf, names: {}, rem: {}, out: [], seen: 0, tail: -1, myN: 0, n: 0, thr: 0, snaps: [], sks: new Map(), catching: !!(cb && cb.resume), rebuild: !!(cb && cb.resume), resume: !!(cb && cb.resume), gone: new Set(), post: [0, -1, 0, 0], bits: 0, pj: false, pfl: false,
+    const f = F = { C, cb: cb || {}, match, id: match.id, me, myTeam: teamOf[me], members, pl: members.flat(), teamOf, names: {}, rem: {}, out: [], seen: 0, tail: -1, myN: 0, n: 0, thr: 0, snaps: [], sks: new Map(), outs: new Map(), catching: !!(cb && cb.resume), rebuild: !!(cb && cb.resume), resume: !!(cb && cb.resume), gone: new Set(), post: [0, -1, 0, 0], bits: 0, pj: false, pfl: false,
       graceEnd: 0, live: false, ended: false, stop: false, finished: false, lastData: Date.now(), stallSince: 0, tc: 0, tcOwner: null, snapWait: null, loads: null, ready: false, loadout: null, report: null, over: null, replay: false, t0: Date.now(), steps: 0, frames: 0, lastStall: 0, maxStall: 0, rtt: 0, wsq: [], wsLast: 0, wsLastN: 0, ws: null, wsPend: false };
     match.teams.forEach(t => t.forEach(x => { f.names[x.id] = x.name; }));
     for (const id of members.flat()) f.rem[id] = { q: [], thr: -1, lastN: 0, bits: 0, pulse: 0, pj: false, pfl: false, wait: false };   // (my own entry is only used while I rebuild the fight)
@@ -369,7 +378,7 @@ const ArenaFight = (() => {
   function resync() {   // my copy of the battle is no longer the real one (my turn was skipped while I was away): rebuild it from the log, then play on
     const f = F; if (!f || !f.live || f.finished || f.ended) return;
     f.catching = true; f.rebuild = true; f.seen = 0; f.tail = -1; f.out.length = 0; if (f.wsq) f.wsq.length = 0; f.n = 0; f.myN = 0; f.thr = 0;
-    f.snaps = []; f.sks = new Map(); f.stallSince = 0; f.snapWait = null; f.bits = 0; f.pj = f.pfl = false;
+    f.snaps = []; f.outs = new Map(); f.sks = new Map(); f.stallSince = 0; f.snapWait = null; f.bits = 0; f.pj = f.pfl = false;
     for (const id in f.rem) f.rem[id] = { q: [], thr: -1, lastN: 0, bits: 0, pulse: 0, pj: false, pfl: false, wait: false };
     try { G.charging = false; G.charge = 0; } catch (e) { }
     buildGame();
@@ -380,6 +389,7 @@ const ArenaFight = (() => {
     _rand = Math.random;
     H = { ug: updateGame, up: usePotion, dt: doTeleport, sp: Snd.play, cp: UI.canPick, tp: UI.togglePause, so: UI.showOver, bPass: $('bPass').onclick, bQuit: $('bQuit').onclick, wbtn: $('wbtn').onclick, fbtn: $('fbtn').onclick, dc: dropCrate };
     updateGame = stepOnline;
+    H.st = startTurn; startTurn = function () { if (F && F.outs && F.outs.size) applyOuts(); return H.st.apply(this, arguments); };   // players who left: their robots die at the same turn on every phone
     dropCrate = function () { /* online Arena: no falling item boxes */ };
     Snd.play = function (n, a) { if (F && F.catching) return; const r = Math.random; if (F && r === F.rng) { Math.random = _rand; try { return H.sp.call(this, n, a); } finally { Math.random = r; } } return H.sp.call(this, n, a); };   // sounds must not eat the shared random numbers
     usePotion = function (ti, k) {
@@ -406,6 +416,7 @@ const ArenaFight = (() => {
     if (!H) return;
     try {
       if (H.dc) dropCrate = H.dc;
+      if (H.st) startTurn = H.st;
       updateGame = H.ug; usePotion = H.up; doTeleport = H.dt; Snd.play = H.sp; UI.canPick = H.cp; UI.togglePause = H.tp; UI.showOver = H.so;
       $('bPass').onclick = H.bPass; $('bQuit').onclick = H.bQuit; $('wbtn').onclick = H.wbtn; $('fbtn').onclick = H.fbtn;
       const pb = $('powbtn'); if (pb && H.pow) pb.removeEventListener('click', H.pow, true);
@@ -471,7 +482,7 @@ const ArenaFight = (() => {
   }
   function askLeave() {
     const f = F; if (!f || !f.live || f.ended || $('arFightAsk')) return;
-    const o = overlay('arFightAsk', '<h2 style="margin:0 0 8px;font:400 26px var(--disp,sans-serif);color:#ffc15a">Leave the fight?</h2><p style="margin:6px 0 12px;color:#c9d4ee">You lose this fight if you leave.</p>');
+    const o = overlay('arFightAsk', '<h2 style="margin:0 0 8px;font:400 26px var(--disp,sans-serif);color:#ffc15a">Leave the fight?</h2><p style="margin:6px 0 12px;color:#c9d4ee">You will be OUT of the fight for good: your robot dies and you cannot come back.</p>');
     o.firstChild.append(bigBtn('Leave', () => { o.remove(); showResult({ win: false, forfeit: true, why: 'You left the fight.' }); }), bigBtn('Stay', () => { o.remove(); }));
     const p = $('pauseScr'); if (p) p.hidden = true;
   }

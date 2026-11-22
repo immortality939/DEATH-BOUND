@@ -366,9 +366,7 @@ const ArenaUI = (() => {
     S.view = null; S.sig = '';
     if (!el || !el.isConnected) return;
     C.root.hidden = false;
-    if (res && res.lost && ((S.myRoom && S.myRoom.state === 'vs' && S.myRoom.fight) || S.myFight)) {   // the connection dropped but the fight is still going: keep my seat and come back into it (do NOT press Back)
-      S.seenMatch = null; setTimeout(() => { if (el && el.isConnected && !S.view) route(); }, 1500); return;
-    }
+    if (res && (res.lost || res.gone) && !res.cancelled) { S.myFight = null; S.seenMatch = null; }   // lost the connection / was put out of the fight: I am OUT for good, there is no way back into it
     await act('back'); route();
     if (S.view === null) { if (S.myRoom) room(); else lobby(); }
   }

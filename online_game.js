@@ -424,7 +424,7 @@ const OnlineUI = (() => {
       }
     } catch (e) { }
     try {   // RECONNECT (Arena): I closed the game / lost the signal while my fight was still going: take me back into it (the battle is rebuilt from the server's log)
-      const mr = j.myRoom, ongoing = !!((mr && mr.state === 'vs' && mr.fight && mr.match) || j.myFight), inFight = typeof ArenaFight !== 'undefined' && ArenaFight.active && ArenaFight.active(), onArena = !root.hidden && !!root.querySelector('.ar');
+      const mr = j.myRoom, ongoing = false /* Arena: a player who left a fight, closed the game or lost the connection is OUT for good: no way back (see markOut in server.js) */ && !!((mr && mr.state === 'vs' && mr.fight && mr.match) || j.myFight), inFight = typeof ArenaFight !== 'undefined' && ArenaFight.active && ArenaFight.active(), onArena = !root.hidden && !!root.querySelector('.ar');
       if (ongoing && !inFight && !onArena && Date.now() - arenaRejoinAt > 15000) {
         arenaRejoinAt = Date.now(); toastMsg('Your fight is still going! Rejoining...');
         try { if (typeof AdvLobbyUI !== 'undefined' && AdvLobbyUI.close) AdvLobbyUI.close(); } catch (e) { }
