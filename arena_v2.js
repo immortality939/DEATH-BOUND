@@ -158,11 +158,13 @@ const ArenaUI = (() => {
 
   // ===================== which screen? (decided by what the server says) =====================
   function onData(j) {
-    S.online = j.online || []; S.rooms = j.rooms || []; S.myRoom = j.myRoom || null; S.invites = j.invites || [];
+    S.online = j.online || []; S.rooms = j.rooms || []; S.myRoom = j.myRoom || null; S.myFight = j.myFight || null; S.invites = j.invites || [];
     if (!el || !el.isConnected || C.root.hidden) return;   // arena not on screen (for example the Bag is open): just keep the data
     route();
   }
   function route() {
+    const mf = S.myFight;   // a fight of mine is still going on (I closed the game / lost the signal, even if my room is gone): go straight back into it
+    if (mf && S.view !== 'vs' && S.seenMatch !== mf.id && !(typeof ArenaFight !== 'undefined' && ArenaFight.active && ArenaFight.active())) { S.seenMatch = mf.id; vs({ mode: mf.mode, match: mf, state: 'vs', fight: 1 }); return; }
     const r = S.myRoom; invites();
     if (!r) {
       if (S.view === 'room' || S.view === 'search') C.toast('You left the room.');
@@ -352,18 +354,21 @@ const ArenaUI = (() => {
       h('div', { class: 'abs', style: 'left:180px;width:600px;top:352px;text-align:center;font:600 16px/1.35 var(--body,sans-serif);color:#ffe9c4' }, h('span', { class: 'spin', style: 'display:inline-block;width:18px;height:18px;border-width:3px;vertical-align:-3px;margin-right:8px' }), h('span', { id: 'arStat' }, 'Loading the battlefield...')),
       btn('Leave', 380, 430, 200, 58, () => { if (ctl && ctl.abort) ctl.abort(); }, 'sm'));
     mount(st);
-    runFight(r, map, c => { ctl = c; });
+    runFight(r, map, c => { ctl = c; }, !!r.fight);   // r.fight: the battle of this match is already running (I closed the game / lost the signal): rebuild it and play on
   }
-  async function runFight(r, map, onCtl) {
+  async function runFight(r, map, onCtl, resume) {
     const stat = t => { const e = document.getElementById('arStat'); if (e) e.textContent = t; };
     let res = null;
-    try { res = await C.fight(r.match, { map, minShowMs: 3200, onStatus: stat, onControl: onCtl }); }
+    try { res = await C.fight(r.match, { map, minShowMs: 3200, onStatus: stat, onControl: onCtl, resume: !!resume }); }
     catch (e) { C.toast('Could not start the fight' + (e && e.message ? ': ' + e.message : '.')); }
     try { if (res && (res.win === true || res.win === false || res.draw) && !res.forfeit && C.quest) C.quest('arena', { mode: r.mode === 'league' ? 'league' : 'free', win: res.win === true }); } catch (e) { }   // QUESTS: a finished fight (win or lose) counts; leaving the fight does not
     // the fight is over (or could not start): tell the server we left the VS / fight screen, then show the room again
     S.view = null; S.sig = '';
     if (!el || !el.isConnected) return;
     C.root.hidden = false;
+    if (res && res.lost && ((S.myRoom && S.myRoom.state === 'vs' && S.myRoom.fight) || S.myFight)) {   // the connection dropped but the fight is still going: keep my seat and come back into it (do NOT press Back)
+      S.seenMatch = null; setTimeout(() => { if (el && el.isConnected && !S.view) route(); }, 1500); return;
+    }
     await act('back'); route();
     if (S.view === null) { if (S.myRoom) room(); else lobby(); }
   }
@@ -374,7 +379,7 @@ const ArenaUI = (() => {
     el = h('div', { class: 'ar' }); C.root.replaceChildren(el); fit();
     onResize = () => fit(); addEventListener('resize', onResize);
     if (unsub) unsub(); unsub = C.live.subscribe(onData);
-    S.online = (C.live.last && C.live.last.online) || S.online; S.myRoom = C.live.last ? C.live.last.myRoom : S.myRoom;
+    S.online = (C.live.last && C.live.last.online) || S.online; S.myRoom = C.live.last ? C.live.last.myRoom : S.myRoom; S.myFight = C.live.last ? C.live.last.myFight : S.myFight;
     route();
   }
   function close() { removeEventListener('resize', onResize); clearTimers(); if (unsub) { unsub(); unsub = null; } if (S.banner) { S.banner.dead = true; S.banner.remove(); } }

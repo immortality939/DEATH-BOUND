@@ -52,7 +52,7 @@ const POW = (function () {
   // ---------- damage hooks (called from world.js hurt) ----------
   function mod(w, dmg, opt) {
     if (!G.powShot || (opt && opt.fall)) return dmg;
-    const at = G.activeWorm; if (!at || at.team !== G.powTeam || w.team === G.powTeam) return dmg;   // only the shooter's team deals the bonus, only to the other side
+    const at = G.activeWorm; if (!at || at.team !== G.powTeam || allies(w, at)) return dmg;   // only the shooter's team deals the bonus, only to the other side
     const _wd = G.teams[at.team] && WEAPONS[G.teams[at.team].sel];
     const out = Math.max(1, Math.round(dmg * (_wd && _wd.mythic ? PW_MYTH_SHOT : PW_DMG_MUL)));   // Mythical weapon: each of the 3 POW shots = 60% of the normal hit (3 x 60% = 180%); all other weapons +50%
     if (w._powPop == null || G.frame - w._powPop > 30) { w._powPop = G.frame; addPop(w.x, w.y - 82 * (w.sc || 1) - 26, 'POW +' + Math.round((PW_DMG_MUL - 1) * 100) + '%', '#ff7a1a', 16); }

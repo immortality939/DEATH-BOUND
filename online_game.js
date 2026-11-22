@@ -409,7 +409,7 @@ const OnlineUI = (() => {
     };
     return { show, clear: () => { if (box) box.replaceChildren(); } };
   })();
-  let advRejoinAt = 0;
+  let advRejoinAt = 0, arenaRejoinAt = 0;
   function globalAlerts(j) {   // called for every answer of the live poll, wherever the player is (town, Bag, Shop, Armory, other lobby)
     if (!session || !root) return;
     if (j.mail != null) { if (j.mail > mailN) toastMsg(j.mail === 1 ? 'You have new mail in your envelope!' : 'You have ' + j.mail + ' items in your envelope!'); mailN = j.mail | 0; }
@@ -420,6 +420,15 @@ const OnlineUI = (() => {
         advRejoinAt = Date.now(); toastMsg('Your party is still playing! Rejoining...');
         try { if (typeof ArenaUI !== 'undefined' && ArenaUI.close) ArenaUI.close(); } catch (e) { }
         if (fromTown) { retFn = openAdventure; try { UI.show('title'); } catch (e) { backToTown(); } } else { root.hidden = false; openAdventure(); }
+        return;
+      }
+    } catch (e) { }
+    try {   // RECONNECT (Arena): I closed the game / lost the signal while my fight was still going: take me back into it (the battle is rebuilt from the server's log)
+      const mr = j.myRoom, ongoing = !!((mr && mr.state === 'vs' && mr.fight && mr.match) || j.myFight), inFight = typeof ArenaFight !== 'undefined' && ArenaFight.active && ArenaFight.active(), onArena = !root.hidden && !!root.querySelector('.ar');
+      if (ongoing && !inFight && !onArena && Date.now() - arenaRejoinAt > 15000) {
+        arenaRejoinAt = Date.now(); toastMsg('Your fight is still going! Rejoining...');
+        try { if (typeof AdvLobbyUI !== 'undefined' && AdvLobbyUI.close) AdvLobbyUI.close(); } catch (e) { }
+        if (fromTown) { retFn = openArena; try { UI.show('title'); } catch (e) { backToTown(); } } else { root.hidden = false; openArena(); }
         return;
       }
     } catch (e) { }

@@ -10,6 +10,9 @@
    - At every turn change the player whose turn just ended sends a small snapshot (positions, health, wind). A phone that is at exactly that frame corrects itself
      if anything differs (safety net only, nobody waits for it).
    - The end of the battle is decided by the engine itself on both phones (last team standing); the result is reported to the server.
+   EVERY PLAYER IS HIS OWN TEAM IN THE ENGINE (own robot, own gear, own weapon / potions / POW); Red and Blue are only 'sides' (G.teams[i].side) that decide who is an ally and who wins.
+   COMING BACK: the server keeps the log of the whole fight. A player who closed the game (or lost the signal for good) rebuilds the battle from that log: same seed, same loadouts,
+   the events of everybody replayed at full speed ("catching") until he is at the present, then he plays on. A skipped turn is ONE decision of the server ('sk' event), so a replay matches what the others saw.
    Server calls: only POST /api/arena/fight (see server.js: loading barrier, event relay, "over", "gone").
    Nothing of the offline game files is changed: the hooks below replace a few game functions while the fight runs and put them back when it ends. */
 'use strict';
@@ -17,35 +20,47 @@ const ArenaFight = (() => {
   const $ = id => document.getElementById(id);
   const IN_KEYS = ['left', 'right', 'up', 'down', 'fire', 'fast'];
   const STATE_CODE = { ground: 0, air: 1, dead: 2, drown: 3 };
-  const BUF = 4;                  // frames of input the watcher keeps in hand before it (re)starts after a wait (smooth play on slow phones)
+  const BUF = 3;                  // frames of input the watcher keeps in hand before it (re)starts after a wait (smooth play on slow phones)
   const POLL_MS = 100, POLL_FAST_MS = 50;
   const GRACE = 36;               // frames at the start of every turn where nobody can act (same on every phone): hides the network delay of the hand-over, so nobody freezes after a shot
-  const SNAP_WAIT_MS = 1500, STALL_GIVEUP_MS = 6000, LOST_MS = 20000;
+  const SNAP_WAIT_MS = 1500, LOST_MS = 20000, CATCH_MS = 40;   // CATCH_MS = how long one picture may spend on replaying (catching up) after a reconnect
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   let F = null;                   // the running fight (null = none)
   let H = null;                   // the game functions we replaced (to put them back)
   let _rand = null;               // the real Math.random
 
   // ---------- who controls what ----------
-  const ownerOf = w => (w && F && F.members[w.team]) ? F.members[w.team][w.idx] : null;
-  const myTurn = () => !!F && !!G.activeWorm && ownerOf(G.activeWorm) === F.me;
+  const ownerOf = w => (w && F && F.pl) ? F.pl[w.team] || null : null;   // engine team = one player
+  const myTurn = () => !!F && !F.catching && !!G.activeWorm && ownerOf(G.activeWorm) === F.me;
   const inputPhase = () => G.phase === 'aim' || G.phase === 'retreat';
   const sigNow = () => { const t = curTeam(); return t ? [t.sel | 0, t.prevSel == null ? -1 : t.prevSel | 0, G.flyMode ? 1 : 0, G.powArmed ? 1 : 0] : [0, -1, 0, 0]; };
   const sigSet = s => { const t = curTeam(); if (!t) return; t.sel = s[0]; t.prevSel = s[1] < 0 ? undefined : s[1]; G.flyMode = !!s[2]; G.powArmed = !!s[3]; };
   const sigEq = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
   const seeded = fn => { const r = Math.random; Math.random = F.rng; try { return fn(); } finally { Math.random = r; } };
   const push = ev => {
-    const f = F; ev.n = ++f.n; f.out.push(ev);
+    const f = F; ev.n = ++f.n; ev.t = G.turnCount; f.out.push(ev);
     if (f.wsq) { f.wsq.push(ev); if (f.wsq.length > 3000) f.wsq.shift(); if (!f.wsPend) { f.wsPend = true; Promise.resolve().then(() => { f.wsPend = false; if (F === f) wsFlush(); }); } }   // goes out at once over the WebSocket (after the current step, so 'thr' is up to date)
   };
 
   // ---------- the engine step ----------
-  const calm = () => { if (G.cam && G.cam.shake > 0.05) G.cam.shake *= 0.8; };   // the camera shake only fades while the battle runs: when we wait, fade it by hand (it was shaking like crazy)
+  /* While the battle waits for the next player's first input (the hand-over after a shot costs one network round trip), the explosion, the sparks and the damage numbers used to FREEZE for that moment
+     (that was the little "stuck" right when the shot lands, only on the phone of the player who just fired). Now the purely visual things keep moving while we wait: they do not touch the battle itself. */
+  function idleFx() {
+    try {
+      for (const x of G.fxs) x.t++; G.fxs = G.fxs.filter(x => x.t * x.d.fps / 60 < x.d.frames);
+      for (const x of G.pops) x.t++; G.pops = G.pops.filter(x => x.t < 70);
+      for (const x of G.parts) { x.t++; x.vy += .25; x.x += x.vx; x.y += x.vy; x.rot += x.spin; if (G.terrain.solid(x.x, x.y)) { x.vy *= -.35; x.vx *= .6; x.y -= 2; } } G.parts = G.parts.filter(x => x.t < x.life);
+      if (G.banner) { G.banner.t++; if (G.banner.t > 130) G.banner = null; }
+      G.cam.shake *= .88; updateCamera();
+    } catch (e) { }
+  }
+  const calm = idleFx;
   const inGrace = () => !!F && G.frame < F.graceEnd;
   const canAct = () => myTurn() && !inGrace();
   function leadFrames() { const f = F; let m = -1; for (const id in f.rem) if (f.rem[id].thr > m) m = f.rem[id].thr; return m - G.frame; }
   function wantCatchUp() {   // a watcher that is behind the player who steers runs extra steps while no input is needed (flight, explosions, settling)
     const f = F; if (!f || !f.live || f.ended || G.mode !== 'play' || f.snapWait) return false;
+    if (f.catching) return true;   // rebuilding the fight after a reconnect: run as fast as the phone can (stepOnce stops by itself where the data ends)
     if (ownerOf(G.activeWorm) === f.me) return false;
     if (inputPhase() && !inGrace()) return false;
     return leadFrames() > 3;
@@ -55,54 +70,71 @@ const ArenaFight = (() => {
     if (!f || !f.live || f.ended || G.mode !== 'play') return ug.apply(this, arguments);
     if (!stepOnce.call(this, f, ug, arguments)) return;
     if (!wantCatchUp()) return;
-    const t0 = performance.now(), lead = leadFrames(), max = lead > 60 ? 6 : lead > 20 ? 3 : 2;
-    for (let i = 0; i < max && F === f && wantCatchUp() && performance.now() - t0 < 10; i++) if (!stepOnce.call(this, f, ug, arguments)) break;
+    const t0 = performance.now(), lead = leadFrames(), cu = f.catching, max = cu ? 4000 : lead > 60 ? 6 : lead > 20 ? 3 : 2, budget = cu ? CATCH_MS : 10;
+    for (let i = 0; i < max && F === f && wantCatchUp() && performance.now() - t0 < budget; i++) if (!stepOnce.call(this, f, ug, arguments)) break;
   }
   function stepOnce(f, ug, args) {   // one engine step. true = the battle advanced, false = we are waiting
+    if (f.catching) tryGoLive();
     trySnaps();
-    const w = G.activeWorm, owner = ownerOf(w), inp = inputPhase(), mine = owner === f.me;
+    const w = G.activeWorm, owner = ownerOf(w), inp = inputPhase(), mine = owner === f.me && !f.catching && !f.sks.has(G.turnCount);   // while I catch up, my own old turns are replayed from the log like anybody else's; a turn of mine that the server skipped is not mine to play any more
     // the new player waits for the snapshot of the player whose turn just ended
     if (f.snapWait && mine) {
       const sn = f.snaps.find(x => x.d[0] === f.snapWait.tc && x.f === G.frame);
       if (sn) { applySnap(sn); f.snaps.splice(f.snaps.indexOf(sn), 1); f.snapWait = null; }
-      else if (Date.now() < f.snapWait.until) { markStall(null, 'sync'); calm(); return false; }
+      else if (Date.now() < f.snapWait.until) { markStall(null, 'sync'); idleFx(); return false; }
       else f.snapWait = null;
     }
     let steer = null, held = null;
-    if (w && inp && owner && !mine && !f.gone.has(owner)) {          // somebody else steers this turn
+    if (w && inp && owner && !mine) {                                 // somebody else steers this turn
       const R = f.rem[owner]; steer = owner;
       if (G.frame < f.graceEnd) {                                     // start of the turn: he cannot act yet, so there is nothing to wait for
         if (!sigEq(sigNow(), f.post)) sigSet(f.post);
         for (const k of IN_KEYS) In[k] = false; In.firePressed = In.jump = In.flip = false; In.weaponMenu = false;
       } else {
-      if (R.wait) { if (R.thr - G.frame < BUF) { markStall(owner); calm(); return false; } R.wait = false; }
-      if (G.frame >= R.thr) { R.wait = true; markStall(owner); calm(); return false; }
-      if (!sigEq(sigNow(), f.post)) sigSet(f.post);                   // anything this phone changed on his behalf (keyboard P ...) is undone
-      while (R.q.length && R.q[0].f <= G.frame) applyEv(R, R.q.shift());
-      f.post = sigNow();
-      for (let i = 0; i < IN_KEYS.length; i++) In[IN_KEYS[i]] = !!(R.bits & (1 << i));
-      In.firePressed = !!(R.pulse & 1); if (R.pulse & 2) R.pj = true; if (R.pulse & 4) R.pfl = true; R.pulse = 0;
-      In.jump = !!R.pj; In.flip = !!R.pfl; In.weaponMenu = false;
+        const sk = f.sks.has(G.turnCount) ? f.sks.get(G.turnCount) : null;   // the server skipped this turn (he went silent): his input ends at the frame it wrote down, the same on every phone
+        if (sk == null || G.frame < sk) {                             // (before that frame his input still counts, so we need his data up to there)
+          if (R.wait) { if (R.thr - G.frame < BUF) { markStall(owner); idleFx(); return false; } R.wait = false; }
+          if (G.frame >= R.thr) { R.wait = true; markStall(owner); idleFx(); return false; }
+          if (!sigEq(sigNow(), f.post)) sigSet(f.post);                   // anything this phone changed on his behalf (keyboard P ...) is undone
+          while (R.q.length && R.q[0].f <= G.frame) applyEv(R, R.q.shift());
+          f.post = sigNow();
+          for (let i = 0; i < IN_KEYS.length; i++) In[IN_KEYS[i]] = !!(R.bits & (1 << i));
+          In.firePressed = !!(R.pulse & 1); if (R.pulse & 2) R.pj = true; if (R.pulse & 4) R.pfl = true; R.pulse = 0;
+          In.jump = !!R.pj; In.flip = !!R.pfl; In.weaponMenu = false;
+        } else {                                                      // his turn was skipped and his last input is behind us: nobody steers, his turn ends right away (same frame everywhere)
+          R.q.length = 0; R.bits = 0; R.pulse = 0; R.pj = R.pfl = false;
+          for (const k of IN_KEYS) In[k] = false; In.firePressed = In.jump = In.flip = false; In.weaponMenu = false;
+          if (G.phase === 'aim') endTurnNow();
+        }
       }
     } else if (w && inp && owner && mine) {                           // my turn: my keys become events
       steer = owner;
       if (G.frame < f.graceEnd) { held = IN_KEYS.map(k => In[k]); for (const k of IN_KEYS) In[k] = false; In.firePressed = In.jump = In.flip = false; }
       else sample();
-    } else if (w && inp && owner && f.gone.has(owner)) {              // his phone is gone: nobody steers, the turn timer runs out
-      for (const k of IN_KEYS) In[k] = false; In.firePressed = In.jump = In.flip = false;
     }
     if (f.stallSince) { const d = Date.now() - f.stallSince; f.lastStall = d; if (d > f.maxStall) f.maxStall = d; f.stallSince = 0; }
     f.steps++;
     { const self = this; seeded(() => ug.apply(self, args)); }   // the engine runs on the shared random numbers
     if (held) IN_KEYS.forEach((k, i) => { In[k] = held[i]; });          // my fingers are still down after the grace frames
     f.thr = G.frame;
-    if (steer === f.me) { f.pj = !!In.jump; f.pfl = !!In.flip; } else if (steer && f.rem[steer]) { f.rem[steer].pj = !!In.jump; f.rem[steer].pfl = !!In.flip; }
+    if (steer === f.me && !f.catching) { f.pj = !!In.jump; f.pfl = !!In.flip; } else if (steer && f.rem[steer]) { f.rem[steer].pj = !!In.jump; f.rem[steer].pfl = !!In.flip; }
     f.post = sigNow();
     if (G.turnCount !== f.tc) {                                       // a new turn started inside this step
       const ended = f.tcOwner; f.tc = G.turnCount; f.tcOwner = ownerOf(G.activeWorm); newTurn(ended);
     }
     wsFlush();   // tell the other phone at once how far my input is complete
     return true;
+  }
+  function tryGoLive() {   // rebuilding after a reconnect: when the whole log is played and we are at the present, take the controls back
+    const f = F; if (!f.catching || f.tail < 0 || f.seen < f.tail) return;
+    for (const id in f.rem) if (f.rem[id].q.length) return;
+    if (leadFrames() > 2) return;
+    f.catching = false; f.rebuild = false; const R = f.rem[f.me];
+    f.n = Math.max(f.n, f.myN) + 200;   // my next events are numbered after everything the others may have seen of mine (a gap is fine, the other phones accept it)
+    f.bits = R.bits; f.pj = R.pj; f.pfl = R.pfl; R.q.length = 0;
+    for (const k of IN_KEYS) In[k] = false; In.firePressed = In.jump = In.flip = false;   // my real fingers decide from now on (the replay must not leave a key "held")
+    f.post = sigNow(); f.stallSince = 0;
+    try { const e = $('arFightMsg'); if (e) e.remove(); const o = $('arFightRej'); if (o) o.remove(); f.C.toast('Back in the fight!'); } catch (e) { }
   }
   function sample() {                                                 // my keys -> events (only when something changed)
     const f = F; let bits = 0; for (let i = 0; i < IN_KEYS.length; i++) if (In[IN_KEYS[i]]) bits |= 1 << i;
@@ -128,7 +160,7 @@ const ArenaFight = (() => {
   function newTurn(ended) {
     const f = F;
     f.bits = 0; f.pj = f.pfl = false; In.jump = In.flip = In.firePressed = false;
-    for (const id in f.rem) { const R = f.rem[id]; R.bits = 0; R.pulse = 0; R.pj = R.pfl = false; }
+    for (const id in f.rem) { const R = f.rem[id]; R.bits = 0; R.pulse = 0; R.pj = R.pfl = false; if (R.q.length) R.q = R.q.filter(x => x.f >= G.frame); }   // (an old event of a skipped turn must never act in a later one)
     f.post = sigNow(); f.graceEnd = G.frame + GRACE;
     if (ended === f.me) pushSnap();
     f.snapWait = null;   // nobody waits at a turn change any more (a wait = one full network round trip = a visible freeze after every shot); the snapshot is only a safety net
@@ -161,9 +193,8 @@ const ArenaFight = (() => {
       else if (sn.d[0] === G.turnCount && sn.f === G.frame && !(f.snapWait && f.snapWait.tc === sn.d[0])) { applySnap(sn); f.snaps.splice(i, 1); }
     }
   }
-  function markStall(owner, why) {
+  function markStall(owner, why) {   // we wait for 'owner'. If he stays silent, pump() tells the server, which writes ONE skip event for everybody
     const f = F; if (!f.stallSince) f.stallSince = Date.now(); f.stallOwner = owner; f.stallWhy = why || null;
-    if (why !== 'sync' && Date.now() - f.stallSince > STALL_GIVEUP_MS && owner) { f.gone.add(owner); f.stallSince = 0; }   // his phone is silent: skip him
   }
 
   // ---------- network ----------
@@ -173,10 +204,17 @@ const ArenaFight = (() => {
   function ingest(ev) {   // an event from the HTTP log
     const f = F; if (!f || !ev) return; const R = f.rem[ev.from];
     if (R && ev.n != null) { if (ev.n <= R.lastN) return; R.lastN = ev.n; }
+    if (ev.from === 'srv') { if (ev.k === 'sk') gotSkip(ev); return; }
+    if (ev.from === f.me && !f.catching) return;   // my own old events only matter while I rebuild the fight
     if (ev.k === 'sn') { if (Array.isArray(ev.d)) f.snaps.push(ev); } else if (R) R.q.push(ev);
   }
+  function gotSkip(ev) {   // the server skipped somebody's turn
+    const f = F; if (!f || !ev || f.sks.has(ev.tc | 0)) return;
+    f.sks.set(ev.tc | 0, ev.f | 0);
+    if (ev.of === f.me && !f.catching && !f.finished && !f.ended) resync();   // MY turn was skipped while I was away: my copy of the battle is wrong now, rebuild it from the log
+  }
   function wsIn(from, d) {   // a message from the other phone's WebSocket
-    const f = F; if (!f || f.stop) return; const R = f.rem[from]; if (!R) return;
+    const f = F; if (!f || f.stop || f.catching) return; const R = f.rem[from]; if (!R) return;   // (while I rebuild the fight everything comes from the log)
     for (const ev of (Array.isArray(d.ev) ? d.ev : [])) {
       if (!ev || ev.n !== R.lastN + 1) continue; R.lastN = ev.n;
       if (ev.k === 'sn') { if (Array.isArray(ev.d)) f.snaps.push(ev); } else R.q.push(ev);
@@ -209,7 +247,11 @@ const ArenaFight = (() => {
     while (f && !f.stop) {
       const t0 = Date.now(); let sent = 0;
       const body = { match: f.id, since: f.seen, live: f.loads ? 1 : 0 };
+      if (f.catching) body.all = 1;   // rebuilding after a reconnect: give me EVERYTHING from the start, my own old events too
       if (f.ready && !f.loads) body.ready = f.loadout;
+      if (f.live && !f.catching && f.stallSince && f.stallOwner && !f.ended) {   // I have been waiting for somebody a while: the server decides whether his turn is skipped (one decision for everybody)
+        const ms = Date.now() - f.stallSince; if (ms > (f.gone.has(f.stallOwner) ? 250 : 2500)) body.stall = { of: f.stallOwner, tc: G.turnCount, ms };
+      }
       if (f.live) {   // keeps sending after the end of the battle too, so the other phone gets the last inputs
         const batch = f.out.slice(0, 40); sent = batch.length; if (sent) body.out = batch;
         body.thr = f.out.length > sent ? Math.min(f.thr, f.out[sent].f) : f.thr;
@@ -229,7 +271,7 @@ const ArenaFight = (() => {
         f.fails = (f.fails | 0) + 1;
       }
       if (f.live && !f.ended && Date.now() - f.lastData > LOST_MS) return finish({ lost: true, msg: 'Connection lost.' });
-      await sleep(Math.max(25, (f.stallSince ? POLL_FAST_MS : POLL_MS) - (Date.now() - t0)));
+      await sleep(Math.max(25, (f.stallSince || f.catching ? POLL_FAST_MS : POLL_MS) - (Date.now() - t0)));
     }
   }
   function handle(j) {
@@ -238,6 +280,11 @@ const ArenaFight = (() => {
     if (Array.isArray(j.gone)) f.gone = new Set(j.gone.filter(id => id !== f.me));
     f.lost = new Set((Array.isArray(j.lost) ? j.lost : Array.isArray(j.gone) ? j.gone : []).filter(id => id !== f.me));   // really left (8 s of silence): decides a win. 'gone' (3 s) only makes the others skip his turn
     if (j.go && j.loads && !f.loads) { f.loads = j.loads; if (f.goRes) f.goRes(); }
+    if (typeof j.tail === 'number') f.tail = j.tail;
+    if (f.rebuild) {   // first answer of a rebuild: where my own numbering and my own old input stand
+      if (typeof j.myN === 'number') f.myN = j.myN | 0;
+      if (typeof j.myThr === 'number' && f.rem[f.me]) f.rem[f.me].thr = Math.max(f.rem[f.me].thr, j.myThr | 0);
+    }
     for (const ev of (j.events || [])) ingest(ev);
     if (typeof j.upto === 'number' && j.upto > f.seen) f.seen = j.upto;
     if (j.thr) for (const id in j.thr) { const R = f.rem[id]; if (R && j.thr[id] > R.thr) R.thr = j.thr[id]; }
@@ -254,10 +301,10 @@ const ArenaFight = (() => {
     const me = C.player.id, members = match.teams.map(t => t.map(x => x.id)), teamOf = {};
     members.forEach((t, i) => t.forEach(id => { teamOf[id] = i; }));
     if (teamOf[me] == null) return Promise.reject(new Error('You are not in this match.'));
-    const f = F = { C, cb: cb || {}, match, id: match.id, me, myTeam: teamOf[me], members, teamOf, names: {}, rem: {}, out: [], seen: 0, n: 0, thr: 0, snaps: [], gone: new Set(), post: [0, -1, 0, 0], bits: 0, pj: false, pfl: false,
+    const f = F = { C, cb: cb || {}, match, id: match.id, me, myTeam: teamOf[me], members, pl: members.flat(), teamOf, names: {}, rem: {}, out: [], seen: 0, tail: -1, myN: 0, n: 0, thr: 0, snaps: [], sks: new Map(), catching: !!(cb && cb.resume), rebuild: !!(cb && cb.resume), resume: !!(cb && cb.resume), gone: new Set(), post: [0, -1, 0, 0], bits: 0, pj: false, pfl: false,
       graceEnd: 0, live: false, ended: false, stop: false, finished: false, lastData: Date.now(), stallSince: 0, tc: 0, tcOwner: null, snapWait: null, loads: null, ready: false, loadout: null, report: null, over: null, replay: false, t0: Date.now(), steps: 0, frames: 0, lastStall: 0, maxStall: 0, rtt: 0, wsq: [], wsLast: 0, wsLastN: 0, ws: null, wsPend: false };
     match.teams.forEach(t => t.forEach(x => { f.names[x.id] = x.name; }));
-    for (const id of members.flat()) if (id !== me) f.rem[id] = { q: [], thr: -1, lastN: 0, bits: 0, pulse: 0, pj: false, pfl: false, wait: false };
+    for (const id of members.flat()) f.rem[id] = { q: [], thr: -1, lastN: 0, bits: 0, pulse: 0, pj: false, pfl: false, wait: false };   // (my own entry is only used while I rebuild the fight)
     f.goP = new Promise(res => { f.goRes = res; });
     f.resultP = new Promise(res => { f.resolve = res; });
     const stat = t => { try { f.cb.onStatus && f.cb.onStatus(t); } catch (e) { } };
@@ -279,7 +326,7 @@ const ArenaFight = (() => {
         f.loadout = { robot: ridx, lv: (() => { try { return Profile.level(); } catch (e) { return 1; } })(), bonus: profileBonuses(ridx) };
         f.ready = true; stat('Waiting for the other player...');
         await f.goP; if (f.finished) return;
-        const wait = (f.cb.minShowMs || 0) - (Date.now() - f.t0); if (wait > 0) await sleep(wait);   // let the VS screen be seen
+        const wait = f.resume ? 0 : (f.cb.minShowMs || 0) - (Date.now() - f.t0); if (wait > 0) await sleep(wait);   // let the VS screen be seen (not when coming back into a running fight)
         if (f.finished) return;
         stat('Fight!'); begin();
       } catch (e) {
@@ -292,24 +339,40 @@ const ArenaFight = (() => {
   }
   function flushNow() { const f = F; if (!f) return; try { f.C.post('fight', { match: f.id, since: f.seen, live: f.loads ? 1 : 0, done: f.report }).catch(() => { }); } catch (e) { } }
 
-  function begin() {
-    const f = F, m = f.match, loads = f.loads, TN = (typeof TEAM_NAMES !== 'undefined') ? TEAM_NAMES : ['Red', 'Blue', 'Green', 'Gold'];
-    const teams = f.members.map(ids => ({ cpu: false, robot: loads[ids[0]].robot }));
-    const bonuses = f.members.map(ids => loads[ids[0]].bonus || {});       // a team shares the gear (and potions) of its first player
-    const names = f.members.map((ids, i) => ids.length === 1 ? loads[ids[0]].name : TN[i]);
-    const wagi = f.members.map(ids => ids.map(id => (loads[id] && loads[id].bonus && +loads[id].bonus.agi) || 0));   // each player's own Agility = turn order (highest first)
+  function buildGame() {   // the battle itself: every PLAYER is his own team (own robot, own gear, own weapon), Red / Blue are the sides
+    const f = F, m = f.match, loads = f.loads, TN = (typeof TEAM_NAMES !== 'undefined') ? TEAM_NAMES : ['Red', 'Blue', 'Green', 'Gold'], TC = (typeof TEAM_COLORS !== 'undefined') ? TEAM_COLORS : null;
+    const pids = f.pl, sideOf1 = id => f.teamOf[id];
+    const teams = pids.map(id => ({ cpu: false, robot: loads[id].robot }));
+    const bonuses = pids.map(id => loads[id].bonus || {});                         // each player brings HIS OWN gear (and potions)
+    const sides = pids.map(sideOf1);
+    const sideNames = f.members.map((ids, i) => ids.length === 1 ? loads[ids[0]].name : TN[i]);
+    const names = pids.map(id => sideNames[sideOf1(id)]);
+    const colors = TC ? pids.map(id => TC[sideOf1(id)]) : undefined;
+    const wagi = pids.map(id => [(loads[id] && loads[id].bonus && +loads[id].bonus.agi) || 0]);   // each player's own Agility = turn order (highest first)
     f.rng = mulberry(((m.mapSeed | 0) * 2654435761 + 977) | 0);
-    hook();
-    seeded(() => newGame({ teams, per: f.members[0].length, diff: 1, theme: f.map.bg, map: f.map, names, bonuses, wagi, first: 0 }));
+    seeded(() => newGame({ teams, per: 1, diff: 1, theme: f.map.bg, map: f.map, names, colors, sides, sideNames, bonuses, wagi, first: 0 }));
     G.worms.forEach(w => { const id = ownerOf(w); if (id && f.names[id]) w.name = f.names[id]; });
-    try { const t = curTeam(); if (t && G.activeWorm) showBanner(t.name + ' \u00b7 ' + G.activeWorm.name, t.color); } catch (e) { }
+    try { const t = curTeam(); if (t && G.activeWorm) showBanner(t.name + ' · ' + G.activeWorm.name, t.color); } catch (e) { }
     In.left = In.right = In.up = In.down = In.fire = In.firePressed = In.jump = In.flip = false;
+    f.tc = G.turnCount; f.tcOwner = ownerOf(G.activeWorm); f.post = sigNow(); f.graceEnd = G.frame + GRACE; f.lastData = Date.now();
+  }
+  function begin() {
+    const f = F;
+    hook();
+    buildGame();
     UI.paused = false; try { Snd.init(); } catch (e) { }
     UI.show('game'); UI.lastSig = ''; f.C.hideOnline();
-    f.tc = G.turnCount; f.tcOwner = ownerOf(G.activeWorm); f.post = sigNow(); f.graceEnd = G.frame + GRACE; f.lastData = Date.now();
     f.msgTimer = setInterval(() => { updateMsg(); updateDbg(); }, 250);
     const raf = () => { if (F === f && !f.finished) { f.frames++; requestAnimationFrame(raf); } }; requestAnimationFrame(raf);
     f.live = true;
+  }
+  function resync() {   // my copy of the battle is no longer the real one (my turn was skipped while I was away): rebuild it from the log, then play on
+    const f = F; if (!f || !f.live || f.finished || f.ended) return;
+    f.catching = true; f.rebuild = true; f.seen = 0; f.tail = -1; f.out.length = 0; if (f.wsq) f.wsq.length = 0; f.n = 0; f.myN = 0; f.thr = 0;
+    f.snaps = []; f.sks = new Map(); f.stallSince = 0; f.snapWait = null; f.bits = 0; f.pj = f.pfl = false;
+    for (const id in f.rem) f.rem[id] = { q: [], thr: -1, lastN: 0, bits: 0, pulse: 0, pj: false, pfl: false, wait: false };
+    try { G.charging = false; G.charge = 0; } catch (e) { }
+    buildGame();
   }
 
   // ---------- hooks (put back in unhook) ----------
@@ -318,7 +381,7 @@ const ArenaFight = (() => {
     H = { ug: updateGame, up: usePotion, dt: doTeleport, sp: Snd.play, cp: UI.canPick, tp: UI.togglePause, so: UI.showOver, bPass: $('bPass').onclick, bQuit: $('bQuit').onclick, wbtn: $('wbtn').onclick, fbtn: $('fbtn').onclick, dc: dropCrate };
     updateGame = stepOnline;
     dropCrate = function () { /* online Arena: no falling item boxes */ };
-    Snd.play = function (n, a) { const r = Math.random; if (F && r === F.rng) { Math.random = _rand; try { return H.sp.call(this, n, a); } finally { Math.random = r; } } return H.sp.call(this, n, a); };   // sounds must not eat the shared random numbers
+    Snd.play = function (n, a) { if (F && F.catching) return; const r = Math.random; if (F && r === F.rng) { Math.random = _rand; try { return H.sp.call(this, n, a); } finally { Math.random = r; } } return H.sp.call(this, n, a); };   // sounds must not eat the shared random numbers
     usePotion = function (ti, k) {
       if (!F || !F.live || F.ended || F.replay) return H.up.apply(this, arguments);
       if (!canAct() || ti !== G.activeWorm.team) return false;
@@ -332,7 +395,7 @@ const ArenaFight = (() => {
     };
     UI.canPick = function () { return H.cp.call(this) && canAct(); };
     UI.togglePause = function (v) { const p = $('pauseScr'); if (!p) return; const on = v === undefined ? p.hidden : !!v; p.hidden = !on; UI.paused = false; };   // the battle never freezes for one player
-    UI.showOver = function () { if (!F) return H.so.apply(this, arguments); F.ended = true; F.simOver = true; F.overTimer = setTimeout(() => { const w = G.winner; showResult(w ? { win: w.idx === F.myTeam, draw: false } : { win: false, draw: true }); }, 1600); };
+    UI.showOver = function () { if (!F) return H.so.apply(this, arguments); F.ended = true; F.simOver = true; F.overTimer = setTimeout(() => { const w = G.winner; showResult(w ? { win: sideOf(w.idx) === F.myTeam, draw: false } : { win: false, draw: true }); }, 1600); };
     $('bPass').onclick = () => { if (F && !F.ended && G.mode === 'play' && G.phase === 'aim' && !G.swarm && canAct()) { Snd.play('beep'); G.charging = false; G.charge = 0; endTurnNow(); push({ k: 'x', f: G.frame }); } };
     $('bQuit').onclick = () => askLeave();
     $('wbtn').onclick = e => { if (canAct()) return H.wbtn.call($('wbtn'), e); };
@@ -362,10 +425,11 @@ const ArenaFight = (() => {
   const bigBtn = (txt, fn) => { const b = document.createElement('button'); b.className = 'btn'; b.textContent = txt; b.style.margin = '6px'; b.onclick = () => { try { Snd.play('beep'); } catch (e) { } fn(); }; return b; };
   function updateMsg() {
     const f = F; if (!f) return; let el = $('arFightMsg');
-    const show = f.live && !f.ended && f.stallSince && Date.now() - f.stallSince > 700;
+    { let ro = $('arFightRej'); if (f.catching && !f.ended) { if (!ro) { ro = document.createElement('div'); ro.id = 'arFightRej'; ro.style.cssText = 'position:fixed;inset:0;z-index:46;display:flex;align-items:center;justify-content:center;background:rgba(6,8,18,.55);font:700 20px var(--body,sans-serif);color:#ffe3b0;pointer-events:none;text-align:center'; document.body.appendChild(ro); } ro.textContent = 'Reconnecting to the fight... ' + Math.max(1, Math.min(99, Math.round(G.frame / Math.max(1, G.frame + Math.max(0, leadFrames())) * 100))) + '%'; } else if (ro) ro.remove(); }
+    const show = f.live && !f.ended && !f.catching && ( (f.stallSince && Date.now() - f.stallSince > 700));
     if (!show) { if (el) el.remove(); return; }
     if (!el) { el = document.createElement('div'); el.id = 'arFightMsg'; el.style.cssText = 'position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:45;background:rgba(10,14,28,.88);border:2px solid #ffc15a;border-radius:99px;padding:6px 18px;font:700 15px var(--body,sans-serif);color:#ffe3b0;pointer-events:none;white-space:nowrap'; document.body.appendChild(el); }
-    el.textContent = f.stallWhy === 'sync' ? 'Syncing...' : 'Waiting for ' + ((f.stallOwner && f.names[f.stallOwner]) || 'the other player') + '...';
+    el.textContent = f.catching ? 'Reconnecting... ' + Math.max(1, Math.min(99, Math.round(G.frame / Math.max(1, G.frame + Math.max(0, leadFrames())) * 100))) + '%' : f.stallWhy === 'sync' ? 'Syncing...' : 'Waiting for ' + ((f.stallOwner && f.names[f.stallOwner]) || 'the other player') + '...';
   }
   // small readout (bottom centre) so a slow fight can be explained: draw = pictures per second of this phone, sim = battle steps per second (60 is full speed),
   // ping = last answer time of the server, wait = longest "Waiting for ..." in the last 10 s
@@ -417,12 +481,12 @@ const ArenaFight = (() => {
     clearInterval(f.msgTimer); clearTimeout(f.overTimer);
     try { if (f.ws) { const w = f.ws; f.ws = null; w.close(); } } catch (e) { }
     unhook();
-    for (const id of ['arFightMsg', 'arFightEnd', 'arFightAsk', 'arFightDbg']) { const e = $(id); if (e) e.remove(); }
+    for (const id of ['arFightMsg', 'arFightEnd', 'arFightAsk', 'arFightDbg', 'arFightRej']) { const e = $(id); if (e) e.remove(); }
     try { if (f.live) { G.mode = 'menu'; G.projs = []; } for (const id of ['over', 'wmenu', 'pauseScr']) { const e = $(id); if (e) e.hidden = true; } UI.paused = false; UI.show('title'); } catch (e) { }
     try { f.C.showOnline(); } catch (e) { }
     if (f.goRes) f.goRes();
     F = null; f.resolve(res || {});
   }
 
-  return { run };
+  return { run, active: () => !!F && !F.finished };
 })();
