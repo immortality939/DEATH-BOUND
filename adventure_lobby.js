@@ -56,7 +56,7 @@ const AdvLobbyUI = (() => {
   function css() {
     if (document.getElementById('advCss')) return;
     const s = document.createElement('style'); s.id = 'advCss'; s.textContent = `#onl .av{position:absolute;inset:0;background:#2a1a0c url(${U('bg_wood.jpg')});overflow:hidden;font-family:var(--body,sans-serif);color:#fff2da;user-select:none;-webkit-user-select:none}
-#onl .av .st{position:absolute;left:50%;top:50%;width:960px;height:540px;transform:translate(-50%,-50%) scale(var(--k,1));transform-origin:50% 50%}
+#onl .av > .st{position:absolute;left:50%;top:50%;width:960px;height:540px;transform:translate(-50%,-50%) scale(var(--k,1));transform-origin:50% 50%}
 #onl .av .abs{position:absolute}
 #onl .av .pnl{background:url(${U('wood_tile.png')}) padding-box;border:16px solid transparent;border-image:url(${U('panel.png')}) 30 / 16px stretch;background-clip:padding-box;box-sizing:border-box}
 #onl .av .ins{background:#2a190b url(${U('bg_wood.jpg')}) padding-box;border:14px solid transparent;border-image:url(${U('panel_dark.png')}) 26 / 14px stretch;background-clip:padding-box;box-sizing:border-box}

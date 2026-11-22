@@ -308,7 +308,7 @@ const Quests = (() => {
 #onl .qs-bar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(#ffd34a,#e0801a)}
 #onl .qs-bar span{position:absolute;inset:0;text-align:center;font:700 10px/12px var(--body,sans-serif);color:#fff;text-shadow:0 1px 1px #000}
 #onl .qs-rw{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:5px}
-#onl .qs-rw .rc{display:flex;align-items:center;gap:3px;padding:1px 6px 1px 2px;border-radius:7px;background:rgba(0,0,0,.4);border:1px solid rgba(255,224,160,.3);font:700 11px var(--body,sans-serif);color:#ffd34a}
+#onl .qs-rw .qrc{display:flex;align-items:center;gap:3px;padding:1px 6px 1px 2px;border-radius:7px;background:rgba(0,0,0,.4);border:1px solid rgba(255,224,160,.3);font:700 11px var(--body,sans-serif);color:#ffd34a}
 #onl .qs-rw img{width:22px;height:22px;object-fit:contain}
 #onl .qs-tag{position:absolute;top:5px;right:7px;padding:2px 7px;border-radius:7px;font:700 11px var(--body,sans-serif);background:#1f9d55;border:1px solid #bfffd6;color:#fff}
 #onl .qs-done{margin:6px 2px;color:#cdb98f;font:700 12px var(--body,sans-serif);text-align:center}
@@ -339,8 +339,8 @@ const Quests = (() => {
     const bar = (v, n) => h('div', { class: 'qs-bar' }, h('i', { style: 'width:' + Math.min(100, Math.round(Math.min(v, n) / n * 100)) + '%' }), h('span', null, fmt(Math.min(v, n)) + ' / ' + fmt(n)));
     function rewardRow(qq) {
       const rw = rewardOf(qq), kids = [];
-      if (rw.chips) kids.push(h('div', { class: 'rc' }, h('img', { src: chipsImg(), alt: '' }), fmt(rw.chips)));
-      for (const x of rw.items) kids.push(h('div', { class: 'rc' }, x.it.img ? h('img', { src: x.it.img, alt: '' }) : null, x.it.name + (x.qty > 1 ? ' ×' + x.qty : '')));
+      if (rw.chips) kids.push(h('div', { class: 'qrc' }, h('img', { src: chipsImg(), alt: '' }), fmt(rw.chips)));
+      for (const x of rw.items) kids.push(h('div', { class: 'qrc' }, x.it.img ? h('img', { src: x.it.img, alt: '' }) : null, x.it.name + (x.qty > 1 ? ' ×' + x.qty : '')));
       return h('div', { class: 'qs-rw' }, kids);
     }
     function showItem(x) {
