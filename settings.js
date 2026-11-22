@@ -81,6 +81,18 @@ const SettingsUI = (() => {
     rng.oninput = () => { const v = +rng.value; showVol(v); ctx.prefs.set('vol', v); };
     rng.onchange = () => { try { Snd.init(); if (!Snd.muted) Snd.play('pick'); } catch (e) { } };
     const vol = h('div', { class: 'sx-vol' }, rng, pct);
+    // ---- background music (music_server.js): its own ON/OFF + volume ----
+    const hasM = typeof Music !== 'undefined';
+    const mus = h('button', { class: 'sx-sw', role: 'switch', type: 'button' }, h('span', null, ''));
+    const paintMus = () => { const on = hasM && Music.on; mus.classList.toggle('on', on); mus.setAttribute('aria-checked', on); mus.firstChild.textContent = on ? 'ON' : 'OFF'; };
+    mus.onclick = () => { if (!hasM) return; Music.setOn(!Music.on); paintMus(); };
+    paintMus();
+    const mrng = h('input', { class: 'sx-rng', type: 'range', min: '0', max: '100', step: '5', 'aria-label': 'Music volume' });
+    const mpct = h('b', null, '');
+    const showMv = v => { mrng.style.setProperty('--p', v + '%'); mpct.textContent = v + '%'; };
+    mrng.value = String(hasM ? Music.vol : 60); showMv(hasM ? Music.vol : 60);
+    mrng.oninput = () => { const v = +mrng.value; showMv(v); if (hasM) { Music.setVol(v); if (v > 0 && !Music.on) { Music.setOn(true); paintMus(); } } };
+    const mvol = h('div', { class: 'sx-vol' }, mrng, mpct);
 
     // ---- account (town only: these screens replace the town) ----
     const acc = ctx.inTown
@@ -94,6 +106,8 @@ const SettingsUI = (() => {
       card('🔊', 'Sound',
         row('Sound effects', 'Shots, explosions and menu sounds.', sfx),
         row('Volume', null, vol),
+        row('Music', 'Background music.', mus),
+        row('Music volume', null, mvol),
         row('Test sound', null, btn('Play', () => { try { Snd.init(); if (Snd.muted) { Snd.setMute(false); paintSfx(); } Snd.play('win'); } catch (e) { } }, 'sm'))),
       card('📳', 'Feel', row('Vibration', 'Phone vibrates in the game.', sw('vib', v => { if (v) { try { navigator.vibrate && navigator.vibrate(30); } catch (e) { } } })))
     ];
