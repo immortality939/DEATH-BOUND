@@ -355,7 +355,14 @@ const STONE_TYPES = [
   { n: 'Sun Stone',      img: 'assets/stone5.png', mult: 1.3, price: 32000, col: '#ffc83a' },
 ];
 const stoneKey = t => t > 1 ? 'stones' + t : 'stones';
-const upRate = (L, t = 1) => Math.min(100, Math.round(UP_RATE[L] * STONE_TYPES[t - 1].mult * 10) / 10);
+// A LOW STONE FALLS OFF FAST: every stone has a level it is made for (STONE_FREE_TO). Up to that level it works at its full chance; for EVERY level above it, its chance is multiplied
+// by STONE_DECAY again (Blue Stone: +1 is fine, +2 only about a third of that, +3 a third again ...). So a Blue Stone cannot carry an item to +12, and only the best stones still have a real chance on the high levels.
+const STONE_FREE_TO = [1, 3, 5, 6, 9];            // Blue, Jade, Amethyst, Ruby, Sun: the highest item level (the +N you already have) the stone still works at full strength
+const STONE_DECAY = [.4, .5, .55, .6, .65];       // multiplier for each level above that (smaller = falls off faster)
+const upRate = (L, t = 1) => {
+  const T = STONE_TYPES[t - 1], over = Math.max(0, L - STONE_FREE_TO[t - 1]), r = (UP_RATE[L] || 0) * T.mult * Math.pow(STONE_DECAY[t - 1], over);
+  return Math.min(100, Math.max(0.1, Math.round(r * 10) / 10));   // never below 0.1% per slot
+};
 // ===== CHARACTER LEVEL + ATTRIBUTES =====
 // Your robot levels up from 1 to LVL_MAX by playing (XP from matches and Adventure stages). EVERY level gives +PTS_PER_LVL to each attribute.
 // vit: +5 health each | dex: +2 health and +1 defense each (Defense / (Defense + 600) = % less damage, max 2000 counted) | agi: +0.25% crit damage and +1 damage each | luk: +0.15% crit chance each. Gear adds to the same attributes.
