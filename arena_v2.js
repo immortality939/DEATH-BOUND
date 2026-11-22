@@ -29,6 +29,9 @@ const ArenaUI = (() => {
     return { id: p.id, name: p.name, lv: i.lv || 1, robot: p.robot, weapon: i.weapon || { name: 'Standard cannon', img: '' }, me: true };
   };
   const amMember = m => m && m.id === me().id;
+  // weapon +9..+12 aura (same picture as the Profile / Hall of Fame) drawn behind a character picture
+  const wLv = m => ((m && m.weapon && m.weapon.lv) || (amMember(m) ? ((C.info() || {}).weapon || {}).lv : 0)) | 0;
+  const portrait = (img, m, cls) => { const d = h('div', { class: cls }); try { const t = document.createElement('div'); t.innerHTML = typeof auraHTML === 'function' ? auraHTML(wLv(m)) : ''; if (t.firstChild) d.appendChild(t.firstChild); } catch (e) { } d.appendChild(img); return d; };
   const hostOf = r => r.members.find(m => m.host) || r.members[0];
   // ask the server something; the answer is the new state of everything (so the screen is current at once)
   async function act(path, body) {
@@ -71,6 +74,11 @@ const ArenaUI = (() => {
 #onl .ar .face img{width:130px;height:130px;object-fit:contain;filter:drop-shadow(0 6px 5px rgba(0,0,0,.6))}
 #onl .ar .face b{font:400 18px/1.1 var(--disp,sans-serif);color:#fff;-webkit-text-stroke:1px #4a2208;paint-order:stroke fill}
 #onl .ar .face small{color:#ffd34a;font-weight:700;font-size:14px}
+#onl .ar .face .apt{position:relative;width:130px;height:130px}
+#onl .ar .sl .apt{position:relative;float:left;width:78px;height:78px;margin-right:6px}
+#onl .ar .apt>img{position:relative;z-index:1}
+#onl .ar .face .wpl{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;font-size:13px;color:#ffe9c4;background:rgba(48,26,8,.55);border-radius:8px;padding:3px 10px;max-width:250px;overflow:hidden;white-space:nowrap}
+#onl .ar .face .wpl img{width:26px;height:26px;object-fit:contain}
 #onl .ar .dd{position:absolute;width:170px;height:38px;background:url(${U('dropdown.png')}) 0 0/100% 100%;display:flex;align-items:center;justify-content:center;gap:8px;font:400 15px/1 var(--disp,sans-serif);color:#fff;-webkit-text-stroke:1px #5a2d08;paint-order:stroke fill;cursor:pointer;z-index:5}
 #onl .ar .ddm{position:absolute;width:170px;z-index:6;padding:6px;background:url(${U('panel_dark.png')}) center/100% 100%;box-sizing:border-box}
 #onl .ar .ddm div{padding:8px 10px;font:400 15px/1 var(--disp,sans-serif);cursor:pointer;border-radius:6px}#onl .ar .ddm div:hover{background:rgba(255,200,120,.2)}
@@ -178,7 +186,7 @@ const ArenaUI = (() => {
     repaint();
   }
   const sigOf = () => {
-    const r = S.myRoom, mem = m => [m.id, m.lv, m.ready ? 1 : 0, m.host ? 1 : 0, m.robot, m.weapon && m.weapon.name].join(':');
+    const r = S.myRoom, mem = m => [m.id, m.lv, m.ready ? 1 : 0, m.host ? 1 : 0, m.robot, m.weapon && m.weapon.name, m.weapon && m.weapon.lv].join(':');
     if (S.view === 'lobby') return JSON.stringify([S.mode, S.online.map(o => o.id + ':' + o.lv), S.rooms.filter(x => x.mode === S.mode).slice(0, 8).map(x => [x.id, x.state, x.slots, x.members.map(mem)])]);
     if (S.view === 'room' && r) return JSON.stringify([r.id, r.slots, r.mode, r.state, r.hostId, r.members.map(mem), S.online.map(o => o.id + ':' + o.lv)]);
     return '';
@@ -207,7 +215,8 @@ const ArenaUI = (() => {
       h('div', { class: 'abs pnl', style: 'left:6px;top:62px;width:606px;height:258px' }),
       // right: me, then who is online
       h('div', { class: 'abs pnl', style: 'left:636px;top:66px;width:316px;height:226px' }),
-      h('div', { class: 'face', style: 'left:636px;top:74px;width:316px' }, rimg(p.robot), h('b', null, p.name), h('small', null, 'Lv ' + p.lv)),
+      h('div', { class: 'face', style: 'left:636px;top:74px;width:316px' }, portrait(rimg(p.robot), p, 'apt'), h('b', null, p.name), h('small', null, 'Lv ' + p.lv),
+        h('div', { class: 'wpl' }, p.weapon && p.weapon.img ? h('img', { src: p.weapon.img, alt: '' }) : null, h('span', null, p.weapon ? p.weapon.name : ''))),
       h('div', { class: 'abs ins', style: 'left:636px;top:300px;width:316px;height:178px' }),
       h('div', { class: 'abs hd', style: 'left:652px;top:309px' }, 'ONLINE PLAYERS  (' + (others.length + 1) + ')'),
       (() => { const l = h('div', { class: 'lst', style: 'left:648px;top:328px;width:294px;height:142px' }); l.append(h('div', { class: 'it me' }, h('span', null, p.name), h('span', null, 'Lv ' + p.lv))); for (const o of others) l.append(h('div', { class: 'it', onclick: () => C.toast(o.name + '  |  Lv ' + o.lv) }, h('span', null, o.name), h('span', null, 'Lv ' + o.lv))); return l; })()
@@ -256,10 +265,10 @@ const ArenaUI = (() => {
       let slot;
       if (m) {
         slot = h('div', { class: 'sl' + (amMember(m) ? ' mine' : ''), style: `left:${x}px;top:${y}px` },
-          rimg(m.robot).cloneNode(), h('div', { class: 'nm' }, m.name), h('div', { class: 'lv' }, 'Lv ' + m.lv + (m.host ? '  \u2605 HOST' : '')),
+          portrait(rimg(m.robot).cloneNode(), m, 'apt'), h('div', { class: 'nm' }, m.name), h('div', { class: 'lv' }, 'Lv ' + m.lv + (m.host ? '  \u2605 HOST' : '')),
           h('div', { class: 'wp' }, m.weapon && m.weapon.img ? h('img', { src: m.weapon.img, alt: '' }) : null, h('span', null, m.weapon ? m.weapon.name : '')),
           m.ready && !m.host ? h('div', { class: 'rdy' }, 'READY') : null);
-        slot.querySelector('img').className = 'pic';
+        slot.querySelector('.apt>img').className = 'pic'; slot.querySelector('.apt>img').style.cssText = 'float:none;margin:0;width:78px;height:78px';
       } else if (i < r.slots) {
         slot = h('div', { class: 'sl', style: `left:${x}px;top:${y}px` }, h('div', { class: 'wait' }, 'Waiting'));
         if (host && i > 0 && !busyRoom) slot.style.cursor = 'pointer', slot.onclick = () => { C.beep(); act('config', { slots: Math.max(mm.length, i) }); };   // tap an open slot again to close it

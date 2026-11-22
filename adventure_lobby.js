@@ -12,6 +12,9 @@ const AdvLobbyUI = (() => {
   const nrobots = () => C.robots().length;
   const myMember = () => { const p = me(), i = C.info() || {}; return { id: p.id, name: p.name, lv: i.lv || 1, power: myPower(), robot: p.robot, weapon: i.weapon || { name: 'Standard cannon', img: '' } }; };
   const amMember = m => m && m.id === me().id;
+  // weapon +9..+12 aura (same picture as the Profile / Hall of Fame) drawn behind a character picture
+  const wLv = m => ((m && m.weapon && m.weapon.lv) || (amMember(m) ? ((C.info() || {}).weapon || {}).lv : 0)) | 0;
+  const portrait = (img, m, cls) => { const d = h('div', { class: cls }); try { const t = document.createElement('div'); t.innerHTML = typeof auraHTML === 'function' ? auraHTML(wLv(m)) : ''; if (t.firstChild) d.appendChild(t.firstChild); } catch (e) { } d.appendChild(img); return d; };
   const hostOf = r => r.members.find(m => m.host) || r.members[0];
   const amHost = () => !!(S.my && S.my.hostId === me().id);
   async function act(path, body) {   // ask the server; the answer is the new state of everything
@@ -85,6 +88,9 @@ const AdvLobbyUI = (() => {
 #onl .av .face img{width:130px;height:130px;object-fit:contain;filter:drop-shadow(0 6px 5px rgba(0,0,0,.6))}
 #onl .av .face b{font:400 18px/1.1 var(--disp,sans-serif);color:#fff;-webkit-text-stroke:1px #4a2208;paint-order:stroke fill}
 #onl .av .face small{color:#ffd34a;font-weight:700;font-size:14px}
+#onl .av .face .apt{position:relative;width:130px;height:130px}
+#onl .av .sl .apt{position:relative;float:left;width:78px;height:78px;margin-right:6px}
+#onl .av .apt>img{position:relative;z-index:1}
 #onl .av .dd{position:absolute;width:170px;height:38px;background:url(${U('dropdown.png')}) 0 0/100% 100%;display:flex;align-items:center;justify-content:center;gap:8px;font:400 15px/1 var(--disp,sans-serif);color:#fff;-webkit-text-stroke:1px #5a2d08;paint-order:stroke fill;cursor:pointer;z-index:5}
 #onl .av .ddm{position:absolute;width:170px;z-index:6;padding:6px;background:url(${U('panel_dark.png')}) center/100% 100%;box-sizing:border-box}
 #onl .av .ddm div{padding:8px 10px;font:400 15px/1 var(--disp,sans-serif);cursor:pointer;border-radius:6px}#onl .av .ddm div:hover{background:rgba(255,200,120,.2)}
@@ -218,7 +224,7 @@ const AdvLobbyUI = (() => {
     repaint();
   }
   const sigOf = () => {
-    const r = S.my, mem = m => [m.id, m.lv, m.power, m.ready ? 1 : 0, m.host ? 1 : 0, m.robot, m.weapon && m.weapon.name].join(':');
+    const r = S.my, mem = m => [m.id, m.lv, m.power, m.ready ? 1 : 0, m.host ? 1 : 0, m.robot, m.weapon && m.weapon.name, m.weapon && m.weapon.lv].join(':');
     if (S.view === 'lobby') return JSON.stringify([S.online.map(o => o.id + ':' + o.lv), S.rooms.slice(0, 30).map(x => [x.id, x.map, x.diff, x.state, x.members.map(mem)])]);
     if (S.view === 'room' && r) return JSON.stringify([r.id, r.map, r.diff, r.state, r.hostId, r.next && r.next.stage, r.members.map(mem), S.online.map(o => o.id + ':' + o.lv)]);
     return '';
@@ -246,7 +252,7 @@ const AdvLobbyUI = (() => {
       h('div', { class: 'abs pnl', style: 'left:10px;top:66px;width:609px;height:210px' }),
       // right: my character (picture, name, level, power, weapon)
       h('div', { class: 'abs pnl', style: 'left:629px;top:66px;width:323px;height:210px' }),
-      h('div', { class: 'face', style: 'left:629px;top:72px;width:323px' }, rimg(p.robot), h('b', null, p.name),
+      h('div', { class: 'face', style: 'left:629px;top:72px;width:323px' }, portrait(rimg(p.robot), p, 'apt'), h('b', null, p.name),
         h('small', null, 'Lv ' + p.lv + '   |   Power ' + p.power.toLocaleString()),
         h('div', { class: 'wpl' }, p.weapon.img ? h('img', { src: p.weapon.img, alt: '' }) : null, h('span', null, p.weapon.name))),
       // below it: the empty black list = who is online
@@ -291,10 +297,10 @@ const AdvLobbyUI = (() => {
       const x = 12 + (i % 2) * 220, y = 64 + Math.floor(i / 2) * 140, m = mm[i]; let slot;
       if (m) {
         slot = h('div', { class: 'sl' + (amMember(m) ? ' mine' : ''), style: `left:${x}px;top:${y}px` },
-          rimg(m.robot).cloneNode(), h('div', { class: 'nm' }, m.name), h('div', { class: 'lv' }, 'Lv ' + m.lv + (m.host ? '  ★ HOST' : '')), h('div', { class: 'pw' }, 'Power ' + (m.power || 0).toLocaleString()),
+          portrait(rimg(m.robot).cloneNode(), m, 'apt'), h('div', { class: 'nm' }, m.name), h('div', { class: 'lv' }, 'Lv ' + m.lv + (m.host ? '  ★ HOST' : '')), h('div', { class: 'pw' }, 'Power ' + (m.power || 0).toLocaleString()),
           h('div', { class: 'wp' }, m.weapon && m.weapon.img ? h('img', { src: m.weapon.img, alt: '' }) : null, h('span', null, m.weapon ? m.weapon.name : '')),
           m.ready && !m.host ? h('div', { class: 'rdy' }, 'READY') : null);
-        slot.querySelector('img').className = 'pic';
+        slot.querySelector('.apt>img').className = 'pic'; slot.querySelector('.apt>img').style.cssText = 'float:none;margin:0;width:78px;height:78px';
       } else {
         slot = h('div', { class: 'sl', style: `left:${x}px;top:${y}px;cursor:pointer` }, h('div', { class: 'wait' }, 'Available'));
         slot.onclick = () => { C.beep(); invitePop(false); };

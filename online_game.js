@@ -335,7 +335,7 @@ const OnlineUI = (() => {
       let eq; try {   // what I wear: { slot: [itemId, upgradeLevel] } (the Hall of Fame shows it to other players)
         eq = {}; for (const k of ['weapon', 'helmet', 'ring1', 'ring2', 'armor', 'shoes', 'heal', 'wings', 'neck', 'glove']) { const id = worn[k] || (k === 'weapon' && w && w.id); if (id) eq[k] = [baseId(id), Profile.lvl(id)]; }
       } catch (e2) { eq = undefined; }
-      return { lv: Profile.level(), power, weapon: w ? { name: w.name, img: Profile.imgOf(w) } : undefined, eq };
+      return { lv: Profile.level(), power, weapon: w ? { name: w.name, img: Profile.imgOf(w), lv: Math.min(12, Profile.lvl(worn.weapon || w.id) | 0) } : undefined, eq };
     } catch (e) { return {}; }
   }
 
