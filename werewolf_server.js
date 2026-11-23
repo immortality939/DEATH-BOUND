@@ -27,7 +27,8 @@ const WW_STRIKE_MUL = 2.6;             // strike-forward damage (strong) = boss 
 const WW_MIN_CLAW_MUL = 1, WW_MIN_STRIKE_MUL = 2.2;
 const WW_RUN = 14;                     // run speed in world px per tick, per 1.0 of size (boss ~16, small wolves ~10)
 const WW_STRIDE = 450;                 // world px covered by ONE full run cycle (6 frames) per 1.0 of size. Bigger = slower legs for the same speed
-const WW_DASH = 21;                    // strike-forward dash speed (px per tick, per 1.0 of size)
+const WW_BERSERK_SND_GAP = 330;        // ms between repeats of the berserk claw sound while he dashes (lower = more continuous / faster slashing)
+const WW_DASH = 21;                   // strike-forward dash speed (px per tick, per 1.0 of size)
 const WW_STEP_MIN = 170, WW_STEP_MAX = 360;   // the "move first" run
 const WW_REACH = 130, WW_HIT_FRONT = 190, WW_HIT_BACK = 45, WW_STRIKE_R = 105;   // stop distance from the player / claw reach / reach behind / strike hit radius (per 1.0 of size)
 const WW_EDGE_L = 420, WW_EDGE_R = 2380;       // the two sides of the map the strike starts from / ends at
@@ -288,11 +289,12 @@ CMINIONS.werewolf = { name: "Blood Wolf", hpMul: 6, sc: 1.9, fly: false, sheet: 
         w.face = S.dir; w.actF = keys([[1, WWF.IDLE], [10, ST], [30, ST], [38, ST + 1]], u); w.hop = 0;
         if (u % 6 === 0) { addFx('b3_slash', w.x + w.face * 40 * s, w.y - 60 * s, .6 * s + .3, { flip: w.face < 0 }); shake(big ? 4 : 2); }
         if (u === 20 && big) { ringFx(w.x, w.y - 8, '#c58bff'); Snd.play('boom', .8); }
-        if (u >= 38) { S.ph = 'dash'; S.u = 0; S.v = 0; S.dp = 0; if (big) Snd.play('mp3_ww_berserk'); }
+        if (u >= 38) { S.ph = 'dash'; S.u = 0; S.v = 0; S.dp = 0; { Snd.play('mp3_ww_berserk'); S.snT = performance.now(); } }
         return false;
       }
       if (S.ph === 'dash') {   // the dash: spinning slash frames loop while he flies across the map
-        const sp = WW_DASH * s * Math.min(1, .35 + u / 12), x0 = w.x; w.face = S.dir; S.dp += sp / (130 * s);
+        { const nw = performance.now(); if (nw - (S.snT || 0) >= WW_BERSERK_SND_GAP) { S.snT = nw; Snd.play('mp3_ww_berserk'); } }   // keep the berserk claw sound repeating for the WHOLE dash, boss and small wolves (the file is only ~0.57 s long)
+        const sp =WW_DASH * s * Math.min(1, .35 + u / 12), x0 = w.x; w.face = S.dir; S.dp += sp / (130 * s);
         const ok = placeOnGround(w, w.x + S.dir * sp) && Math.abs(w.x - x0) > .05;
         const v = (S.dp % 4), i = Math.floor(v); w.actF = u < 8 ? [ST + 1, ST + 2, u / 8] : [ST + 2 + i, ST + 2 + (i + 1) % 4, v - i]; w.hop = Math.abs(Math.sin(u / 3)) * 3 * s;
         if (u % 2 === 0) (G.wwfx = G.wwfx || []).push({ x: w.x, y: w.y - w.hop, face: w.face, s: px(w), pose: w.actF, img: w.rob.act, age: 0 });
