@@ -13,7 +13,7 @@
 const Music = (() => {
   const DIR = 'assets/musicbackground/';
   const FILE = {
-    lobby: 'lobby sound track', advsel: 'adventure selection', arenasel: 'inside arena selection',
+    lobby: 'lobby sound track', advsel: 'adventure slection', arenasel: 'inside arena selection',
     orc: 'boss orc stage', slime: 'boss slime king stage', dragon: 'boss demon dragon stage', skeleton: 'boss skeleton king stage', kong: 'boss kingkong stage',
     mino: 'boss minotaur stage', scorpion: 'boss scorpion king stage', zeus: 'boss zeus boss stage', centaur: 'boss cenatur warchief stage',
     hound: 'boss lava hound stage', werewolf: 'boss werewolf boss stage', reaper: 'boss death reaper stage', golem: 'boss golem boss stage'
