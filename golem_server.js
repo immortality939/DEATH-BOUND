@@ -260,7 +260,7 @@ const GM_T_STOMP = [[0, 0], [12, 16], [26, 17], [44, 18], [58, 18], [66, 19], [9
       const dir = d > 0 ? 1 : -1; w.face = dir; const x0 = w.x, step = Math.min(S.v, ad);
       if (!this.groundAhead(w, dir) || !placeOnGround(w, w.x + dir * step) || Math.abs(w.x - x0) < .05) { if (++S.stuck > 8) return 'blocked'; } else S.stuck = 0;
       const ph0 = w.gmPh || 0; w.gmPh = ph0 + Math.abs(w.x - x0) / stride(w);
-      if (Math.floor(w.gmPh * 2) !== Math.floor(ph0 * 2)) { shake(GM_SHAKE_STEP); if (!Snd.has('gm_walk')) Snd.play('gm_step'); else if (!(w.gmSndT > G.frame) && Snd.file('gm_walk')) w.gmSndT = G.frame + 42; puffs(w.x - w.face * 40 * px(w), w.y - 2, 1, .55); }   // a foot lands
+      if (Math.floor(w.gmPh * 2) !== Math.floor(ph0 * 2)) { shake(GM_SHAKE_STEP); if (!Snd.has('gm_walk')) Snd.play('gm_step'); else { w.gmFoot = !w.gmFoot; Snd.file('gm_walk', w.gmFoot ? 1 : .9); } puffs(w.x - w.face * 40 * px(w), w.y - 2, 1, .55); }   // a foot lands
       S.rt++; w.actF = S.rt < 10 ? [S.from, walkPose(w)[0], ease(S.rt / 10)] : walkPose(w);
       return 'go';
     },
