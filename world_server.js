@@ -724,6 +724,7 @@ function clearPath(T, X0 = 0, X1 = T.W - 1, HEAD = 120) {   // whole map width (
   for (let x = X0; x <= X1; x++) { const v = []; for (let q = Math.max(X0, x - 350); q <= Math.min(X1, x + 350); q += 10) if (surf[q] < H) v.push(surf[q]); if (!v.length) v.push(gl); v.sort((a, b) => a - b); base[x] = v[Math.floor(.75 * (v.length - 1))]; }   // columns with no ground at all (chasm) do not pull the floor down to the bottom of the map
   for (let x = X0 + 1; x <= X1; x++) base[x] = clamp(base[x], base[x - 1] - 3, base[x - 1] + 3);
   for (let x = X1 - 1; x >= X0; x--) base[x] = clamp(base[x], base[x + 1] - 3, base[x + 1] + 3);
+  const FA = T.map && typeof FLAT_ARENAS !== 'undefined' ? FLAT_ARENAS[T.map.id] : null; if (FA) { base.fill(FA.y); HEAD = 40; }   // flat-arena boss stages: the floor is exactly one height from the far left to the far right
   for (let x = X0; x <= X1; x++) {
     const s = surf[x], b = Math.round(base[x]);
     const top = Math.min(s, b - HEAD); if (top < b) { let any = false; for (let y = Math.max(0, top); y < b; y++) { const i = y * W + x; if (m[i]) { m[i] = 0; any = true; } } if (any) c.clearRect(x, Math.max(0, top), 1, b - Math.max(0, top)); }   // hill / pillar / ceiling above the walkway

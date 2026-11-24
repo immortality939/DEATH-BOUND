@@ -11,7 +11,12 @@ function vnoise(x, y, s) { const xi = Math.floor(x), yi = Math.floor(y), xf = x 
 
 // SCRAPHEAP CANYON boss stages: the WHOLE ground is flat (no hill, caves, slopes or corner valleys). y = floor height; keep = runs that end above this y stay (the floating platforms);
 // patch = a rectangle of solid rock of the map picture, tiled to paint the new flat ground (without it the colour of the picture's bottom edge is used).
-const FLAT_ARENAS = { adv_arena: { y: 640, keep: 560, patch: [700, 700, 500, 280] }, adv_canyon_b3: { y: 800 } };
+const FLAT_ARENAS = {   // every BOSS stage ground: ONE flat floor from the far left to the far right, painted flat in the PNG (baked) and impossible to dig. y = floor height, keep = floating platforms (runs ending above this row) stay
+  adv_arena: { y: 640, keep: 580, baked: 1 }, adv_throne: { y: 800, keep: 740, baked: 1 }, adv_storm: { y: 800, keep: 740, baked: 1 }, adv_ember_arena: { y: 810, keep: 750, baked: 1 },
+  adv_ruins_arena: { y: 800, keep: 740, baked: 1 }, adv_dunes_arena: { y: 806, keep: 746, baked: 1 }, adv_marble_arena: { y: 800, keep: 740, baked: 1 }, adv_bog_arena: { y: 815, keep: 755, baked: 1 },
+  adv_prism_arena: { y: 800, keep: 740, baked: 1 }, adv_void_arena: { y: 850, keep: 780, baked: 1 }, adv_quarry_arena: { y: 800, keep: 740, baked: 1 }, adv_ember_kong: { y: 800, keep: 740, baked: 1 },
+  adv_dunes_b3: { y: 800, keep: 740, baked: 1 }, adv_marble_b3: { y: 800, keep: 740, baked: 1 }, adv_bog_b3: { y: 800, keep: 740, baked: 1 }, adv_prism_b3: { y: 800, keep: 740, baked: 1 },
+  adv_prism_b3w: { y: 800, keep: 740, baked: 1 }, adv_void_b3: { y: 800, keep: 740, baked: 1 } };
 const EDGE_EXT = 360;   // Adventure: how far the real ground reaches beyond the left / right edge of the map (the picture reaches 400)
 class Terrain {
   // map = an entry of MAPS (maps.js). Its PNG is already painted: opaque pixel = ground. Without a picture the old random terrain is used.
@@ -26,7 +31,7 @@ class Terrain {
     const W = this.W, H = this.H, c = this.ctx, m = this.mask, fl = FLAT_ARENAS[id]; let cols = MAP_RUNS[id]; c.clearRect(0, 0, W, H); c.drawImage(im, 0, 0, W, H);
     if (fl) {   // flat boss ground: new solid runs, and the picture is cut to them (hill / caves / slopes of the picture disappear)
       cols = MAP_RUNS[id] = Array.from({ length: W }, (_, x) => { const r = cols[x] || [], o = []; if (fl.keep) for (let k = 0; k < r.length; k += 2) if (r[k + 1] <= fl.keep) o.push(r[k], r[k + 1]); o.push(fl.y, H); return o; });
-      c.save(); c.globalCompositeOperation = 'destination-in'; this.runPath(cols); c.fill(); c.restore();
+      if (!fl.baked) { c.save(); c.globalCompositeOperation = 'destination-in'; this.runPath(cols); c.fill(); c.restore(); }   // baked = the PNG already has the flat ground
     }
     for (let x = 0; x < W; x++) { const r = cols[x]; for (let k = 0; k < r.length; k += 2) for (let y = r[k]; y < r[k + 1]; y++) m[y * W + x] = 1; }
     if (/^adv_/.test(id)) { this.fillGaps(im, cols, fl); this.makeUnder(this.canvas); }   // Adventure: no water -> solid ground below and beside the map so it never looks like it floats
@@ -137,7 +142,8 @@ class Terrain {
   // ADVENTURE: dig the real ground beside the map (eL / eR) and erase it from the picture (this.under) too. Only above the map's bottom edge (the ground below stays solid).
   carveSide(cx, cy, r, scorch) {
     const W = this.W, H = this.H, E = EDGE_EXT, r2 = r * r; let any = false;
-    const y0 = Math.max(0, Math.floor(cy - r)), y1 = Math.min(H - 1, Math.ceil(cy + r));
+    const fy = this.floor ? Math.min(this.floor[0], this.floor[W - 1]) : H;   // boss stage: the floor beside the map can never be dug either
+    const y0 = Math.max(0, Math.floor(cy - r)), y1 = Math.min(H - 1, fy - 1, Math.ceil(cy + r));
     for (const left of [true, false]) {
       const arr = left ? this.eL : this.eR;
       const xa = Math.floor(cx - r), xb = Math.ceil(cx + r);
@@ -150,7 +156,7 @@ class Terrain {
     }
     if (any && this.under) {
       const g = this.under.getContext('2d'), ux = this.underX;
-      g.save(); g.beginPath(); g.rect(0, 0, this.under.width, H); g.clip();
+      g.save(); g.beginPath(); g.rect(0, 0, this.under.width, this.floor ? fy : H); g.clip();
       if (scorch) { g.globalCompositeOperation = 'source-atop'; const gr = g.createRadialGradient(cx + ux, cy, r * .86, cx + ux, cy, r + 9); gr.addColorStop(0, 'rgba(20,10,8,.85)'); gr.addColorStop(.55, 'rgba(36,20,14,.45)'); gr.addColorStop(1, 'rgba(36,20,14,0)'); g.fillStyle = gr; g.beginPath(); g.arc(cx + ux, cy, r + 9, 0, 6.2832); g.fill(); }
       g.globalCompositeOperation = 'destination-out'; g.beginPath(); g.arc(cx + ux, cy, r, 0, 6.2832); g.fill();
       g.restore();
