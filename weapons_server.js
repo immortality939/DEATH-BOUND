@@ -121,7 +121,7 @@ WEAPONS.push(
 // Looks: +0..+9 black cannonball, +10 same but bigger, +11 black ball with spikes, +12 gold ball with spikes (same size as +10). Drawn in render.js (look k:'cball').
 // Fixed stats (see TITAN_STATS in profile.js): Damage 300 (incl. the legendary bonus), Dex 20, Vit 10, Agi 3, Luck 3, Defense 20.
 WEAPONS.push(
-  SHOPW('S31_Titan_Cannon', "Titan Cannon", 'legendary', "One huge cannonball with a giant blast. No skill, only power.", { k: 'cball', c1: '#8a93a3', c2: '#323946' }, 247, 70, 'explosion_big', 0.85, 'mp3_titan_fire', 8, true, { hitT: ['titan_hit_t0', 'titan_hit_t1', 'titan_hit_t2', 'titan_hit_t3'] }),   // own red fire-smoke hit effect per upgrade look (+0..+9, +10, +11, +12)
+  SHOPW('S31_Titan_Cannon', "Titan Cannon", 'legendary', "One huge cannonball with a giant blast. No skill, only power.", { k: 'cball', c1: '#8a93a3', c2: '#323946' }, 247, 70, 'explosion_big', 0.85, 'mp3_titan_fire', 8, true, { hitT: ['titan_hit_t0', 'titan_hit_t1', 'titan_hit_t2', 'titan_hit_t3'], hitSnd: 'titan_hit' }),   // own red fire-smoke hit effect per upgrade look (+0..+9, +10, +11, +12)
 );
 
 // ===== SHURIKEN (legendary Shop weapon): ONE fast-spinning shot, no knockback, no skill. The shot IS the weapon picture (4 looks: normal, +10, +11, +12) =====

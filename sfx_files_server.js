@@ -27,7 +27,7 @@
     zeus_attack: 'zeus basic attack lightning.mp3', zeus_thunder: 'zeus thunder strike.mp3', zeus_levitate: 'zeus while levitate.mp3',
     shuriken_shoot: 'shuriken shoot.mp3',      shuriken_hit: 'shuriken hit impact.mp3',
     tempest_shoot: 'tempest arc shoot.mp3',    tempest_hit: 'tempest arc hit.mp3',
-    titan_fire: 'titan cannon fire.mp3',
+    titan_fire: 'titan cannon fire.mp3',   titan_hit: 'titan cannon hit effect.mp3',
     cen_run: 'centaur running.mp3',            doom_hit: 'doom axe hit sound.mp3',      forge_fail: 'failed upgrade.mp3',
     gm_rock_hit: 'golem rock hit.mp3',         gm_rock_throw: 'golem rock throw shoot.mp3',
     kslime_land: 'king slime jump land.mp3',   kk_land: 'kingkong jump land.mp3',       mk_land: 'minotaur and skeleton king jump land.mp3',
@@ -47,7 +47,7 @@
     slime_jump: ['boom'],
     orc_roar: [['boom', 1.5]], orc_axe: ['axe'], orc_spear: ['rocket'],
     zeus_attack: [], zeus_thunder: [['freeze', 1]], zeus_levitate: [['freeze', .8]],
-    shuriken_shoot: ['plasma'], shuriken_hit: [], tempest_shoot: ['plasma'], tempest_hit: [], titan_fire: ['shotgun'],
+    shuriken_shoot: ['plasma'], shuriken_hit: [], tempest_shoot: ['plasma'], tempest_hit: [], titan_fire: ['shotgun'], titan_hit: [],
     cen_run: [], doom_hit: [], forge_fail: ['dud'], gm_rock_hit: [['boom', 1.2]], gm_rock_throw: [['boom', .7], ['slash', .8]],
     kslime_land: ['boom'], kk_land: ['boom'], mk_land: ['boom'], bz_hit: [], bz_shoot: ['rocket'], robo_jump: ['jump'],
     bone_throw: [['slash', .7]], bone_hit: []
