@@ -98,7 +98,7 @@ const KG_WIDS = { C03_Storm_Skull: 1, C06_Tomb_Skull: 1 };  // the boss weapons 
   const wd = WEAPONS.find(x => x.id === 'C03_Storm_Skull');
   if (wd) {
     wd.art = 'M0_Blank'; wd.name = 'Bone Throw'; wd.desc = 'Throws a spinning bone that bursts into 3 small bone bombs.';
-    const p = wd.proj; p.glow = null; p.ss = 1; p.hit = 'explosion_small'; p.hs = .85; p.spin = .2;
+    const p = wd.proj; p.glow = null; p.ss = 1; p.hit = 'explosion_small'; p.hs = .85; p.spin = .2; p.hitSnd = 'bone_hit'; p.bombSnd = true;
   }
   const SMOKE = { file: KG_SMOKE_FILE, frames: 10, cols: 5, fw: 256, fh: 128, fps: 11, loop: false };
   Object.assign(DIVINE_FX, { sk_smash_smoke: SMOKE }); if (Assets.fx) Assets.fx.sk_smash_smoke = SMOKE;
@@ -129,7 +129,7 @@ const KG_WIDS = { C03_Storm_Skull: 1, C06_Tomb_Skull: 1 };  // the boss weapons 
   // the bone leaves the hand when the arm has swung forward: remember the throw time (drives the frames) and delay the real shot a little
   const _ls = launchShot; launchShot = function (w, wdef, power, jitter, extra) {
     if (!isK(w) || !wdef || !KG_WIDS[wdef.id]) return _ls.apply(this, arguments);
-    w.kgThrow0 = G.frame; w.kgKey = null; Snd.play('slash', .7);   // kgKey = null: the arm re-cocks with a soft cross-fade (2nd bone of the dunes volley)
+    w.kgThrow0 = G.frame; w.kgKey = null; Snd.mp3('bone_throw');   // kgKey = null: the arm re-cocks with a soft cross-fade (2nd bone of the dunes volley)
     (G.kgq = G.kgq || []).push({ t: KG_THROW_DELAY, fn: () => { if (w.state !== 'dead' && w.state !== 'drown') _ls.call(null, w, wdef, power, jitter, extra); } });
     return { x: w.x, y: w.y, vx: 0, vy: 0, p: wdef.proj, dead: true };
   };
@@ -251,7 +251,7 @@ const KG_WIDS = { C03_Storm_Skull: 1, C06_Tomb_Skull: 1 };  // the boss weapons 
         const u = ++S.u, a = Math.min(1, u / S.ft), e = a * a * (3 - 2 * a), sp = S.sp;
         w.x = S.x0 + (sp.x - S.x0) * e; w.y = S.y0 + (sp.y - S.y0) * e; w.hop = Math.sin(Math.PI * a) * S.apex; w.vx = w.vy = 0;
         w.actF = a < .2 ? to(KG.JUMP + 1, KG.JUMP + 2, a / .2) : a < .55 ? to(KG.JUMP + 2, KG.JUMP + 3, (a - .2) / .35) : to(KG.JUMP + 3, KG.JUMP + 4, (a - .55) / .45);
-        if (a >= 1) { w.x = sp.x; w.y = sp.y; w.hop = 0; w.hover = false; w.state = 'ground'; w.vx = w.vy = 0; S.ph = 'land'; S.u = 0; shake(14); Snd.play('boom', .8); debris(w.x, w.y - 4, 10, 'dirt'); smoke(w.x, w.y, 1.1); S.fromP = w.actF; }
+        if (a >= 1) { w.x = sp.x; w.y = sp.y; w.hop = 0; w.hover = false; w.state = 'ground'; w.vx = w.vy = 0; S.ph = 'land'; S.u = 0; shake(14); Snd.mp3('mk_land'); debris(w.x, w.y - 4, 10, 'dirt'); smoke(w.x, w.y, 1.1); S.fromP = w.actF; }
         return false;
       }
       if (S.ph === 'land') {   // landing squash, then straight into the smash

@@ -384,7 +384,7 @@ const GM_T_STOMP = [[0, 0], [12, 16], [26, 17], [44, 18], [58, 18], [66, 19], [9
         if (u === 79) {   // let go
           S.fired = true; w.gmHeld = null; const wp = WEAPONS.find(x => x.id === 'C19_Golem_Rock'), pr = wp.proj, [vx, vy] = S.sol;
           const pj = spawnProj({ x: h11[0], y: h11[1], vx, vy, w: wp, p: pr, owner: w, kind: 'shot', fuse: 0, life: pr.life || 1400 }); pj.rot = 0;
-          shake(10); Snd.play('boom', .7); Snd.play('slash', .8); puffs(h11[0], h11[1] + 20, 2, .7); addFx('spark_hit', h11[0], h11[1], 1.1);
+          shake(10); Snd.mp3('gm_rock_throw'); puffs(h11[0], h11[1] + 20, 2, .7); addFx('spark_hit', h11[0], h11[1], 1.1);
         }
       }
       if (u > 118) {   // wait until the rock has landed
@@ -398,7 +398,7 @@ const GM_T_STOMP = [[0, 0], [12, 16], [26, 17], [44, 18], [58, 18], [66, 19], [9
     rockHit(x, y) {
       const T = G.terrain, onGroundHit = T.solid(x, y) || T.solid(x, y + 6);
       let gy = y; if (!onGroundHit) { const sy = T.surfaceBelow(x, Math.max(0, y - 40)); if (sy >= 0 && sy - y < 220) gy = sy; }   // the rock hit a player in the air-space: play the effect on the floor under him, at his feet
-      rockFxAt(x, gy + 6, 1.0); puffs(x, gy + 4, 4, 1.1); shake(20); Snd.play('boom', 1.2); debris(x, gy, 16, 'dirt'); ringFx(x, gy, '#ffb36b');
+      rockFxAt(x, gy + 6, 1.0); puffs(x, gy + 4, 4, 1.1); shake(20); Snd.mp3('gm_rock_hit'); debris(x, gy, 16, 'dirt'); ringFx(x, gy, '#ffb36b');
       if (onGroundHit) T.carve(x, y, 26);   // a small crater (no big hole - the floating floors stay)
     },
     // ---------- 3) every 3rd turn: walk to a random player, smash the ground, walk back ----------

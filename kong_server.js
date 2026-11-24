@@ -231,7 +231,7 @@ const KK_T_ROAR = [[0, KK.JUMP + 5], [4, KK.JUMP + 6], [10, KK.JUMP + 6], [18, K
         w.actF = a < .2 ? [J + 1, J + 2, sh(a / .2)] : a < .42 ? [J + 2, J + 3, sh((a - .2) / .22)] : a < .7 ? [J + 3, J + 4, sh((a - .42) / .28)] : [J + 4, J + 5, sh((a - .7) / .3)];
         if (t % 4 === 0) addFx('smoke', w.x - w.face * 40 * s, w.y - w.hop + 20, .5); return false;
       }
-      w.x = sp.x; w.y = sp.y; w.hop = 0; w.hover = L.hov0; w.vx = w.vy = 0; w.state = 'ground'; return true;
+      w.x = sp.x; w.y = sp.y; w.hop = 0; w.hover = L.hov0; w.vx = w.vy = 0; w.state = 'ground'; Snd.mp3('kk_land'); return true;
     },
     // ---------- the shared "run to a player, jump onto him" part of every attack. 'go' | 'landed' | 'noleap' | 'abort' ----------
     hunt(w, S) {
@@ -312,7 +312,7 @@ const KK_T_ROAR = [[0, KK.JUMP + 5], [4, KK.JUMP + 6], [10, KK.JUMP + 6], [18, K
         if (!S.mode) { let dir = Math.random() < .5 ? -1 : 1; if (AI.edgeNear(w, dir)) dir = -dir; if (AI.edgeNear(w, dir)) return true; S.mode = 'run'; S.ph = 'run'; S.tx = clamp(w.x + dir * rnd(KK_STEP_MIN, KK_STEP_MAX), 300, WORLD_W - 300); w.face = dir; }
       }
       if (S.mode === 'jump') {
-        if (S.ph !== 'land') { if (this.leapStep(w, S.lp)) { S.ph = 'land'; S.u = 0; shake(18); Snd.play('boom', .8); debris(w.x, w.y - 4, 12, 'dirt'); addFx('smoke', w.x, w.y - 10, 1.1); } return false; }
+        if (S.ph !== 'land') { if (this.leapStep(w, S.lp)) { S.ph = 'land'; S.u = 0; shake(18); debris(w.x, w.y - 4, 12, 'dirt'); addFx('smoke', w.x, w.y - 10, 1.1); } return false; }
         S.u++; w.hop = 0; w.actF = keys([[0, KK.JUMP + 5], [4, KK.JUMP + 6], [10, KK.JUMP + 6], [20, KK.JUMP + 7], [32, KK.IDLE]], S.u); if (S.u > 32) { w.actF = null; return true; } return false;
       }
       if (S.ph === 'run') { const r = this.run(w, S, S.tx, KK_RUN * s, 20 * s); if (r !== 'go' || t > 220) S.ph = 'stop'; return false; }
@@ -340,7 +340,7 @@ const KK_T_ROAR = [[0, KK.JUMP + 5], [4, KK.JUMP + 6], [10, KK.JUMP + 6], [18, K
       if (S.t === 1 && !this.pickTarget(w, S, 'He is going to ROAR!')) return true;
       if (S.ph !== 'act') { const r = this.hunt(w, S); if (r === 'abort') return true; if (r === 'landed' || r === 'noleap') { S.ph = 'act'; S.u = 0; } return false; }
       const u = ++S.u; w.hop = 0; w.actF = keys(KK_T_ROAR, u);
-      if (u === 1) { face(w, S.tg && S.tg.state !== 'dead' ? S.tg : null); shake(20); Snd.play('boom', .9); debris(w.x, w.y - 4, 14, 'dirt'); addFx('smoke', w.x, w.y - 10, 1.2); }
+      if (u === 1) { face(w, S.tg && S.tg.state !== 'dead' ? S.tg : null); shake(20); debris(w.x, w.y - 4, 14, 'dirt'); addFx('smoke', w.x, w.y - 10, 1.2); }
       if (u === 46) this.roar(w);
       if (u > 46 && u < 70 && u % 8 === 0) shake(8);
       if (u > 98) { w.actF = null; return true; } return false;
@@ -379,7 +379,7 @@ const KK_T_ROAR = [[0, KK.JUMP + 5], [4, KK.JUMP + 6], [10, KK.JUMP + 6], [18, K
       const s = sz(m), H = KK_CLAN_DROP * s;
       if (!D.land) {   // falling: arms go up, then he braces for the landing
         D.v += .8; m.hop -= D.v; m.actF = [KK.JUMP + 3, KK.JUMP + 5, ease(1 - m.hop / H)];
-        if (m.hop <= 0) { m.hop = 0; D.land = 1; D.u = 0; shake(30); Snd.play('boom', 1.3); Snd.play('boom', 1); debris(m.x, m.y - 4, 22, 'dirt'); addFx('smoke', m.x, m.y - 10, 1.4); addFx('explosion_small', m.x, m.y - 10, 1.2); ringFx(m.x, m.y - 4, '#ffcf8a'); ringFx(m.x, m.y - 4, '#fff2cf', 8); showBanner('CLAN KONG lands!', '#c58a4a'); }
+        if (m.hop <= 0) { m.hop = 0; D.land = 1; D.u = 0; shake(30); Snd.mp3('kk_land'); debris(m.x, m.y - 4, 22, 'dirt'); addFx('smoke', m.x, m.y - 10, 1.4); addFx('explosion_small', m.x, m.y - 10, 1.2); ringFx(m.x, m.y - 4, '#ffcf8a'); ringFx(m.x, m.y - 4, '#fff2cf', 8); showBanner('CLAN KONG lands!', '#c58a4a'); }
       } else {         // crouch on landing, then stand up
         D.u++; m.actF = keys([[0, KK.JUMP + 5], [4, KK.JUMP + 6], [10, KK.JUMP + 6], [20, KK.JUMP + 7], [32, KK.IDLE]], D.u);
         if (D.u > 32) { m.actF = null; m.kkDrop = null; }

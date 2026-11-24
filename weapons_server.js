@@ -305,7 +305,7 @@ for (let t = 0; t < 4; t++) {
   AXE_FX['axe_trail_t' + t] = { file: 'fx/axe_trail_t' + t + '.png', frames: 8, cols: 4, fw: 128, fh: 128, fps: 16, loop: false };
 }
 WEAPONS.push(
-  SHOPW('S34_Doom_Axe', 'Doom Axe', 'legendary', 'A legendary war axe. You throw the axe itself, spinning slowly, and it chops down with a huge hit.', { k: 'daxe', c1: '#ffffff', c2: '#c8ccd8' }, 237, 46, 'explosion_big', 1.2, 'axe', 6, false, { hitT: ['axe_hit_t0', 'axe_hit_t1', 'axe_hit_t2', 'axe_hit_t3'] }),
+  SHOPW('S34_Doom_Axe', 'Doom Axe', 'legendary', 'A legendary war axe. You throw the axe itself, spinning slowly, and it chops down with a huge hit.', { k: 'daxe', c1: '#ffffff', c2: '#c8ccd8' }, 237, 46, 'explosion_big', 1.2, 'axe', 6, false, { hitT: ['axe_hit_t0', 'axe_hit_t1', 'axe_hit_t2', 'axe_hit_t3'], hitSnd: 'doom_hit' }),
 );
 { const dw = WEAPONS.find(w => w.id === 'S34_Doom_Axe'); dw.hold = DOOM_AXE_HOLD; dw.proj.trailFx = ['axe_trail_t0', 'axe_trail_t1', 'axe_trail_t2', 'axe_trail_t3']; }
 
@@ -323,7 +323,7 @@ Object.assign(SIG_WMETA, {
   'S39_Mythic_Ball': { muzzle: [304, 128], bbox: [90, 20, 490, 236] },
 });
 WEAPONS.push(
-  SHOPW('S35_Mythic_Bazooka', 'Mythic Bazooka', 'mythical', 'Mythical electric bazooka. Fires a crackling ball of lightning. With POW it fires 3 shots.', { k: 'mbaz', c1: '#ffffff', c2: '#40d8ff' }, 370, 54, 'explosion_big', 1.2, 'rocket', 5, false, { hitT: ['volt_hit_t0', 'volt_hit_t1', 'volt_hit_t2', 'volt_hit_t3'] }),
+  SHOPW('S35_Mythic_Bazooka', 'Mythic Bazooka', 'mythical', 'Mythical electric bazooka. Fires a crackling ball of lightning. With POW it fires 3 shots.', { k: 'mbaz', c1: '#ffffff', c2: '#40d8ff' }, 370, 54, 'explosion_big', 1.2, 'mp3_bz_shoot', 5, false, { hitT: ['volt_hit_t0', 'volt_hit_t1', 'volt_hit_t2', 'volt_hit_t3'], hitSnd: 'bz_hit', sndOnce: true }),
   SHOPW('S36_Mythic_Spear', 'Mythic Spear', 'mythical', 'Mythical tribal spear. You throw the spear itself, point first. With POW it throws 3.', { k: 'mpic', pic: 'spear', len: 65, spin: 0, glow: '255,80,40' }, 400, 40, 'explosion_big', 1.2, 'axe', 4, false),
   SHOPW('S37_Mythic_Boomerang', 'Mythic Boomerang', 'mythical', 'Mythical feathered boomerang, spins fast. With POW it throws 3.', { k: 'mpic', pic: 'boomerang', len: 52, spin: 0.2, glow: '255,150,40' }, 400, 40, 'explosion_big', 1.2, 'axe', 4, false),
   SHOPW('S38_Mythic_Hammer', 'Mythic Hammer', 'mythical', 'Mythical war hammer, thrown end over end. With POW it throws 3.', { k: 'mpic', pic: 'hammer', len: 54, spin: 0.14, glow: '255,200,60' }, 380, 46, 'explosion_big', 1.2, 'axe', 5, false),

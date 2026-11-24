@@ -152,7 +152,7 @@ const Forge = {
     if (Math.random() * 100 < c.total) {
       D.up[id] = L + 1; this.flash = 'ok'; Snd.play('win'); this.res = { ok: true, t: `SUCCESS!  ${c.it.name} is now +${L + 1}.` };
     } else {
-      this.flash = 'bad'; Snd.play('dud');
+      this.flash = 'bad'; Snd.mp3('forge_fail');
       if (c.risk) {
         const sp = this.sup ? matOf('support', this.sup) : null;
         if (sp && Mats.get(sp) > 0) { Mats.spend(sp, 1); if (Mats.get(sp) <= 0) this.sup = 0; this.res = { ok: false, t: `Failed, but the ${sp.name} saved it.  ${c.it.name} stays at +${L}.` }; }

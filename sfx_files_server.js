@@ -17,7 +17,7 @@
     gm_walk: 'golem footstep walking.mp3', slime_near: 'king slime near attack.mp3', slime_smash: 'king slime smash ground.mp3',
     lh_flame: 'lava hound floor flame.wav', orc_spear_hit: 'orc spear hit impact.mp3',
     sk_poison: 'scorpion king poison shoot.wav', sk_slam: 'scorpion king slam player attack.mp3', ww_claw: 'werewolf basic attack.mp3', ww_berserk: 'werewolf_berserker_attack.mp3',
-    kk_pound: 'king_kong_pounding_his_chest.mp3', kk_roar: 'kingkong roar.ogg',             kk_smash: 'king kong smash ground.mp3',
+    kk_pound: 'king kong pounding his chest.mp3', kk_roar: 'kingkong roar.ogg',             kk_smash: 'king kong smash ground.mp3',
     gm_smash: 'golem smash ground.mp3',        gm_land: 'golem jump land hit impact.mp3',
     mino_attack: 'minotaur attack axe.mp3',    mino_smash: 'minotaur axe smash ground.mp3',
     cen_attack: 'centaur basic attack.mp3',    cen_smash: 'centaur smash ground.mp3',
@@ -27,7 +27,12 @@
     zeus_attack: 'zeus basic attack lightning.mp3', zeus_thunder: 'zeus thunder strike.mp3', zeus_levitate: 'zeus while levitate.mp3',
     shuriken_shoot: 'shuriken shoot.mp3',      shuriken_hit: 'shuriken hit impact.mp3',
     tempest_shoot: 'tempest arc shoot.mp3',    tempest_hit: 'tempest arc hit.mp3',
-    titan_fire: 'titan cannon fire.mp3'
+    titan_fire: 'titan cannon fire.mp3',
+    cen_run: 'centaur running.mp3',            doom_hit: 'doom axe hit sound.mp3',      forge_fail: 'failed upgrade.mp3',
+    gm_rock_hit: 'golem rock hit.mp3',         gm_rock_throw: 'golem rock throw shoot.mp3',
+    kslime_land: 'king slime jump land.mp3',   kk_land: 'kingkong jump land.mp3',       mk_land: 'minotaur and skeleton king jump land.mp3',
+    bz_hit: 'mythic bazooka hit effect.mp3',   bz_shoot: 'mythic bazooka shoot.mp3',    robo_jump: 'robo jump.mp3',
+    bone_throw: 'skeleton king bone throw shoot.mp3', bone_hit: 'skeletone king bone hit impact.mp3'
   };
   // the old sound each file replaces (played only while the file is not ready). 'name' or ['name', arg]; no arg = the caller's arg
   const FALL = {
@@ -42,7 +47,10 @@
     slime_jump: ['boom'],
     orc_roar: [['boom', 1.5]], orc_axe: ['axe'], orc_spear: ['rocket'],
     zeus_attack: [], zeus_thunder: [['freeze', 1]], zeus_levitate: [['freeze', .8]],
-    shuriken_shoot: ['plasma'], shuriken_hit: [], tempest_shoot: ['plasma'], tempest_hit: [], titan_fire: ['shotgun']
+    shuriken_shoot: ['plasma'], shuriken_hit: [], tempest_shoot: ['plasma'], tempest_hit: [], titan_fire: ['shotgun'],
+    cen_run: [], doom_hit: [], forge_fail: ['dud'], gm_rock_hit: [['boom', 1.2]], gm_rock_throw: [['boom', .7], ['slash', .8]],
+    kslime_land: ['boom'], kk_land: ['boom'], mk_land: ['boom'], bz_hit: [], bz_shoot: ['rocket'], robo_jump: ['jump'],
+    bone_throw: [['slash', .7]], bone_hit: []
   };
   const GAIN = {};          // optional per-file loudness (default below); e.g. GAIN.kk_roar = 2
   const DEF_GAIN = 1.6;     // the game's master volume is 0.5, so 1.6 here = about 0.8 overall
@@ -102,6 +110,12 @@
       return;
     }
     return _play.call(this, n, a);
+  };
+  // Snd.mp3('<key>', vol): plays the file at that volume (1 = normal, .5 = half, used for the small enemies); if the file is not ready the old sound plays instead
+  Snd.mp3 = function (key, vol) {
+    if (this.file(key, vol)) return;
+    if (!this.ctx || this.muted) return;
+    (FALL[key] || []).forEach(e => { const nm = Array.isArray(e) ? e[0] : e, ar = Array.isArray(e) && e.length > 1 ? e[1] : vol; this.play(nm, ar); });
   };
   console.log('sfx_files.js loaded - ' + Object.keys(FILES).length + ' sound files');
 })();

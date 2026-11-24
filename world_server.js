@@ -123,11 +123,15 @@ function explode(x, y, R, dmg, o = {}) {
 const BODY_Y = [-5, -15, -27, -39, -51, -63];
 function blocked(x, y, sc = 1) { const T = G.terrain, hw = 11 * sc; for (let i = 0; i < BODY_Y.length; i++) { const yy = y + BODY_Y[i] * sc; if (T.solid(x - hw, yy) || T.solid(x + hw, yy)) return true; } return T.solid(x, y - 70 * sc); }
 function onGround(x, y, sc = 1) { const T = G.terrain, hw = 9 * sc; return T.solid(x - hw, y + 1) || T.solid(x + hw, y + 1) || T.solid(x, y + 1); }
+function landSfx(w) {   // SOUND: a small creature lands after its own jump (minotaur + skeleton king file, king kong file, king slime file)
+  if (!w.minion || !w.rob) return; const id = String(w.rob.id || '');
+  if (/^minion_(stormbone|tombking|templemino|zenithmino)$/.test(id)) Snd.mp3('mk_land', .6); else if (/^minion_kong/.test(id)) Snd.mp3('kk_land', .6); else if (/^minion_slimeking/.test(id)) Snd.mp3('kslime_land', .55);
+}
 function landWorm(w, impact) {
   if (w.jet) { w.jet = false; w.state = 'ground'; w.vx = w.vy = 0; w.knocked = false; w.bounces = 0; addFx('smoke', w.x, w.y - 8, .45); Snd.play('flyland'); return true; }   // Fly: soft landing, no fall damage
   if (impact > 9.5 && w.state === 'air') { const dmg = Math.floor((impact - 9.5) * 3.4); if (dmg > 0) { hurt(w, dmg, { fall: true }); } shake(impact * .5); addFx('smoke', w.x, w.y - 8, .5); }
   if (w.knocked && impact > 4.2 && w.bounces < 3) { w.vy = -impact * .3; w.vx *= .72; w.bounces++; return false; }
-  w.state = 'ground'; w.vx = 0; w.vy = 0; w.knocked = false; w.bounces = 0; return true;
+  w.state = 'ground'; w.vx = 0; w.vy = 0; w.knocked = false; w.bounces = 0; if (w.jmpL) { w.jmpL = 0; landSfx(w); } return true;
 }
 function walkWorm(w, dir) {
   if (w.state !== 'ground' || w.frozen > 0 || w.hp <= 0) return;
@@ -155,7 +159,7 @@ function flyControl(C) {
   if (C.firePressed && !G.charging) { G.charging = true; G.charge = 0; G.chgDir = 1; }
   if (G.charging) { if (C.fire) { chargeTick(); } else launchFly(G.activeWorm, Math.max(0, G.charge)); }
 }
-function jumpWorm(w, back) { if (w.state !== 'ground' || w.frozen > 0) return; w.state = 'air'; w.knocked = false; w.vy = back ? -8.4 : -6.2; w.vx = back ? -w.face * 1.5 : w.face * 2.6; w.y -= 2; Snd.play('jump'); }
+function jumpWorm(w, back) { if (w.state !== 'ground' || w.frozen > 0) return; w.state = 'air'; w.knocked = false; w.vy = back ? -8.4 : -6.2; w.vx = back ? -w.face * 1.5 : w.face * 2.6; w.y -= 2; w.jmpL = 1; if (w.minion && /^minion_/.test((w.rob && w.rob.id) || '')) Snd.play('jump'); else Snd.mp3('robo_jump'); }
 // ---- anti-stuck safety net: a robot wedged in rock / hung in the air gets moved to the nearest free ground ----
 function rescueWorm(w) {
   w.stuckT = 0; w.airT = 0;
@@ -171,7 +175,7 @@ function updateWorm(w) {
   if (w.jet && w.state !== 'air') w.jet = false;   // Fly ends the moment the robot is not in the air any more (died, drowned, rescued)
   if (w.flash > 0) w.flash--; if (w.healT > 0) w.healT--; if (w.walking > 0) w.walking--;
   if (w.flyGoal != null) w.flyOff = (w.flyOff || 0) + clamp(w.flyGoal - (w.flyOff || 0), -3.2, 3.2);   // flying dragons rise / land smoothly
-  if (w.rob && (w.flyOff || 0) > 20 && w === G.activeWorm && w.state !== 'dead' && w.state !== 'drown' && !(w.flySndT > G.frame) && /^boss_(frostwyrm|cinderdrake|voiddrake|lavahound)$/.test(w.rob.id) && Snd.file('wing_fly')) w.flySndT = G.frame + 100;   // wing sound while the dragon / hound flies on its turn
+  if (w.rob && (w.flyOff || 0) > 20 && w === G.activeWorm && w.state !== 'dead' && w.state !== 'drown' && !(w.flySndT > G.frame) && /^(boss|minion)_(frostwyrm|cinderdrake|voiddrake|lavahound)$/.test(w.rob.id) && Snd.file('wing_fly', w.minion ? .45 : 1)) w.flySndT = G.frame + 100;   // wing sound while the dragon / hound flies on its turn
   if (w.breathT > 0) w.breathT--; if (w.lunge > 0) w.lunge--;
   if (w.hover && w.state !== 'dead' && w.state !== 'drown') { w.vx = w.vy = 0; w.state = 'ground'; w.knocked = false; return; }   // baby dragons fly: no gravity, they cannot fall or drown
   if (w.state === 'dead') {
@@ -220,7 +224,7 @@ function launchShot(w, wd, power, jitter = 0, extra = {}) {
 function detonate(p) {
   const pr = p.p; p.dead = true;
   if (pr.divine) { divineBurst(p); return; }   // Divine Heal: heals, no damage, no crater
-  if (p.bomblet) { explode(p.x, p.y, pr.bomblet.blast, pr.bomblet.dmg, { fx: 'explosion_small', hs: .7, knock: 5, silent: false, owner: p.owner }); return; }
+  if (p.bomblet) { const bsn = pr.hitSnd && pr.bombSnd ? Snd.file(pr.hitSnd, .5) : false; explode(p.x, p.y, pr.bomblet.blast, pr.bomblet.dmg, { fx: 'explosion_small', hs: .7, knock: 5, silent: bsn, owner: p.owner }); return; }
   const hitFx = (pr.hitT && pr.hitT[p.owner ? teamWTier(G.teams[p.owner.team]) : 0]) || pr.hit;   // some weapons have their own hit effect per upgrade look
   const hsnd = pr.hitSnd ? Snd.file(pr.hitSnd) : false;   // own hit sound file (Shuriken / Tempest Arc): the normal boom stays silent when it played
   explode(p.x, p.y, pr.blast, pr.dmg, { fx: hitFx, hs: pr.hs, knock: pr.knock, carve: pr.carve, freeze: pr.freeze, owner: p.owner, noKnock: pr.noKnock, silent: hsnd });
@@ -374,7 +378,7 @@ function fireMelee(w, wd) {
   if (wd.lunge) w.lunge = 14;   // creature minions lunge forward as they smash
   const [gx, gy] = gripWorld(w), hits = []; let cxm = gx + w.face * 30, cym = gy - 6;
   for (const t of aliveWorms()) { if (t === w || bossAlly(w, t)) continue; const [cx, cy] = bodyCenter(t), dx = (cx - w.x) * w.face, dy = cy - (w.y - 40); if (dx > -14 && dx < wd.range + 20 && Math.abs(dy) < 52) hits.push(t); }
-  addFx(wd.fx, gx + w.face * 34, gy - 10, 1.05, { flip: w.face < 0 }); Snd.play(wd.snd);
+  addFx(wd.fx, gx + w.face * 34, gy - 10, 1.05, { flip: w.face < 0 }); { const mid = (w.minion && w.rob && String(w.rob.id || '')) || ''; if (/^minion_(templemino|zenithmino)$/.test(mid)) Snd.mp3('mino_attack', .8); else if (/^minion_(stormbone|tombking)$/.test(mid)) Snd.mp3('sk_smash', .5); else Snd.play(wd.snd); }
   const T = G.terrain; if (wd.carve) { const tx = w.x + w.face * (wd.range * .8), ty = w.y - 30; if (T.solid(tx, ty) || T.solid(w.x + w.face * 40, w.y - 10)) { T.carve(tx, ty + 6, wd.carve); debris(tx, ty, 8, 'dirt'); shake(4); } }
   const noKn = isSlimeMinion(w);   // boss stage: the small slimes push nobody around
   for (const t of hits) { hurt(t, wd.dmg); if (wd.knock && !noKn) knockWorm(t, w.face * wd.knock, -wd.knock * .55); addFx('spark_hit', t.x, t.y - 40, 1.1); shake(4); }
@@ -631,7 +635,7 @@ function bossSpecialStep(w) {   // called every frame by the AI while the specia
 // a baby dragon spits a fireball at a player (aimed straight at the body)
 function flyShot(m, tg, spread = 0) {
   const pr = m.mw.proj, [gx, gy] = gripWorld(m), [cx, cy] = bodyCenter(tg), a = Math.atan2(cy - gy, cx - gx) + rnd(-spread, spread) * D2R, sp = pr.speed || 8.5;
-  m.breathT = 40; m.aim = Math.max(-80, Math.min(80, -a / D2R * m.face)); Snd.play(pr.snd || 'rocket', .6);
+  m.breathT = 40; m.aim = Math.max(-80, Math.min(80, -a / D2R * m.face)); { const sn = pr.snd || 'rocket'; if (sn.slice(0, 4) === 'mp3_') Snd.mp3(sn.slice(4), .5); else Snd.play(sn, .6); }
   return spawnProj({ x: gx + m.face * 6, y: gy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, w: m.mw, p: pr, owner: m, kind: 'shot', fuse: 0, life: 700 });
 }
 
