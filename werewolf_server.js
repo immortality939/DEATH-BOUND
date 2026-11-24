@@ -216,7 +216,7 @@ CMINIONS.werewolf = { name: "Blood Wolf", hpMul: 6, sc: 1.9, fly: false, sheet: 
         w.x = L.x0 + (sp.x - L.x0) * e; w.y = L.y0 + (sp.y - L.y0) * e; w.hop = Math.sin(Math.PI * a) * (L.apex + up * .35);
         w.actF = a < .3 ? [J + 1, J + 2, a / .3] : [J + 2, J + 3, (a - .3) / .7]; w.face = sp.x >= L.x0 ? 1 : -1; if (t % 4 === 0) addFx('smoke', w.x - w.face * 30 * s, w.y - w.hop, .35 + .2 * s); return false;
       }
-      if (t === T0 + FT + 1) { w.x = sp.x; w.y = sp.y; w.hop = 0; w.hover = L.hov0; w.vx = w.vy = 0; w.state = 'ground'; shake(isBossW(w) ? 20 : 7); Snd.play('boom', isBossW(w) ? 1 : .45); debris(w.x, w.y - 4, isBossW(w) ? 16 : 7, 'dirt'); if (isBossW(w)) { ringFx(w.x, w.y - 4, '#d9a8ff'); addFx('explosion_small', w.x, w.y - 8, 1.3); } }
+      if (t === T0 + FT + 1) { w.x = sp.x; w.y = sp.y; w.hop = 0; w.hover = L.hov0; w.vx = w.vy = 0; w.state = 'ground'; shake(isBossW(w) ? 20 : 7); Snd.mp3('mk_land', isBossW(w) ? 1 : .6) /* SOUND: boss + small wolves land after their leap */; debris(w.x, w.y - 4, isBossW(w) ? 16 : 7, 'dirt'); if (isBossW(w)) { ringFx(w.x, w.y - 4, '#d9a8ff'); addFx('explosion_small', w.x, w.y - 8, 1.3); } }
       const l = t - (T0 + FT); w.hop = 0; w.actF = l < L.ld * .6 ? [J + 3, J, ease(l / (L.ld * .6))] : [J, WWF.IDLE, ease((l - L.ld * .6) / (L.ld * .4))];
       if (l > L.ld) { w.actF = null; return true; } return false;
     },
