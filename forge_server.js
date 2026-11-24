@@ -150,7 +150,7 @@ const Forge = {
     const am = this.amu ? matOf('amulet', this.amu) : null; if (am) { Mats.spend(am, 1); this.amu = 0; }   // the amulet is used up too, its slot empties
     const D = Profile.data, id = c.it.id, L = c.L;
     if (Math.random() * 100 < c.total) {
-      D.up[id] = L + 1; this.flash = 'ok'; Snd.play('win'); this.res = { ok: true, t: `SUCCESS!  ${c.it.name} is now +${L + 1}.` };
+      D.up[id] = L + 1; this.flash = 'ok'; Snd.mp3('forge_win'); this.res = { ok: true, t: `SUCCESS!  ${c.it.name} is now +${L + 1}.` };
     } else {
       this.flash = 'bad'; Snd.mp3('forge_fail');
       if (c.risk) {
