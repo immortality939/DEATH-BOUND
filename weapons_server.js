@@ -52,7 +52,7 @@ const wtier = lvl => lvl >= 12 ? 3 : lvl >= 11 ? 2 : lvl >= 10 ? 1 : 0;   // loo
 const wpath = (id, tier = 0) => 'weapons/' + id + (SIG_WMETA[id] ? (tier ? '_t' + tier : '') + '.png' : '.webp');   // new weapons are .png (4 looks each), the original 25 are .webp
 const teamWTier = team => wtier((team && team.bonus && team.bonus.wlvl) | 0);
 const SIG = (n, rob, name, desc, look, dmg, blast, hit, hs, snd, knock, trail) => ({ id: n, name, desc, ammo: Infinity, type: 'shot', charge: true, sig: rob,
-  proj: { spr: 'sig', look, ss: 1, speed: CHARGE_SPEED, g: WEAPON_G, wind: WEAPON_WIND, dmg, blast, hit, hs, snd, knock, trail: !!trail } });
+  proj: { spr: 'sig', look, ss: 1, speed: CHARGE_SPEED, g: WEAPON_G, wind: WEAPON_WIND, dmg, blast, hit, hs, snd: 'mp3_common_shoot', hitSnd: 'common_hit', knock, trail: !!trail } });   // every robot's own COMMON weapon (Magma Mortar, Frost Staff, ...) plays the common weapon shoot + hit sound
 WEAPONS.push(
   SIG('26_Magma_Mortar', '01_Inferno_Titan', 'Magma Mortar', 'Iron pot that lobs balls of lava. Unlimited.', { k: 'orb', c1: '#fff3c0', c2: '#ff6a10' }, 15, 34, 'explosion_small', .8, 'rocket', 3.2, true),
   SIG('27_Frost_Lobber', '02_Frost_Reaper', 'Frost Staff', 'Staff that lobs ice crystals. Unlimited.', { k: 'gem', c1: '#e8f8ff', c2: '#4fc3ff' }, 13, 32, 'ice_hit', .9, 'plasma', 3, false),
