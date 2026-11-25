@@ -54,6 +54,11 @@ function debris(x, y, n, kind) {
 function shake(a) { G.cam.shake = Math.min(26, G.cam.shake + a); }
 
 // ---------------- damage ----------------
+function potionNeeded(ti, k) {   // false when the item would heal nobody: everyone it covers is already at full health (the item box is then greyed out and cannot be tapped)
+  const t = G.teams[ti], p = t && t.pots && t.pots[k], w = G.activeWorm; if (!p || !w || w.team !== ti) return true;
+  const list = p.kind === 'team' ? aliveWorms().filter(x => x.team === ti) : [w];
+  return list.some(x => Math.min((x.maxHp || 100) - x.hp, Math.round((x.maxHp || 100) * p.pct)) > 0);
+}
 function usePotion(ti, k) {   // Heal / Team Heal item box k (0 or 1) of team ti. Returns true when it was used (the turn goes on).
   const t = G.teams[ti], p = t && t.pots && t.pots[k], w = G.activeWorm;
   if (!p || p.left <= 0 || !w || w.team !== ti || (G.potUsed | 0) >= POTION_PER_TURN) return false;
