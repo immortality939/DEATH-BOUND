@@ -33,7 +33,8 @@
     kslime_land: 'king slime jump land.mp3',   kk_land: 'kingkong jump land.mp3',       mk_land: 'minotaur and skeleton king jump land.mp3',
     bz_hit: 'mythic bazooka hit effect.mp3',   bz_shoot: 'mythic bazooka shoot.mp3',    robo_jump: 'robo jump.mp3',
     bone_throw: 'skeleton king bone throw shoot.mp3', bone_hit: 'skeletone king bone hit impact.mp3',
-    ge_shoot: 'axy eye shoot.mp3',   ge_hit: 'axy eye hit.mp3',   dk_shoot: 'dragon king shoot.mp3',   dk_hit: 'dragonking hit.mp3',   axe_throw: 'legendary axe throw.mp3',   mb_hit: 'mythic boomerang hit.mp3',   mb_shoot: 'mythic boomerang shoot.mp3',   mh_hit: 'mythic hammer hit.mp3',   mh_throw: 'mythical hammer throw.mp3',   ms_hit: 'mythic soccer hit.mp3',   ms_throw: 'mythic soccer throw.mp3',   msp_hit: 'mythic spear hit.mp3',   msp_throw: 'mythic spear throw.mp3',   sun_hit: 'solar sunbreaker hit.mp3',   sun_shoot: 'solar sunbreaker shoot.mp3',   vd_hit: 'void devourer hit.mp3',   vd_shoot: 'void devourer shoot.mp3'
+    ge_shoot: 'axy eye shoot.mp3',   ge_hit: 'axy eye hit.mp3',   dk_shoot: 'dragon king shoot.mp3',   dk_hit: 'dragonking hit.mp3',   axe_throw: 'legendary axe throw.mp3',   mb_hit: 'mythic boomerang hit.mp3',   mb_shoot: 'mythic boomerang shoot.mp3',   mh_hit: 'mythic hammer hit.mp3',   mh_throw: 'mythical hammer throw.mp3',   ms_hit: 'mythic soccer hit.mp3',   ms_throw: 'mythic soccer throw.mp3',   msp_hit: 'mythic spear hit.mp3',   msp_throw: 'mythic spear throw.mp3',   sun_hit: 'solar sunbreaker hit.mp3',   sun_shoot: 'solar sunbreaker shoot.mp3',   vd_hit: 'void devourer hit.mp3',   vd_shoot: 'void devourer shoot.mp3',
+    btn_all: 'all button.mp3',   btn_back: 'cancel or back button.mp3',   common_hit: 'common weapon hit.mp3',   common_shoot: 'common weapon shoot.mp3',   rare_hit: 'rare weapon hit.mp3',   rare_shoot: 'rare weapon shoot.mp3',   epic_hit: 'epic weapon hit.mp3',   epic_shoot: 'epic weapon shoot.mp3',   divine_hit: 'all divine heal hit.mp3',   divine_shoot: 'all divine heal shoot.mp3',   heal_self: 'fifty percent heal.mp3',   heal_team: 'team heal.mp3',   fly_launch: 'robo fly launch.mp3',   rpa_shoot: 'death reaper aura shoot.mp3',   rpa_hit: 'death reaper aura hit.mp3'
   };
   // the old sound each file replaces (played only while the file is not ready). 'name' or ['name', arg]; no arg = the caller's arg
   const FALL = {
@@ -52,7 +53,8 @@
     cen_run: [], doom_hit: [], forge_fail: ['dud'], forge_win: ['win'], gm_rock_hit: [['boom', 1.2]], gm_rock_throw: [['boom', .7], ['slash', .8]],
     kslime_land: ['boom'], kk_land: ['boom'], mk_land: ['boom'], bz_hit: [], bz_shoot: ['rocket'], robo_jump: ['jump'],
     bone_throw: [['slash', .7]], bone_hit: [],
-    ge_shoot: ['plasma'], ge_hit: [], dk_shoot: ['rocket'], dk_hit: [], axe_throw: ['axe'], mb_hit: [], mb_shoot: ['axe'], mh_hit: [], mh_throw: ['axe'], ms_hit: [], ms_throw: ['shotgun'], msp_hit: [], msp_throw: ['axe'], sun_hit: [], sun_shoot: ['rocket'], vd_hit: [], vd_shoot: ['plasma']
+    ge_shoot: ['plasma'], ge_hit: [], dk_shoot: ['rocket'], dk_hit: [], axe_throw: ['axe'], mb_hit: [], mb_shoot: ['axe'], mh_hit: [], mh_throw: ['axe'], ms_hit: [], ms_throw: ['shotgun'], msp_hit: [], msp_throw: ['axe'], sun_hit: [], sun_shoot: ['rocket'], vd_hit: [], vd_shoot: ['plasma'],
+    btn_all: [], btn_back: [], common_hit: [], common_shoot: ['rocket'], rare_hit: [], rare_shoot: ['plasma'], epic_hit: [], epic_shoot: ['rocket'], divine_hit: ['divine'], divine_shoot: ['wing'], heal_self: ['heal'], heal_team: ['heal'], fly_launch: ['fly'], rpa_shoot: [['boom', .22]], rpa_hit: [['boom', .35]]
   };
   const GAIN = {};          // optional per-file loudness (default below); e.g. GAIN.kk_roar = 2
   const DEF_GAIN = 1.6;     // the game's master volume is 0.5, so 1.6 here = about 0.8 overall
@@ -119,5 +121,28 @@
     if (!this.ctx || this.muted) return;
     (FALL[key] || []).forEach(e => { const nm = Array.isArray(e) ? e[0] : e, ar = Array.isArray(e) && e.length > 1 ? e[1] : vol; this.play(nm, ar); });
   };
+
+  // ---- BUTTON SOUNDS: one listener for every button in the game (menus, shop, profile, forge, adventure, battle buttons) ----
+  //  'cancel or back button.mp3' for Back / Cancel / Close / Exit / Quit buttons, 'all button.mp3' for every other button.
+  //  The touch pad (move / jump / fire) and the two heal-item boxes (they have their own heal sound) are left out.
+  let lastBtn = -1e9;
+  const isBackBtn = el => {
+    const tx = (el.textContent || '').trim().slice(0, 24);
+    return /(back|cancel|close|exit|quit)(?![a-z])/i.test((el.id || '') + ' ' + (el.getAttribute('aria-label') || '') + ' ' + (el.title || ''))
+      || (tx.length > 0 && (/^[\u2190\u2039<\u2715\u2716\u00d7xX]$/.test(tx) || /^[\u2190\u2039<\u2715\u2716\u00d7]?\s*(back|cancel|close|exit|quit|return|not now|no)$/i.test(tx)));
+  };
+  document.addEventListener('click', e => {
+    try {
+      let el = e.target;
+      for (let i = 0; el && el.nodeType === 1 && el !== document.body && i < 6; i++, el = el.parentElement) {
+        if (el.matches('button, .btn, [role="button"]') || typeof el.onclick === 'function') break;
+      }
+      if (!el || el.nodeType !== 1 || el === document.body) return;
+      if (el.closest('.tb, canvas, #pb1, #pb2') || el.disabled || el.hidden) return;
+      if (Snd.file(isBackBtn(el) ? 'btn_back' : 'btn_all')) lastBtn = performance.now();   // the old 'beep' of this tap is skipped when a file played
+    } catch (err) { }
+  }, true);
+  const _play2 = Snd.play;
+  Snd.play = function (n, a) { if (n === 'beep' && performance.now() - lastBtn < 150) return; return _play2.call(this, n, a); };
   console.log('sfx_files.js loaded - ' + Object.keys(FILES).length + ' sound files');
 })();

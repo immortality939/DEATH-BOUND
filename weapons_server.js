@@ -76,7 +76,8 @@ Object.assign(SIG_WMETA, {"S21_Cinder_Pot":{"muzzle":[388,128],"bbox":[90,20,470
 const SHOPW = (n, name, rar, desc, look, dmg, blast, hit, hs, snd, knock, trail, x = {}) => {
   const proj = { spr: 'sig', look, ss: 1, speed: CHARGE_SPEED, g: WEAPON_G, wind: WEAPON_WIND, dmg, blast, hit, hs, snd, knock, trail: !!trail };
   if (x.freeze) proj.freeze = true; if (x.homing) { proj.homing = true; proj.homeRange = 200; proj.life = 2400; } if (x.bomblet) proj.bomblet = x.bomblet; if (x.clusterSpread) proj.clusterSpread = x.clusterSpread; if (x.clusterSpd) proj.clusterSpd = x.clusterSpd; if (x.miniFuse) proj.miniFuse = x.miniFuse; if (x.miniImpact !== undefined) proj.miniImpact = x.miniImpact;
-  if (x.hitT) proj.hitT = x.hitT; if (x.noKnock) proj.noKnock = true; if (x.hitSnd) proj.hitSnd = x.hitSnd; if (x.bombSnd) proj.bombSnd = x.bombSnd; if (x.sndOnce) proj.sndOnce = true;   // hitT: own hit effect per upgrade look [+0..+9, +10, +11, +12] (null = the normal hit); noKnock: blast never pushes anyone
+  if (x.hitT) proj.hitT = x.hitT; if (x.noKnock) proj.noKnock = true; if (x.hitSnd) proj.hitSnd = x.hitSnd; if (x.bombSnd) proj.bombSnd = x.bombSnd; if (x.sndOnce) proj.sndOnce = true;
+  if (rar === 'common' || rar === 'rare' || rar === 'epic') { proj.snd = 'mp3_' + rar + '_shoot'; if (!proj.hitSnd) proj.hitSnd = rar + '_hit'; if (x.cluster) proj.bombSnd = true; }   // every Common / Rare / Epic shop weapon shares the shoot + hit sound of its rarity (Legendary / Mythical keep their own)   // hitT: own hit effect per upgrade look [+0..+9, +10, +11, +12] (null = the normal hit); noKnock: blast never pushes anyone
   const w = { id: n, name, desc, ammo: Infinity, type: 'shot', charge: true, shop: 'w_' + n.slice(4).toLowerCase(), rar, proj };
   if (x.vol) w.volley = x.vol; if (x.cluster) w.cluster = x.cluster; return w;
 };
@@ -248,7 +249,7 @@ const DIVINE_HEALS_ENEMIES = true;   // true = enemies standing in the blast get
 const DIVINE_BASE_HEAL = 105;
 SIG_WMETA['H01_Divine_Heal'] = { muzzle: [171, 112], bbox: [72, 9, 268, 188] };
 WEAPONS.push({ id: 'H01_Divine_Heal', name: 'Divine Heal', desc: 'Winged orb that heals everyone in the blast. The heal is split between all robots in range.', ammo: HEAL_AMMO, type: 'shot', charge: true, heal: true,
-  proj: { spr: 'divine', ss: .3, speed: CHARGE_SPEED, g: WEAPON_G, wind: .15, dmg: 0, blast: DIVINE_RADIUS, healR: DIVINE_RADIUS, heal: DIVINE_BASE_HEAL, divine: true, hit: null, hs: 1, snd: 'wing', knock: 0, carve: 0, trail: false, life: 2400 } });
+  proj: { spr: 'divine', ss: .3, speed: CHARGE_SPEED, g: WEAPON_G, wind: .15, dmg: 0, blast: DIVINE_RADIUS, healR: DIVINE_RADIUS, heal: DIVINE_BASE_HEAL, divine: true, hit: null, hs: 1, snd: 'mp3_divine_shoot', knock: 0, carve: 0, trail: false, life: 2400 } });
 // effect sheets (picked up by loadCore in core.js, same format as assets/fx.json)
 const DIVINE_FX = {
   divine_fly: { file: 'fx/divine_fly.webp', frames: 8, cols: 4, fw: 192, fh: 192, fps: 30, loop: true },

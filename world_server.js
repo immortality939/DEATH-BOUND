@@ -61,7 +61,7 @@ function usePotion(ti, k) {   // Heal / Team Heal item box k (0 or 1) of team ti
   list.forEach(x => { const h = Math.max(0, Math.min((x.maxHp || 100) - x.hp, Math.round((x.maxHp || 100) * p.pct))); if (h > 0) { x.hp += h; x.healT = 36; tot += h; const s = x.sc || 1; addFx('heal_pulse', x.x, x.y - 57 * s, .95 * s); addPop(x.x, x.y - 95 * s, '+' + h + ' HP', '#8dff9e', 20); } });
   if (!tot) { addPop(w.x, w.y - 95 * (w.sc || 1), 'Full health', '#cfe8ff', 16); return false; }   // nothing to heal: the item is not used up
   p.left--; try { if (typeof Profile !== 'undefined') Profile.addStock(p.id, -1); } catch (e) { }   // gone for good: buy again in the Shop
-  G.potUsed = (G.potUsed | 0) + 1; if (p.kind === 'team') { const s = (w.sc || 1) * 1.25; addFx('team_heal_wave', w.x, w.y - 72 * s, s); } shake(1); Snd.play('heal'); return true;
+  G.potUsed = (G.potUsed | 0) + 1; if (p.kind === 'team') { const s = (w.sc || 1) * 1.25; addFx('team_heal_wave', w.x, w.y - 72 * s, s); } shake(1); Snd.mp3(p.kind === 'team' ? 'heal_team' : 'heal_self'); return true;
 }
 function teamBonus(t) { return (G.teams[t] && G.teams[t].bonus) || null; }
 function hurt(w, dmg, opt = {}) {
@@ -152,7 +152,7 @@ function launchFly(w, power) {
   w.lastFlyPow = clamp(power, 0, POW_MAX); w.state = 'air'; w.knocked = false; w.bounces = 0; w.jet = true; w.jetT = 0; w.airT = 0;
   w.vx = d[0] * sp; w.vy = Math.min(d[1] * sp, -1.5); w.y -= 3;   // always lifts off a little, even when aiming flat or down
   G.charging = false; G.charge = 0; G.flyMode = false; G.cam.free = false; G.angT = 0;   // back to your normal weapon after the flight
-  Snd.play('fly'); addFx('smoke', w.x, w.y, .5); shake(1.5);
+  Snd.mp3('fly_launch'); addFx('smoke', w.x, w.y, .5); shake(1.5);
 }
 function flyControl(C) {
   if (!canFly()) { G.charging = false; return; }
@@ -242,7 +242,7 @@ function divineTrail(p) {
 function divineBurst(p) {   // everyone inside the blast (the thrower too) shares the heal: total / number of robots, capped at each robot's max health
   const pr = p.p, own = p.owner, R = pr.healR || DIVINE_RADIUS, tb = own ? teamBonus(own.team) : null, total = tb && tb.heal ? tb.heal : pr.heal;
   const az = isAzureHeal(p), my = isMythHeal(p), pc = my ? '#d8ffd0' : az ? '#cdeeff' : '#ffd0f5', hc = my ? '#6dff7a' : az ? '#9fdcff' : '#8dff9e';   // pop colours (Azure = light blue)
-  addFx(divFx('divine_burst', p), p.x, p.y, R / 112); shake(2); Snd.play('divine');
+  addFx(divFx('divine_burst', p), p.x, p.y, R / 112); shake(2); Snd.mp3('divine_hit');
   const hit = aliveWorms().filter(w => { const [cx, cy] = bodyCenter(w); return dist(p.x, p.y, cx, cy) - 22 * (w.sc || 1) < R && (DIVINE_HEALS_ENEMIES || !own || allies(w, own)); });
   if (!hit.length) { addPop(p.x, p.y - 30, 'No one in range', pc, 16); return; }
   const share = total / hit.length;

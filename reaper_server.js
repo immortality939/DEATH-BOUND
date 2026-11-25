@@ -329,11 +329,11 @@ const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s
       const s = px(w), [bx, by] = bodyCenter(w), ang = rnd(-.62, .62) + (Math.random() < .5 ? 0 : rnd(-.25, .25));
       const sp = rnd(12.5, 19.5);
       (G.rpv = G.rpv || []).push({ x: bx + rnd(-26, 26) * s, y: by - 40 * s, vx: Math.sin(ang) * sp * 0.62 + rnd(-1.2, 1.2), vy: -Math.cos(ang) * sp, age: 0, ph: rnd(0, 35) | 0, w, tr: [] });
-      Snd.play('boom', .22); addFx('b3_ghost_boom', bx, by - 60 * s, .4);
+      Snd.mp3('rpa_shoot', .8); addFx('b3_ghost_boom', bx, by - 60 * s, .4);
     },
     orbBoom(o) {
       const w = o.w, x = o.x, y = o.y; o.dead = true;
-      Snd.play('boom', .35); shake(4); addFx('explosion_small', x, y - 6, 1.15); addFx('b3_ghost_boom', x, y - 10, .8); ringFx(x, y, '#b06bff'); if (typeof debris === 'function') debris(x, y, 5, 'dirt');
+      Snd.mp3('rpa_hit', .7); shake(4); addFx('explosion_small', x, y - 6, 1.15); addFx('b3_ghost_boom', x, y - 10, .8); ringFx(x, y, '#b06bff'); if (typeof debris === 'function') debris(x, y, 5, 'dirt');
       const d0 = BOSS3.dmg(w, SPECIAL_MUL * RP_VOL_MUL);
       for (const p of foes(w)) {
         const [qx, qy] = bodyCenter(p), d = Math.hypot(qx - x, qy - y); if (d > RP_VOL_R) continue; const k = d / RP_VOL_R;
