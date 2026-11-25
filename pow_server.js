@@ -147,7 +147,7 @@ const POW = (function () {
   function beginCine(power, t, w) {
     G.powCine = { t: 0, power, w, team: t.idx, mul0: G.cam.mul };
     G.phase = 'powcine'; G.charging = false; G.charge = 0; G.cam.free = false; G.angT = 0;
-    Snd.play('powcharge');
+    Snd.play('mp3_powering_up');   // your powering up.mp3 (the old synth 'powcharge' plays only if the file is not loaded yet)
   }
   function endCine(fired) { G.powCine = null; }
   function release() {

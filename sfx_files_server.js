@@ -53,7 +53,7 @@
     shuriken_shoot: ['plasma'], shuriken_hit: [], tempest_shoot: ['plasma'], tempest_hit: [], titan_fire: ['shotgun'], titan_hit: [],
     cen_run: [], doom_hit: [], forge_fail: ['dud'], forge_win: ['win'], gm_rock_hit: [['boom', 1.2]], gm_rock_throw: [['boom', .7], ['slash', .8]],
     kslime_land: ['boom'], kk_land: ['boom'], mk_land: ['boom'], bz_hit: [], bz_shoot: ['rocket'], robo_jump: ['jump'],
-    bone_throw: [['slash', .7]], bone_hit: [], powering_up: [],
+    bone_throw: [['slash', .7]], bone_hit: [], powering_up: ['powcharge'],
     ge_shoot: ['plasma'], ge_hit: [], dk_shoot: ['rocket'], dk_hit: [], axe_throw: ['axe'], mb_hit: [], mb_shoot: ['axe'], mh_hit: [], mh_throw: ['axe'], ms_hit: [], ms_throw: ['shotgun'], msp_hit: [], msp_throw: ['axe'], sun_hit: [], sun_shoot: ['rocket'], vd_hit: [], vd_shoot: ['plasma'],
     btn_all: [], btn_back: [], common_hit: [], common_shoot: ['rocket'], rare_hit: [], rare_shoot: ['plasma'], epic_hit: [], epic_shoot: ['rocket'], divine_hit: ['divine'], divine_shoot: ['wing'], heal_self: ['heal'], heal_team: ['heal'], fly_launch: ['fly'], rpa_shoot: [['boom', .22]], rpa_hit: [['boom', .35]]
   };
