@@ -32,7 +32,8 @@
     gm_rock_hit: 'golem rock hit.mp3',         gm_rock_throw: 'golem rock throw shoot.mp3',
     kslime_land: 'king slime jump land.mp3',   kk_land: 'kingkong jump land.mp3',       mk_land: 'minotaur and skeleton king jump land.mp3',
     bz_hit: 'mythic bazooka hit effect.mp3',   bz_shoot: 'mythic bazooka shoot.mp3',    robo_jump: 'robo jump.mp3',
-    bone_throw: 'skeleton king bone throw shoot.mp3', bone_hit: 'skeletone king bone hit impact.mp3'
+    bone_throw: 'skeleton king bone throw shoot.mp3', bone_hit: 'skeletone king bone hit impact.mp3',
+    ge_shoot: 'axy eye shoot.mp3',   ge_hit: 'axy eye hit.mp3',   dk_shoot: 'dragon king shoot.mp3',   dk_hit: 'dragonking hit.mp3',   axe_throw: 'legendary axe throw.mp3',   mb_hit: 'mythic boomerang hit.mp3',   mb_shoot: 'mythic boomerang shoot.mp3',   mh_hit: 'mythic hammer hit.mp3',   mh_throw: 'mythical hammer throw.mp3',   ms_hit: 'mythic soccer hit.mp3',   ms_throw: 'mythic soccer throw.mp3',   msp_hit: 'mythic spear hit.mp3',   msp_throw: 'mythic spear throw.mp3',   sun_hit: 'solar sunbreaker hit.mp3',   sun_shoot: 'solar sunbreaker shoot.mp3',   vd_hit: 'void devourer hit.mp3',   vd_shoot: 'void devourer shoot.mp3'
   };
   // the old sound each file replaces (played only while the file is not ready). 'name' or ['name', arg]; no arg = the caller's arg
   const FALL = {
@@ -50,7 +51,8 @@
     shuriken_shoot: ['plasma'], shuriken_hit: [], tempest_shoot: ['plasma'], tempest_hit: [], titan_fire: ['shotgun'], titan_hit: [],
     cen_run: [], doom_hit: [], forge_fail: ['dud'], forge_win: ['win'], gm_rock_hit: [['boom', 1.2]], gm_rock_throw: [['boom', .7], ['slash', .8]],
     kslime_land: ['boom'], kk_land: ['boom'], mk_land: ['boom'], bz_hit: [], bz_shoot: ['rocket'], robo_jump: ['jump'],
-    bone_throw: [['slash', .7]], bone_hit: []
+    bone_throw: [['slash', .7]], bone_hit: [],
+    ge_shoot: ['plasma'], ge_hit: [], dk_shoot: ['rocket'], dk_hit: [], axe_throw: ['axe'], mb_hit: [], mb_shoot: ['axe'], mh_hit: [], mh_throw: ['axe'], ms_hit: [], ms_throw: ['shotgun'], msp_hit: [], msp_throw: ['axe'], sun_hit: [], sun_shoot: ['rocket'], vd_hit: [], vd_shoot: ['plasma']
   };
   const GAIN = {};          // optional per-file loudness (default below); e.g. GAIN.kk_roar = 2
   const DEF_GAIN = 1.6;     // the game's master volume is 0.5, so 1.6 here = about 0.8 overall

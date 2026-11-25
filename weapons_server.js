@@ -98,9 +98,9 @@ WEAPONS.push(
   SHOPW('S15_Inferno_Gatling', 'Inferno Gatling', 'epic', 'Three burning barrels, 3 shells.', { k: 'shell', c1: '#ffd8a0', c2: '#d8321a' }, 17, 34, 'explosion_small', .8, 'rocket', 3, true, { vol: { count: 3, gap: 22, recoil: 1.1, spread: 3 } }),
   SHOPW('S16_Storm_Trident', 'Storm Trident', 'epic', 'Trident that hurls thunder.', { k: 'bolt', c1: '#ffffff', c2: '#4fb8ff' }, 27, 42, 'energy_hit', 1, 'plasma', 4, false),
   SHOPW('S17_Blizzard_Bow', 'Blizzard Crossbow', 'epic', 'Ice crossbow, freezes on hit.', { k: 'gem', c1: '#ffffff', c2: '#6fd8ff' }, 22, 42, 'ice_hit', 1, 'freeze', 3, false, { freeze: true }),
-  SHOPW('S18_Sunbreaker', 'Solar Sunbreaker', 'legendary', 'Sun cannon, bursts into 4 sparks.', { k: 'orb', c1: '#ffffff', c2: '#ffc21a' }, 33, 50, 'explosion_big', 1, 'rocket', 5, true, { cluster: 4, clusterSpread: 0.6, clusterSpd: [3, 8], miniFuse: [40, 90], miniImpact: true, bomblet: { dmg: 14, blast: 50 } }),
-  SHOPW('S19_Void_Devourer', 'Void Devourer', 'legendary', 'Hungry void eye. Locks on when close.', { k: 'orb', c1: '#f0d8ff', c2: '#6a1fd0' }, 34, 48, 'plasma_hit', 1, 'plasma', 5, true, { homing: true }),
-  SHOPW('S20_Dragon_King', 'Dragon King Cannon', 'legendary', 'Golden dragon cannon, 2 heavy balls.', { k: 'ball', c1: '#ffe8a0', c2: '#d8321a' }, 25, 46, 'explosion_big', 1, 'rocket', 5, true, { vol: { count: 2, gap: 34, recoil: 1.6, spread: 1 } }),
+  SHOPW('S18_Sunbreaker', 'Solar Sunbreaker', 'legendary', 'Sun cannon, bursts into 4 sparks.', { k: 'orb', c1: '#ffffff', c2: '#ffc21a' }, 33, 50, 'explosion_big', 1, 'mp3_sun_shoot', 5, true, { hitSnd: 'sun_hit', cluster: 4, clusterSpread: 0.6, clusterSpd: [3, 8], miniFuse: [40, 90], miniImpact: true, bomblet: { dmg: 14, blast: 50 } }),
+  SHOPW('S19_Void_Devourer', 'Void Devourer', 'legendary', 'Hungry void eye. Locks on when close.', { k: 'orb', c1: '#f0d8ff', c2: '#6a1fd0' }, 34, 48, 'plasma_hit', 1, 'mp3_vd_shoot', 5, true, { homing: true, hitSnd: 'vd_hit' }),
+  SHOPW('S20_Dragon_King', 'Dragon King Cannon', 'legendary', 'Golden dragon cannon, 2 heavy balls.', { k: 'ball', c1: '#ffe8a0', c2: '#d8321a' }, 25, 46, 'explosion_big', 1, 'mp3_dk_shoot', 5, true, { hitSnd: 'dk_hit', vol: { count: 2, gap: 34, recoil: 1.6, spread: 1 } }),
 );
 
 // ===== 10 MORE SHOP WEAPONS (S21-S30), same rules as the 20 above =====
@@ -114,7 +114,7 @@ WEAPONS.push(
   SHOPW('S27_Crystal_Spire', "Crystal Spire Gun", 'rare', "Crystal gun that bursts into bright shards.", { k: 'gem', c1: '#ffffff', c2: '#c04aff' }, 22, 36, 'energy_hit', 0.9, 'plasma', 3, false),
   SHOPW('S28_Night_Fang', "Nightfang Cannon", 'epic', "Fanged cannon, 2 shadow blasts.", { k: 'orb', c1: '#f0d8ff', c2: '#4a1a7a' }, 19, 38, 'plasma_hit', 0.95, 'plasma', 3.4, true, { vol: { count: 2, gap: 26, recoil: 1.1, spread: 2 } }),
   SHOPW('S29_Phoenix_Wing', "Phoenix Wing Cannon", 'epic', "Winged cannon that hurls phoenix fire.", { k: 'orb', c1: '#fff3c0', c2: '#ff4a10' }, 28, 42, 'explosion_big', 1, 'rocket', 4, true),
-  SHOPW('S30_Galaxy_Eye', "Galaxy Eye Launcher", 'legendary', "A tiny galaxy shell, bursts into 3 stars.", { k: 'orb', c1: '#ffffff', c2: '#7a4aff' }, 30, 48, 'explosion_big', 1, 'plasma', 5, true, { cluster: 3, clusterSpread: 1.25, clusterSpd: [3, 8], miniFuse: [40, 90], miniImpact: true, bomblet: { dmg: 14, blast: 30 } }),
+  SHOPW('S30_Galaxy_Eye', "Galaxy Eye Launcher", 'legendary', "A tiny galaxy shell, bursts into 3 stars.", { k: 'orb', c1: '#ffffff', c2: '#7a4aff' }, 30, 48, 'explosion_big', 1, 'mp3_ge_shoot', 5, true, { hitSnd: 'ge_hit', cluster: 3, clusterSpread: 1.25, clusterSpd: [3, 8], miniFuse: [40, 90], miniImpact: true, bomblet: { dmg: 14, blast: 30 } }),
 );
 
 // ===== TITAN CANNON (legendary Shop weapon): ONE single heavy cannonball, no skill, just a MUCH bigger blast =====
@@ -305,7 +305,7 @@ for (let t = 0; t < 4; t++) {
   AXE_FX['axe_trail_t' + t] = { file: 'fx/axe_trail_t' + t + '.png', frames: 8, cols: 4, fw: 128, fh: 128, fps: 16, loop: false };
 }
 WEAPONS.push(
-  SHOPW('S34_Doom_Axe', 'Doom Axe', 'legendary', 'A legendary war axe. You throw the axe itself, spinning slowly, and it chops down with a huge hit.', { k: 'daxe', c1: '#ffffff', c2: '#c8ccd8' }, 237, 46, 'explosion_big', 1.2, 'axe', 6, false, { hitT: ['axe_hit_t0', 'axe_hit_t1', 'axe_hit_t2', 'axe_hit_t3'], hitSnd: 'doom_hit' }),
+  SHOPW('S34_Doom_Axe', 'Doom Axe', 'legendary', 'A legendary war axe. You throw the axe itself, spinning slowly, and it chops down with a huge hit.', { k: 'daxe', c1: '#ffffff', c2: '#c8ccd8' }, 237, 46, 'explosion_big', 1.2, 'mp3_axe_throw', 6, false, { hitT: ['axe_hit_t0', 'axe_hit_t1', 'axe_hit_t2', 'axe_hit_t3'], hitSnd: 'doom_hit' }),
 );
 { const dw = WEAPONS.find(w => w.id === 'S34_Doom_Axe'); dw.hold = DOOM_AXE_HOLD; dw.proj.trailFx = ['axe_trail_t0', 'axe_trail_t1', 'axe_trail_t2', 'axe_trail_t3']; }
 
@@ -324,10 +324,10 @@ Object.assign(SIG_WMETA, {
 });
 WEAPONS.push(
   SHOPW('S35_Mythic_Bazooka', 'Mythic Bazooka', 'mythical', 'Mythical electric bazooka. Fires a crackling ball of lightning. With POW it fires 3 shots.', { k: 'mbaz', c1: '#ffffff', c2: '#40d8ff' }, 370, 54, 'explosion_big', 1.2, 'mp3_bz_shoot', 5, false, { hitT: ['volt_hit_t0', 'volt_hit_t1', 'volt_hit_t2', 'volt_hit_t3'], hitSnd: 'bz_hit', sndOnce: true }),
-  SHOPW('S36_Mythic_Spear', 'Mythic Spear', 'mythical', 'Mythical tribal spear. You throw the spear itself, point first. With POW it throws 3.', { k: 'mpic', pic: 'spear', len: 65, spin: 0, glow: '255,80,40' }, 400, 40, 'explosion_big', 1.2, 'axe', 4, false),
-  SHOPW('S37_Mythic_Boomerang', 'Mythic Boomerang', 'mythical', 'Mythical feathered boomerang, spins fast. With POW it throws 3.', { k: 'mpic', pic: 'boomerang', len: 52, spin: 0.2, glow: '255,150,40' }, 400, 40, 'explosion_big', 1.2, 'axe', 4, false),
-  SHOPW('S38_Mythic_Hammer', 'Mythic Hammer', 'mythical', 'Mythical war hammer, thrown end over end. With POW it throws 3.', { k: 'mpic', pic: 'hammer', len: 54, spin: 0.14, glow: '255,200,60' }, 380, 46, 'explosion_big', 1.2, 'axe', 5, false),
-  SHOPW('S39_Mythic_Ball', 'Mythic Soccer Ball', 'mythical', 'Mythical soccer ball. The ball itself is the shot and spins slowly. With POW it kicks 3.', { k: 'mpic', pic: 'ball', len: 38, spin: 0.05, glow: '120,200,255' }, 370, 46, 'explosion_big', 1.2, 'shotgun', 5, false),
+  SHOPW('S36_Mythic_Spear', 'Mythic Spear', 'mythical', 'Mythical tribal spear. You throw the spear itself, point first. With POW it throws 3.', { k: 'mpic', pic: 'spear', len: 65, spin: 0, glow: '255,80,40' }, 400, 40, 'explosion_big', 1.2, 'mp3_msp_throw', 4, false, { hitSnd: 'msp_hit', sndOnce: true }),
+  SHOPW('S37_Mythic_Boomerang', 'Mythic Boomerang', 'mythical', 'Mythical feathered boomerang, spins fast. With POW it throws 3.', { k: 'mpic', pic: 'boomerang', len: 52, spin: 0.2, glow: '255,150,40' }, 400, 40, 'explosion_big', 1.2, 'mp3_mb_shoot', 4, false, { hitSnd: 'mb_hit', sndOnce: true }),
+  SHOPW('S38_Mythic_Hammer', 'Mythic Hammer', 'mythical', 'Mythical war hammer, thrown end over end. With POW it throws 3.', { k: 'mpic', pic: 'hammer', len: 54, spin: 0.14, glow: '255,200,60' }, 380, 46, 'explosion_big', 1.2, 'mp3_mh_throw', 5, false, { hitSnd: 'mh_hit', sndOnce: true }),
+  SHOPW('S39_Mythic_Ball', 'Mythic Soccer Ball', 'mythical', 'Mythical soccer ball. The ball itself is the shot and spins slowly. With POW it kicks 3.', { k: 'mpic', pic: 'ball', len: 38, spin: 0.05, glow: '120,200,255' }, 370, 46, 'explosion_big', 1.2, 'mp3_ms_throw', 5, false, { hitSnd: 'ms_hit', sndOnce: true }),
 );
 WEAPONS.forEach(w => { if (w.rar === 'mythical') w.mythic = true; });
 { const bw = WEAPONS.find(w => w.id === 'S39_Mythic_Ball'); bw.hold = 1.6; }   // the ball is held bigger (1 = normal, 2 = double)
