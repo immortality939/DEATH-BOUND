@@ -136,14 +136,14 @@ const UI = {
   },
   meterBuilt: false,
   meter() {
-    const p = $('pwr'); if (!this.meterBuilt) { this.meterBuilt = true; let h = ''; for (let i = 0; i <= 30; i++) { const x = i * 5, lx = x / (POW_MAX * 100) * 100, big = i % 2 === 0; h += `<span class="tk${big ? ' big' : ''}" style="left:${lx}%"></span>`; if (x % 25 === 0) h += `<span class="tn" style="left:${lx}%">${x}</span>`; } p.insertAdjacentHTML('beforeend', h); this.mk = p.querySelector('.mk'); this.rd = p.querySelector('.rd'); this.fill = p.querySelector('.bar i'); this.last = p.querySelector('.last'); this.lm = p.querySelector('.lm'); this.lt = p.querySelector('.lt'); }
+    const p = $('pwr'); if (!this.meterBuilt) { this.meterBuilt = true; let h = ''; for (let i = 0; i <= 20; i++) { const x = i * 5, lx = x, big = i % 2 === 0; h += `<span class="tk${big ? ' big' : ''}" style="left:${lx}%"></span>`; if (x % 25 === 0) h += `<span class="tn" style="left:${lx}%">${x}</span>`; } p.insertAdjacentHTML('beforeend', h); this.mk = p.querySelector('.mk'); this.rd = p.querySelector('.rd'); this.fill = p.querySelector('.bar i'); this.last = p.querySelector('.last'); this.lm = p.querySelector('.lm'); this.lt = p.querySelector('.lt'); }
     const t = curTeam(), wd = t && WEAPONS[t.sel], show = G.mode === 'play' && G.phase === 'aim' && wd && (wd.charge || G.flyMode) && !t.cpu;
     p.classList.toggle('on', !!G.charging); p.classList.toggle('faint', !G.charging && !!show);
-    const v = G.charging ? G.charge : 0; this.fill.style.width = (v / POW_MAX * 100) + '%'; this.mk.style.left = (v / POW_MAX * 100) + '%'; this.rd.textContent = Math.round(v * 100);
+    const v = G.charging ? G.charge : 0; this.fill.style.width = (v / POW_MAX * 100) + '%'; this.mk.style.left = (v / POW_MAX * 100) + '%'; this.rd.textContent = Math.round(v / POW_MAX * 100);
     // blurry red zone 0 -> where the last shot stopped, so the player knows if this shot will reach the same strength
-    const aw = G.activeWorm, lpv = aw ? (G.flyMode ? aw.lastFlyPow : aw.lastPow) : 0, lp = t && !t.cpu && aw && lpv > 0 && wd && (wd.charge || G.flyMode) ? Math.round(lpv * 100) : 0, sh = (show || G.charging) && lp > 0;
-    this.last.style.width = sh ? (lp / (POW_MAX * 100) * 100) + '%' : '0'; this.lm.style.display = this.lt.style.display = sh ? 'block' : 'none';
-    if (sh) { this.lm.style.left = this.lt.style.left = (lp / (POW_MAX * 100) * 100) + '%'; this.lt.textContent = lp; }
+    const aw = G.activeWorm, lpv = aw ? (G.flyMode ? aw.lastFlyPow : aw.lastPow) : 0, lp = t && !t.cpu && aw && lpv > 0 && wd && (wd.charge || G.flyMode) ? Math.round(lpv / POW_MAX * 100) : 0, sh = (show || G.charging) && lp > 0;
+    this.last.style.width = sh ? lp + '%' : '0'; this.lm.style.display = this.lt.style.display = sh ? 'block' : 'none';
+    if (sh) { this.lm.style.left = this.lt.style.left = lp + '%'; this.lt.textContent = lp; }
   },
   hud() {
     const t = curTeam(), w = G.activeWorm; if (!t) return;

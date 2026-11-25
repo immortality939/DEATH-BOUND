@@ -363,7 +363,7 @@ function renderGame(ctx, W, H) {
   if (w && G.mode === 'play' && G.phase === 'aim' && w.state === 'ground' && w.frozen <= 0 && !curTeam().cpu) {
     const wd = curWeapon(), [mx, my] = muzzleWorld(w, wd), d = aimDir(w), col = curTeam().color;
     const rx = mx + d[0] * 110, ry = my + d[1] * 110; ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.globalAlpha = .9; ctx.beginPath(); ctx.arc(rx, ry, 9, 0, 6.283); ctx.moveTo(rx - 14, ry); ctx.lineTo(rx - 5, ry); ctx.moveTo(rx + 5, ry); ctx.lineTo(rx + 14, ry); ctx.moveTo(rx, ry - 14); ctx.lineTo(rx, ry - 5); ctx.moveTo(rx, ry + 5); ctx.lineTo(rx, ry + 14); ctx.stroke(); ctx.restore();
-    if (G.charging) { const n = 14; for (let i = 1; i <= n; i++) { const u = i / n; if (u > G.charge) break; const dd = 26 + u * 90; ctx.fillStyle = `hsl(${120 - u * 120},95%,58%)`; ctx.beginPath(); ctx.arc(mx + d[0] * dd, my + d[1] * dd, 2.5 + u * 3.2, 0, 6.283); ctx.fill(); } }
+    if (G.charging) { const n = 14; for (let i = 1; i <= n; i++) { const u = i / n; if (u > G.charge / POW_MAX) break; const dd = 26 + u * 90; ctx.fillStyle = `hsl(${120 - u * 120},95%,58%)`; ctx.beginPath(); ctx.arc(mx + d[0] * dd, my + d[1] * dd, 2.5 + u * 3.2, 0, 6.283); ctx.fill(); } }
   }
   // aim arrow: always points along the current aim angle, with the degrees at its tip
   if (w && G.mode === 'play' && G.phase === 'aim' && w.state === 'ground' && w.frozen <= 0 && !curTeam().cpu) {
