@@ -195,7 +195,8 @@ const AI = {
       if (Math.abs(diff) <= 1.2) {
         I.up = I.down = false; this.t++; if (this.t < 18) return;
         const wd = p.wd; curTeam().sel = WEAPONS.indexOf(wd); w.aim = p.rel;
-        if (wd.charge) { this.st = 'charge'; this.cf = 0; I.fire = true; I.firePressed = true; } else { I.firePressed = true; this.st = 'fired'; }
+        if (wd.charge && G.adv && isBoss(w)) { startFire(p.power); this.st = 'fired'; }   // ADVENTURE BOSSES shoot straight away: no power ruler, no waiting - the shot leaves with the power the AI worked out
+        else if (wd.charge) { this.st = 'charge'; this.cf = 0; I.fire = true; I.firePressed = true; } else { I.firePressed = true; this.st = 'fired'; }
       }
     } else if (this.st === 'charge') {
       I.fire = true; this.cf++; if (this.cf > 4 && (G.charge >= this.plan.power || !G.charging)) { I.fire = false; this.st = 'fired'; }
