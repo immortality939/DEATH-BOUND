@@ -76,7 +76,7 @@ Object.assign(SIG_WMETA, {"S21_Cinder_Pot":{"muzzle":[388,128],"bbox":[90,20,470
 const SHOPW = (n, name, rar, desc, look, dmg, blast, hit, hs, snd, knock, trail, x = {}) => {
   const proj = { spr: 'sig', look, ss: 1, speed: CHARGE_SPEED, g: WEAPON_G, wind: WEAPON_WIND, dmg, blast, hit, hs, snd, knock, trail: !!trail };
   if (x.freeze) proj.freeze = true; if (x.homing) { proj.homing = true; proj.homeRange = 200; proj.life = 2400; } if (x.bomblet) proj.bomblet = x.bomblet; if (x.clusterSpread) proj.clusterSpread = x.clusterSpread; if (x.clusterSpd) proj.clusterSpd = x.clusterSpd; if (x.miniFuse) proj.miniFuse = x.miniFuse; if (x.miniImpact !== undefined) proj.miniImpact = x.miniImpact;
-  if (x.hitT) proj.hitT = x.hitT; if (x.noKnock) proj.noKnock = true; if (x.hitSnd) proj.hitSnd = x.hitSnd;   // hitT: own hit effect per upgrade look [+0..+9, +10, +11, +12] (null = the normal hit); noKnock: blast never pushes anyone
+  if (x.hitT) proj.hitT = x.hitT; if (x.noKnock) proj.noKnock = true; if (x.hitSnd) proj.hitSnd = x.hitSnd; if (x.bombSnd) proj.bombSnd = x.bombSnd; if (x.sndOnce) proj.sndOnce = true;   // hitT: own hit effect per upgrade look [+0..+9, +10, +11, +12] (null = the normal hit); noKnock: blast never pushes anyone
   const w = { id: n, name, desc, ammo: Infinity, type: 'shot', charge: true, shop: 'w_' + n.slice(4).toLowerCase(), rar, proj };
   if (x.vol) w.volley = x.vol; if (x.cluster) w.cluster = x.cluster; return w;
 };
