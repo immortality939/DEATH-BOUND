@@ -26,6 +26,7 @@ const ArenaFight = (() => {
   const SNAP_WAIT_MS = 1500, LOST_MS = 9000, CATCH_MS = 40;   // CATCH_MS = how long one picture may spend on replaying (catching up) after a reconnect
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   let F = null;                   // the running fight (null = none)
+  { const prev = window.POW_MY_TEAM; window.POW_MY_TEAM = () => { const i = (F && !F.ended && F.pl) ? F.pl.indexOf(F.me) : -1; return i >= 0 ? i : (prev ? prev() : -1); }; }   // the POW button shows MY meter in an online fight
   let H = null;                   // the game functions we replaced (to put them back)
   let _rand = null;               // the real Math.random
 
@@ -154,7 +155,7 @@ const ArenaFight = (() => {
         break;
       }
       case 't': F.replay = true; try { seeded(() => H.dt(ev.x, ev.y)); } catch (e) { } finally { F.replay = false; } break;
-      case 'x': G.charging = false; G.charge = 0; endTurnNow(); break;
+      case 'x': G.charging = false; G.charge = 0; if (typeof POW !== 'undefined') POW.pass(curTeam()); endTurnNow(); break;
     }
   }
   function newTurn(ended) {
@@ -406,7 +407,7 @@ const ArenaFight = (() => {
     UI.canPick = function () { return H.cp.call(this) && canAct(); };
     UI.togglePause = function (v) { const p = $('pauseScr'); if (!p) return; const on = v === undefined ? p.hidden : !!v; p.hidden = !on; UI.paused = false; };   // the battle never freezes for one player
     UI.showOver = function () { if (!F) return H.so.apply(this, arguments); F.ended = true; F.simOver = true; F.overTimer = setTimeout(() => { const w = G.winner; showResult(w ? { win: sideOf(w.idx) === F.myTeam, draw: false } : { win: false, draw: true }); }, 1600); };
-    $('bPass').onclick = () => { if (F && !F.ended && G.mode === 'play' && G.phase === 'aim' && !G.swarm && canAct()) { Snd.play('beep'); G.charging = false; G.charge = 0; endTurnNow(); push({ k: 'x', f: G.frame }); } };
+    $('bPass').onclick = () => { if (F && !F.ended && G.mode === 'play' && G.phase === 'aim' && !G.swarm && canAct()) { Snd.play('beep'); G.charging = false; G.charge = 0; if (typeof POW !== 'undefined') POW.pass(curTeam()); endTurnNow(); push({ k: 'x', f: G.frame }); } };
     $('bQuit').onclick = () => askLeave();
     $('wbtn').onclick = e => { if (canAct()) return H.wbtn.call($('wbtn'), e); };
     $('fbtn').onclick = e => { if (canAct()) return H.fbtn.call($('fbtn'), e); };

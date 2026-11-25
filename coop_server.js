@@ -31,6 +31,7 @@ const Coop = (() => {
   const REAL_RANDOM = Math.random;
   let net = null;            // { ws, myId, hostId, closed, onclose }
   let S = null;              // the stage that is being played: see begin()
+  { const prev = window.POW_MY_TEAM; window.POW_MY_TEAM = () => (S && S.sim && S.myTeam >= 0 && !S.over) ? S.myTeam : (prev ? prev() : -1); }   // the POW button shows MY meter in an online co-op stage
   const pend = {};           // messages that came for a stage this phone has not started yet: sk -> [d...]
   const attempts = {};       // host: how many times each stage was restarted
   const resyncs = {};        // how many times THIS phone rebuilt a stage (sk -> n): a phone that is out of sync / was offline rebuilds the stage from the log
@@ -258,7 +259,7 @@ const Coop = (() => {
         case 'fly': { if (G.charging || !canFly()) break; if (G.flyMode) G.flyMode = false; else { if (hw && t.sel === WEAPONS.indexOf(hw)) t.sel = mainSel(t); G.flyMode = true; } break; }
         case 'heal': { if (!UI.canPick() || !hw || !(t.ammo[hw.id] > 0) || G.charging) break; G.flyMode = false; const hi = WEAPONS.indexOf(hw); if (t.sel !== hi) { t.prevSel = t.sel; t.sel = hi; } break; }
         case 'pot': { if (!UI.canPick() || G.charging) break; usePotion(tm, e.i | 0); break; }
-        case 'pass': { if (G.phase === 'aim') { G.charging = false; G.charge = 0; endTurnNow(); } break; }
+        case 'pass': { if (G.phase === 'aim') { G.charging = false; G.charge = 0; if (typeof POW !== 'undefined') POW.pass(curTeam()); endTurnNow(); } break; }
         case 'pow': { const b = document.getElementById('powbtn'); if (b) b.click(); break; }
         case 'tp': { if (G.phase === 'aim' && curWeapon().type === 'teleport') orig.doTeleport(+e.x, +e.y); break; }
       }
@@ -443,8 +444,8 @@ const Coop = (() => {
     wrapBtn('wbtn', function () { const t = curTeam(), hw = healWd(); if (G.flyMode && !G.charging) { emitUi({ u: 'wb' }); return; } if (UI.canPick() && hw && t.sel === WEAPONS.indexOf(hw)) { emitUi({ u: 'wb' }); return; } UI.openWeapons(); });
     wrapBtn('fbtn', function () { if (!canFly()) return; emitUi({ u: 'fly' }); });
     wrapBtn('hbtn', function () { emitUi({ u: 'heal' }); });
-    wrapBtn('pb1', function () { emitUi({ u: 'pot', i: 0 }); });
-    wrapBtn('pb2', function () { emitUi({ u: 'pot', i: 1 }); });
+    wrapBtn('pb1', function () { const t = curTeam(); if (t && t.pots && t.pots[0] && typeof potionNeeded === 'function' && !potionNeeded(t.idx, 0)) return; emitUi({ u: 'pot', i: 0 }); });   // Heal / Team Heal: nothing to heal = no tap
+    wrapBtn('pb2', function () { const t = curTeam(); if (t && t.pots && t.pots[1] && typeof potionNeeded === 'function' && !potionNeeded(t.idx, 1)) return; emitUi({ u: 'pot', i: 1 }); });   // Heal / Team Heal: nothing to heal = no tap
     wrapBtn('bPass', function () { emitUi({ u: 'pass' }); });
     const pb = document.getElementById('powbtn');   // POW button / P key: the game's own click handler only runs when the stamped action arrives
     if (pb) pb.addEventListener('click', e => { if (on() && !S.applying) { e.stopImmediatePropagation(); e.preventDefault(); emitUi({ u: 'pow' }); } }, true);

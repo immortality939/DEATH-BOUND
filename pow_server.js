@@ -35,7 +35,10 @@ const POW = (function () {
   try { loadImage(BURST.file).catch(() => { }); } catch (e) { }
 
   const ease = u => u * u * (3 - 2 * u), eo = u => 1 - (1 - u) * (1 - u);
-  const humanTeam = () => { const c = curTeam(); if (c && !c.cpu) return c; return (G.teams || []).find(t => !t.cpu) || null; };
+  // Online (Arena / co-op Adventure): the POW button must show MY team's meter all the time, not whichever human team is playing right now.
+  // arena_fight.js / coop_server.js register window.POW_MY_TEAM = () => my engine team index (or -1 when no online fight is running).
+  const myOnlineTeam = () => { try { const f = window.POW_MY_TEAM, i = f ? f() : -1, t = i >= 0 && G.teams ? G.teams[i] : null; return t && !t.cpu ? t : null; } catch (e) { return null; } };
+  const humanTeam = () => { const m = myOnlineTeam(); if (m) return m; const c = curTeam(); if (c && !c.cpu) return c; return (G.teams || []).find(t => !t.cpu) || null; };
   const on = () => G.mode === 'play' && (!PW_ADVENTURE_ONLY || G.adv);
   const val = t => Math.max(0, Math.min(PW_FULL, (t && t.pow) || 0));
   const isFull = t => val(t) >= PW_FULL;
