@@ -5,6 +5,9 @@
 //
 //  EVERY TURN       he flies to a random player (MOVE-FLY sprite), hits him with the scythe (ATTACK sprite), then flies back to his own spot
 //  EVERY 3RD TURN   he flies to a random player again and SCREAMS: a round shockwave blasts around him (strong damage to everyone in reach)
+//  EVERY 4TH TURN   AURA VOLCANO: he rises to the CENTER of the map, high in the air, and bursts his aura like a volcano - 50 aura balls (one every 0.4 s)
+//                   shoot up in random directions and fall back to the ground, exploding where they land (or when they touch a player)
+//  AFTER HIS SCYTHE HIT he no longer flies back home: he floats to a RANDOM spot in the air
 //  IDLE             floats and sways (4 frames)
 //  WHEN HE DIES     the first death plays (5 frames) ... then he RISES AGAIN right where he died (your 8 rise frames),
 //                   the big game text "TIME TO DIE" plays like a short cutscene, and the battle starts again - the Reaper now has
@@ -31,6 +34,16 @@ const RP_LET = 'adventure/rp_letters.png';      // the letters T I M E O D as pi
 const RP_SUB = 'adventure/rp_sub.png';          // "THE DEATH REAPER RISES AGAIN" as a picture
 const RP_VIG = 'adventure/rp_vignette.png';     // the dark violet screen edge of the cutscene as a picture
 const RP_LW = { T: 168, I: 89, M: 238, E: 148, O: 178, D: 179 };   // visible width of each letter picture
+const RP_BURST = 'adventure/boss_deathreaper_burst.webp';   // aura-burst pose: 35 frames of 300x300, 6 per row (all frames same body size, hood on the same spot)
+const RP_ORB = 'adventure/rp_orb.webp';                     // aura ball: 35 frames of 256x256, 6 per row (core always in the cell centre)
+const RPB = { CW: 300, CH: 300, COLS: 6, HX: 150, BY: 202, K: 1.775 };   // K = how much bigger than the old sheet a burst pixel is drawn, so his body is the same size as in every other pose
+const RP_VOL_EVERY = 4;       // every 4th turn = aura volcano
+const RP_VOL_COUNT = 50;      // aura balls per volcano
+const RP_VOL_GAP = 24;        // ticks between two balls (24 ticks = 0.4 s)
+const RP_VOL_MUL = .5;        // damage of one ball = this x the normal special damage
+const RP_VOL_R = 95;          // blast radius of one ball
+const RP_VOL_H = 330;         // how high above the ground (at the map centre) he hovers
+const RP_ORB_SZ = 140;        // drawn size of a ball (world pixels)
 const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s)
 
 (function () {
@@ -63,7 +76,10 @@ const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s
   const cv = document.createElement('canvas'); cv.width = RP.CW; cv.height = RP.CH; const cx = cv.getContext('2d', { willReadFrequently: true });
   const put = (img, i, al) => { cx.globalAlpha = al; cx.drawImage(img, (i % 5) * RP.CW, Math.floor(i / 5) * RP.CH, RP.CW, RP.CH, 0, 0, RP.CW, RP.CH); };
   function pose(img, p) { cx.clearRect(0, 0, RP.CW, RP.CH); cx.globalCompositeOperation = 'source-over'; if (Array.isArray(p)) { put(img, p[0], 1); if (p[2] > .001) put(img, p[1], p[2]); } else put(img, p | 0, 1); cx.globalAlpha = 1; }
-  function tint(col, a) { cx.globalCompositeOperation = 'source-atop'; cx.globalAlpha = a; cx.fillStyle = col; cx.fillRect(0, 0, RP.CW, RP.CH); cx.globalAlpha = 1; cx.globalCompositeOperation = 'source-over'; }
+  function tint(col, a, c = cx, W = RP.CW, H = RP.CH) { c.globalCompositeOperation = 'source-atop'; c.globalAlpha = a; c.fillStyle = col; c.fillRect(0, 0, W, H); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over'; }
+  const cvB = document.createElement('canvas'); cvB.width = RPB.CW; cvB.height = RPB.CH; const cxB = cvB.getContext('2d', { willReadFrequently: true });   // same idea for the burst sheet (tinted frames)
+  const putB = (img, i, al) => { cxB.globalAlpha = al; cxB.drawImage(img, (i % RPB.COLS) * RPB.CW, Math.floor(i / RPB.COLS) * RPB.CH, RPB.CW, RPB.CH, 0, 0, RPB.CW, RPB.CH); };
+  function poseB(img, p) { cxB.clearRect(0, 0, RPB.CW, RPB.CH); cxB.globalCompositeOperation = 'source-over'; putB(img, p[0], 1); if (p[2] > .001) putB(img, p[1], p[2]); cxB.globalAlpha = 1; }
   const risePose = t => { const q = Math.max(0, Math.min(7, (t - 18) / 12)), i = Math.min(6, Math.floor(q)); return [RP.RISE + i, RP.RISE + i + 1, ease(q - i)]; };   // the 8 rise frames, 12 ticks each
 
   const mkGlow = c0 => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'), g = x.createRadialGradient(64, 64, 3.4, 64, 64, 64); g.addColorStop(0, c0); g.addColorStop(1, 'rgba(120,30,220,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); return c; };
@@ -88,7 +104,11 @@ const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s
       if (w.state === 'drown') alpha = Math.max(0, 1 - w.dt / 40);
     }
     const tf = w.state !== 'dead' && (w.frozen > 0 || (w.flash > 0 && (w.flash % 4) < 2) || w.healT > 0);   // tinted (frozen / hit flash / heal)? then the frame is mixed on a small canvas first
-    if (tf) { pose(img, p); if (w.frozen > 0) tint('#9fe4ff', .55); if (w.flash > 0 && (w.flash % 4) < 2) tint('#ff4a2a', .6); else if (w.healT > 0) tint('#e8ffee', .55 * w.healT / 36); }
+    const BR = w.state !== 'dead' && w.state !== 'drown' && w.rpBurst ? w.rpBurst : null, BU = BR ? getImg(RP_BURST) : null, mixB = BU ? BR.mix : 0;   // aura-burst pose (mixB 1 = only the burst sprite, <1 = cross-faded with the normal pose)
+    if (tf) {
+      if (mixB < 1) { pose(img, p); if (w.frozen > 0) tint('#9fe4ff', .55); if (w.flash > 0 && (w.flash % 4) < 2) tint('#ff4a2a', .6); else if (w.healT > 0) tint('#e8ffee', .55 * w.healT / 36); }
+      if (BU) { poseB(BU, BR.p); if (w.frozen > 0) tint('#9fe4ff', .55, cxB, RPB.CW, RPB.CH); if (w.flash > 0 && (w.flash % 4) < 2) tint('#ff4a2a', .6, cxB, RPB.CW, RPB.CH); else if (w.healT > 0) tint('#e8ffee', .55 * w.healT / 36, cxB, RPB.CW, RPB.CH); }
+    }
     ctx.save(); ctx.globalAlpha = alpha;
     if (w.state === 'ground' || w.state === 'dead') { ctx.fillStyle = 'rgba(0,0,0,.28)'; const fo = Math.min(1, (w.flyOff || 0) / 200); ctx.beginPath(); ctx.ellipse(w.x, w.y + 1, 62 * s * (1 - fo * .4), 8 * s * (1 - fo * .4), 0, 0, 6.283); ctx.fill(); }
     const by = baseY(w);
@@ -97,11 +117,25 @@ const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s
       ctx.drawImage(w.rpReborn ? GLOW2 : GLOW1, w.x - 190 * s, by - 105 * s - 190 * s, 380 * s, 380 * s); ctx.restore();   // (pre-drawn glow picture - no gradient is built per frame)
     }
     ctx.translate(w.x, by); ctx.scale((w.face || 1) * s, s);
-    if (tf) ctx.drawImage(cv, -RP.HX, -RP.BY);
-    else {   // normal case: both neighbouring frames straight from the sheet (cross-fade)
-      const A = Array.isArray(p) ? p[0] : p | 0, B = Array.isArray(p) ? p[1] : A, u = Array.isArray(p) ? p[2] : 0, ga = ctx.globalAlpha;
-      const dr = i => ctx.drawImage(img, (i % 5) * RP.CW, Math.floor(i / 5) * RP.CH, RP.CW, RP.CH, -RP.HX, -RP.BY, RP.CW, RP.CH);
-      dr(A); if (u > .001) { ctx.globalAlpha = ga * u; dr(B); }
+    const ga0 = ctx.globalAlpha;
+    if (mixB < 1) {
+      ctx.globalAlpha = ga0 * (1 - mixB);
+      if (tf) ctx.drawImage(cv, -RP.HX, -RP.BY);
+      else {   // normal case: both neighbouring frames straight from the sheet (cross-fade)
+        const A = Array.isArray(p) ? p[0] : p | 0, B = Array.isArray(p) ? p[1] : A, u = Array.isArray(p) ? p[2] : 0, ga = ctx.globalAlpha;
+        const dr = i => ctx.drawImage(img, (i % 5) * RP.CW, Math.floor(i / 5) * RP.CH, RP.CW, RP.CH, -RP.HX, -RP.BY, RP.CW, RP.CH);
+        dr(A); if (u > .001) { ctx.globalAlpha = ga * u; dr(B); }
+      }
+      ctx.globalAlpha = ga0;
+    }
+    if (BU) {   // the aura-burst sprite: every frame has the same body size and the hood on the same spot, so he never grows or shrinks
+      ctx.save(); ctx.scale(RPB.K, RPB.K);
+      if (tf) { ctx.globalAlpha = ga0 * mixB; ctx.drawImage(cvB, -RPB.HX, -RPB.BY); }
+      else {
+        const bd = i => ctx.drawImage(BU, (i % RPB.COLS) * RPB.CW, Math.floor(i / RPB.COLS) * RPB.CH, RPB.CW, RPB.CH, -RPB.HX, -RPB.BY, RPB.CW, RPB.CH), u = BR.p[2];
+        ctx.globalAlpha = ga0 * mixB; bd(BR.p[0]); if (u > .001) { ctx.globalAlpha = ga0 * mixB * u; bd(BR.p[1]); }
+      }
+      ctx.restore(); ctx.globalAlpha = ga0;
     }
     ctx.restore();
     if (w.state === 'dead' || w.state === 'drown') return;
@@ -174,7 +208,7 @@ const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s
   function beginRebirth(b) {
     G.rpc = { b, t: 0, x: b.x, y: b.y, f: b.flyOff || 0, max0: b.maxHp };
     b.rpCut = true; G.phase = 'rpcut'; G.activeWorm = b; G.cam.free = false; G.swarm = null; G.queue = (G.queue || []).filter(q => q !== b);
-    G.projs = G.projs.filter(p => p.kind === 'mine');
+    G.projs = G.projs.filter(p => p.kind === 'mine'); G.rpv = []; b.rpBurst = null;
   }
   function cutTick(R) {
     const b = R.b, t = ++R.t; G.phase = 'rpcut'; G.activeWorm = b; b.x = R.x; b.y = R.y; b.flyOff = R.f;
@@ -204,6 +238,7 @@ const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s
 
   // ---------- turn scripts ----------
   const foes = w => BOSS3.foes(w);
+  const groundTop = x => { const T = G.terrain; if (!T || !T.solid) return null; for (let y = 150; y < WORLD_H; y += 4) if (T.solid(x, y)) return y; return null; };   // y of the highest solid ground at x
   const faceTo = (w, x) => { w.face = x >= w.x ? 1 : -1; };
   const RPX = {
     // flight to / from a spot: S.sx,S.sf -> tx,tf over S.dur ticks.  Returns true when he is there.
@@ -246,7 +281,65 @@ const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s
         if (a > 58) { S.ph = 'back'; S.fp = RP.FLY; }
         return false;
       }
-      return this.back(w, S, RP.FLY);
+      return this.roam(w, S, RP.FLY);   // after the hit he floats to a RANDOM spot in the air (he no longer flies back to his old place)
+    },
+    // ---- float to a random spot in the air (after the scythe hit, after the volcano) ----
+    roam(w, S, fromPose) {
+      if (!S.rm) {
+        S.rm = true; S.u = 0; let tx = w.x;
+        for (let i = 0; i < 24; i++) { tx = rnd(520, WORLD_W - 520); if (Math.abs(tx - w.x) > 320) break; }
+        const gt = groundTop(tx), baseT = Math.max(300, (gt == null ? w.y : gt) - rnd(150, 280));   // 150-280 px over the ground at that spot, never higher than the top of the map
+        S.rx = tx; S.rf = clamp(w.y - baseT, 60, 600); S.dur = clamp(Math.abs(w.x - tx) / 15, 26, 60); S.bfrom = fromPose;
+        S.hx = S.rx; S.hf = S.rf;   // this is his new home from now on (the turn ends with him standing here)
+      }
+      const done = this.fly(w, S, S.rx, S.rf, S.bfrom);
+      if (S.u > S.dur - 9) w.actF = blend(flyP(S.fph), idle(w), (S.u - (S.dur - 9)) / 9);
+      if (done) { w.x = S.rx; w.flyOff = S.rf; w.flyGoal = S.rf; w.bobBase = S.rf; const f = nearestFoe(w); if (f) faceTo(w, f.x); return true; }
+      return false;
+    },
+    // ---- every 4th turn: AURA VOLCANO ----
+    s_rp_volcano(w, S) {
+      const t = S.t, INTRO = 48, OUTRO = 56;
+      if (t === 1) {
+        S.from = idle(w); S.ph = 'up'; S.u = 0; const tx = WORLD_W / 2, gt = groundTop(tx);
+        S.tx = tx; S.tf = clamp(w.y - (gt == null ? w.y : gt) + RP_VOL_H, 200, 560); S.dur = clamp(Math.hypot(tx - w.x, S.tf - (w.flyOff || 0)) / 14, 36, 80);
+        showBanner('⚠ ' + w.name + ' rises to the sky - AURA VOLCANO!', '#c58bff'); Snd.play('freeze', .6); G.rpv = G.rpv || [];
+      }
+      if (S.ph === 'up') {
+        if (this.fly(w, S, S.tx, S.tf, S.from)) { S.ph = 'burst'; S.b = 0; S.fp = flyP(S.fph); w.flyGoal = S.tf; w.bobBase = S.tf; w.face = 1; Snd.play('rp_rise', .7); }
+        return false;
+      }
+      if (S.ph === 'burst') {
+        const b = ++S.b, last = INTRO + (RP_VOL_COUNT - 1) * RP_VOL_GAP;
+        w.actF = S.fp; w.flyGoal = S.tf; w.bobBase = S.tf;
+        let p;   // pose = [frameA, frameB, u] on the burst sheet: frames 0-14 the aura gathers, 14-26 it keeps bursting (loops), 26-34 it fades
+        if (b < INTRO) { const q = Math.min(13.999, b / INTRO * 14), i = Math.floor(q); p = [i, i + 1, ease(q - i)]; }
+        else if (S.out == null) p = pp(14, 13, (b - INTRO) * .11);
+        else { const q = Math.min(7.999, S.out / OUTRO * 8), i = Math.floor(q); p = [26 + i, 27 + i, ease(q - i)]; }
+        w.rpBurst = { p, mix: Math.min(1, b / 10) * (S.out != null && S.out > OUTRO - 10 ? Math.max(0, (OUTRO - S.out) / 10) : 1) };
+        if (b > 14 && S.out == null) G.cam.shake = Math.max(G.cam.shake, 2.2);
+        if (b >= INTRO && (b - INTRO) % RP_VOL_GAP === 0 && (b - INTRO) / RP_VOL_GAP < RP_VOL_COUNT) this.spawnOrb(w);
+        if (b > last + 8 && S.out == null && (!G.rpv || !G.rpv.length || b > last + 260)) { S.out = 0; showBanner('The volcano dies down…', '#c58bff'); }
+        if (S.out != null) { S.out++; if (S.out > OUTRO) { w.rpBurst = null; S.ph = 'away'; S.fp = RP.FLY; S.u = 0; } }
+        return false;
+      }
+      return this.roam(w, S, RP.FLY);   // then he floats to a random spot in the air
+    },
+    spawnOrb(w) {   // one aura ball shoots out of his chest like lava from a volcano: up, in a random direction, then it falls
+      const s = px(w), [bx, by] = bodyCenter(w), ang = rnd(-.62, .62) + (Math.random() < .5 ? 0 : rnd(-.25, .25));
+      const sp = rnd(12.5, 19.5);
+      (G.rpv = G.rpv || []).push({ x: bx + rnd(-26, 26) * s, y: by - 40 * s, vx: Math.sin(ang) * sp * 0.62 + rnd(-1.2, 1.2), vy: -Math.cos(ang) * sp, age: 0, ph: rnd(0, 35) | 0, w, tr: [] });
+      Snd.play('boom', .22); addFx('b3_ghost_boom', bx, by - 60 * s, .4);
+    },
+    orbBoom(o) {
+      const w = o.w, x = o.x, y = o.y; o.dead = true;
+      Snd.play('boom', .35); shake(4); addFx('explosion_small', x, y - 6, 1.15); addFx('b3_ghost_boom', x, y - 10, .8); ringFx(x, y, '#b06bff'); if (typeof debris === 'function') debris(x, y, 5, 'dirt');
+      const d0 = BOSS3.dmg(w, SPECIAL_MUL * RP_VOL_MUL);
+      for (const p of foes(w)) {
+        const [qx, qy] = bodyCenter(p), d = Math.hypot(qx - x, qy - y); if (d > RP_VOL_R) continue; const k = d / RP_VOL_R;
+        hurt(p, Math.max(1, Math.round(d0 * (1 - .4 * k)))); if (p.state !== 'dead') knockWorm(p, (qx >= x ? 1 : -1) * (2.2 - k), -3.2);
+        addFx('spark_hit', qx, qy, 1);
+      }
     },
     // ---- every 3rd turn: fly to a random player, SCREAM = round shockwave around him ----
     s_rp_scream(w, S) {
@@ -281,13 +374,13 @@ const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s
       BOSS3.later(24, () => showBanner('SCREAM!  (everyone in the circle is hurt)', '#c58bff'));
     },
   };
-  window.RPX = RPX;
+  window.RPX = RPX; const RPX_foes = w => (w && w.state !== 'dead' ? BOSS3.foes(w) : aliveWorms());
 
   // ---------- hook the boss3 framework ----------
   const _think = BOSS3.think;
   BOSS3.think = function (w, ai) {
     if (!isR(w)) return _think.call(this, w, ai);
-    if (!ai.b3done) { ai.b3done = true; ai.bmoved = true; return this.start(w, ai, ai.bspecial ? 'rp_scream' : 'rp_attack'); }   // every turn: fly -> attack -> back,  every 3rd turn: fly -> scream -> back
+    if (!ai.b3done) { ai.b3done = true; ai.bmoved = true; return this.start(w, ai, (w.bt | 0) % RP_VOL_EVERY === 0 ? 'rp_volcano' : ai.bspecial ? 'rp_scream' : 'rp_attack'); }   // every turn: fly -> attack -> random spot,  every 3rd turn: fly -> scream -> back,  every 4th turn: aura volcano
     return false;
   };
   const _step = BOSS3.step;
@@ -295,7 +388,7 @@ const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s
     const S = w.b3; if (!S || String(S.k).indexOf('rp_') !== 0) return _step.call(this, w, ai);
     S.t++; const fin = RPX['s_' + S.k](w, S); if (!fin) return;
     if (S.hx != null) { w.x = S.hx; w.flyOff = S.hf; w.flyGoal = S.hf; w.bobBase = S.hf; }
-    w.b3 = null; w.actF = null; w.hop = 0; this.endTurn(w, ai);
+    w.b3 = null; w.actF = null; w.hop = 0; w.rpBurst = null; this.endTurn(w, ai);
   };
   const _dmg = BOSS3.dmg; BOSS3.dmg = function (w, mul) { const r = _dmg.call(this, w, mul); return w && w.rpRage ? Math.round(r * w.rpRage) : r; };
 
@@ -303,9 +396,22 @@ const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s
   BOSS3.update = function () {
     _up.call(this);
     if (!G.adv) return;
-    if ((G.frame | 0) < 2) { G.rpc = null; G.rpFlash = 0; cutHide(); }
+    if ((G.frame | 0) < 2) { G.rpc = null; G.rpFlash = 0; G.rpv = []; cutHide(); }
     if (G.rpc) cutTick(G.rpc);
     if (G.rpFlash > 0) G.rpFlash--;
+    if (G.rpv && G.rpv.length) {   // the aura volcano balls: up, then down; they blow up on the ground or when they touch a player
+      for (const o of G.rpv) {
+        if (o.dead) continue;
+        o.age++; o.vy += .36; o.x += o.vx; o.y += o.vy; if (o.age % 2 === 0) { o.tr.push([o.x, o.y]); if (o.tr.length > 5) o.tr.shift(); }
+        if (o.x < -160 || o.x > WORLD_W + 160 || o.y > WORLD_H + 120) { o.dead = true; continue; }
+        if (o.age > 8 && o.vy > 0) {
+          let hit = G.terrain && G.terrain.solid && (G.terrain.solid(o.x, o.y + 16) || G.terrain.solid(o.x, o.y + 4));
+          if (!hit) for (const p of RPX_foes(o.w)) { const [qx, qy] = bodyCenter(p); if (Math.hypot(qx - o.x, qy - o.y) < 44) { hit = true; break; } }
+          if (hit) RPX.orbBoom(o);
+        }
+      }
+      G.rpv = G.rpv.filter(o => !o.dead);
+    }
     for (const w of G.worms) {
       if (!isR(w) || w.state === 'dead') continue;
       if (w.rpPost > 0) { w.rpPost--; if (!w.b3 && !(w.spT > 0)) w.actF = w.rpPost > 0 ? to(RP.RISE + 7, RP.IDLE, 1 - w.rpPost / 18) : null; }
@@ -314,10 +420,21 @@ const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s
   const _dr = BOSS3.draw;
   BOSS3.draw = function (ctx) {
     _dr.call(this, ctx);
+    if (G.rpv && G.rpv.length) {   // aura balls (35-frame loop, the core is in the middle of every frame so they never wobble)
+      const im = getImg(RP_ORB);
+      if (im) for (const o of G.rpv) {
+        const i = (((o.age / 2.2) | 0) + o.ph) % 35, sx = (i % 6) * 256, sy = Math.floor(i / 6) * 256;
+        ctx.save();
+        for (let k = 0; k < o.tr.length - 1; k++) { ctx.globalAlpha = .06 + k * .04; const q = o.tr[k], z = RP_ORB_SZ * (.55 + k * .08); ctx.drawImage(im, sx, sy, 256, 256, q[0] - z / 2, q[1] - z / 2, z, z); }
+        ctx.globalAlpha = 1; ctx.drawImage(im, sx, sy, 256, 256, o.x - RP_ORB_SZ / 2, o.y - RP_ORB_SZ / 2, RP_ORB_SZ, RP_ORB_SZ);
+        ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .3; ctx.drawImage(im, sx, sy, 256, 256, o.x - RP_ORB_SZ / 2, o.y - RP_ORB_SZ / 2, RP_ORB_SZ, RP_ORB_SZ);
+        ctx.restore();
+      }
+    }
     if (G.rpFlash > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = G.rpFlash / 16 * .24; ctx.fillStyle = '#c9a0ff'; ctx.fillRect(VIEW.cx - VIEW.W / VIEW.z, VIEW.cy - VIEW.H / VIEW.z, VIEW.W * 2 / VIEW.z, VIEW.H * 2 / VIEW.z); ctx.restore(); }
   };
   const _as = BOSS3.assets; BOSS3.assets = function (st) {
     if (Assets.fx) Assets.fx.rp_scream_wave = WAVE_FX; const pre = p => loadImage(p).then(im => (im && im.decode ? im.decode().catch(() => { }) : 0)).catch(() => { });   // load AND decode now, so nothing hitches the first time it is drawn
-    return _as.call(this, st).concat([pre(RP_ACT), pre(RP_WAVE), pre(RP_LET), pre(RP_SUB), pre(RP_VIG), pre('fx/b3_ghost_boom.webp'), pre('fx/b3_slash.webp'), pre('fx/spark_hit.webp')]); };
-  console.log('reaper.js loaded - Death Reaper: new sprites, fly + scythe attack, scream shockwave, rises again (TIME TO DIE)');
+    return _as.call(this, st).concat([pre(RP_ACT), pre(RP_BURST), pre(RP_ORB), pre(RP_WAVE), pre(RP_LET), pre(RP_SUB), pre(RP_VIG), pre('fx/b3_ghost_boom.webp'), pre('fx/b3_slash.webp'), pre('fx/spark_hit.webp')]); };
+  console.log('reaper.js loaded - Death Reaper: new sprites, fly + scythe attack (then a random spot in the air), scream shockwave, aura volcano, rises again (TIME TO DIE)');
 })();
