@@ -525,8 +525,7 @@ function startTurn() {
   if (!t.cpu && WEAPONS[t.sel] && t.ammo[WEAPONS[t.sel].id] <= 0) t.sel = Math.max(0, WEAPONS.findIndex(x => t.ammo[x.id] > 0));
   if (G.turnCount > 2 && G.turnCount % 3 === 0 && Math.random() < .85) dropCrate();
   G.phase = 'aim'; G.timer = (G.swarm ? SWARM_TIME : TURN_TIME) * 60; Snd.play('turn');
-  const bn = t.bonus, gear = bn ? [bn.hp ? '+' + bn.hp + ' HP' : '', bn.def ? bn.def + ' DEF' : '', bn.armor ? bn.armor + '% ARMOR' : '', bn.xdmg ? '+' + bn.xdmg + ' DMG' : '', bn.pow ? '+' + bn.pow + '% ATK' : '', bn.crt ? bn.crt + '% CRIT' : ''].filter(Boolean).join(' ') : '';
-  showBanner(G.swarm ? t.name + ' · ' + G.swarm.length + ' melee bots charge together' + (gear ? '  [' + gear + ']' : '') : t.name + ' · ' + w.name + (t.cpu ? ' (CPU)' : '') + (gear ? '  [' + gear + ']' : ''), t.color);
+  showBanner(G.swarm ? t.name + ' · ' + G.swarm.length + ' melee bots charge together' : t.name + ' · ' + w.name + (t.cpu ? ' (CPU)' : ''), t.color);
   if (t.cpu && !G.swarm) AI.begin(w);
 }
 function endTurnNow() { if (G.phase === 'aim' || G.phase === 'retreat') { G.phase = 'settle'; G.settleT = 0; } }

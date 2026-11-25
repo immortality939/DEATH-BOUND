@@ -16,6 +16,7 @@ const POW = (function () {
   // ---------- TUNE HERE ----------
   const PW_FULL = 100;            // meter size
   const PW_PER_TURN = 10;         // % gained every time the player uses a turn (a shot, or a Fly)
+  const PW_PASS = 20;             // % gained when the player clicks PASS (more than a shot, because the turn is spent without attacking)
   const PW_HIT_K = 1.6;           // % gained per 1% of the robot's max health lost (a hit for 10% of max health = +16%)
   const PW_HIT_MIN = 3, PW_HIT_MAX = 30;   // a hit always gives at least 3% and at most 30%
   const PW_MYTH_SHOT = 0.6;       // Mythical weapon + POW: each of the 3 projectiles deals 60% of the normal (no-POW) hit
@@ -106,8 +107,8 @@ const POW = (function () {
   function click(e) {
     if (e) { e.preventDefault(); e.stopPropagation(); } Snd.init();
     if (G.powCine) return;
-    if (G.powArmed) { G.powArmed = false; Snd.stopFile('powering_up', .08); Snd.play('beep'); return; }   // tap again = cancel
-    if (canArm()) { G.powArmed = true; if (!Snd.file('powering_up')) Snd.play('powon'); const w = G.activeWorm; addFx('pow_burst', w.x, w.y - 45 * (w.sc || 1), .55 * (w.sc || 1)); } else Snd.play('dud');
+    if (G.powArmed) { G.powArmed = false; Snd.play('beep'); return; }   // tap again = cancel
+    if (canArm()) { G.powArmed = true; Snd.play('powon'); const w = G.activeWorm; addFx('pow_burst', w.x, w.y - 45 * (w.sc || 1), .55 * (w.sc || 1)); } else Snd.play('dud');
   }
   btn.addEventListener('pointerdown', e => { e.stopPropagation(); });
   btn.addEventListener('click', click);
@@ -146,7 +147,7 @@ const POW = (function () {
   function beginCine(power, t, w) {
     G.powCine = { t: 0, power, w, team: t.idx, mul0: G.cam.mul };
     G.phase = 'powcine'; G.charging = false; G.charge = 0; G.cam.free = false; G.angT = 0;
-    Snd.stopFile('powering_up', .05); if (!Snd.file('powering_up')) Snd.play('powcharge');   // SOUND: powering up while the camera focuses on the robot
+    Snd.play('powcharge');
   }
   function endCine(fired) { G.powCine = null; }
   function release() {
@@ -156,7 +157,7 @@ const POW = (function () {
     if (G.phase === 'aim') { G.powShot = false; G.powTeam = -1; G.cam.mul = C.mul0; return; }   // could not shoot after all: nothing is spent, the player can try again
     t.pow = 0; G.powArmed = false; G.powFlash = 1; G.powZoom = { from: G.cam.mul, to: C.mul0, t: 0 };
     let mx = w.x, my = w.y - 50 * (w.sc || 1); try { [mx, my] = muzzleWorld(w, curWeapon()); } catch (e) { }
-    addFx('pow_burst', mx, my, 1.0 * (w.sc || 1)); Snd.stopFile('powering_up', .12); Snd.play('powgo'); shake(9);
+    addFx('pow_burst', mx, my, 1.0 * (w.sc || 1)); Snd.play('powgo'); shake(9);
     addPop(w.x, w.y - 118 * (w.sc || 1), 'POW SHOT!', '#ff9a2a', 26);
   }
 
@@ -276,5 +277,6 @@ const POW = (function () {
   }
 
   console.log('pow.js loaded - POW meter, Fly ends turn, no countdown after a shot');
-  return { mod, onHit, gain, val, isFull };
+  const pass = t => gain(t, PW_PASS);   // PASS button = a skipped turn: gives PW_PASS (20%) POW
+  return { mod, onHit, gain, val, isFull, pass };
 })();
