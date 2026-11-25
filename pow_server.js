@@ -277,6 +277,9 @@ const POW = (function () {
   }
 
   console.log('pow.js loaded - POW meter, Fly ends turn, no countdown after a shot');
-  const pass = t => gain(t, PW_PASS);   // PASS button = a skipped turn: gives PW_PASS (20%) POW
+  const pass = t => {   // PASS button = a skipped turn: gives PW_PASS (20%) POW, with a yellow +20% POW pop-up over the robot
+    if (!t || t.cpu || !on()) return; const was = val(t); gain(t, PW_PASS); const got = Math.round(val(t) - was), w = G.activeWorm;
+    if (got > 0 && w && w.team === t.idx) addPop(w.x, w.y - 100 * (w.sc || 1), '+' + got + '% POW', '#ffd24a', 20);
+  };
   return { mod, onHit, gain, val, isFull, pass };
 })();
