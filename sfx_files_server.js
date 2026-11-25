@@ -33,6 +33,7 @@
     kslime_land: 'king slime jump land.mp3',   kk_land: 'kingkong jump land.mp3',       mk_land: 'minotaur and skeleton king jump land.mp3',
     bz_hit: 'mythic bazooka hit effect.mp3',   bz_shoot: 'mythic bazooka shoot.mp3',    robo_jump: 'robo jump.mp3',
     bone_throw: 'skeleton king bone throw shoot.mp3', bone_hit: 'skeletone king bone hit impact.mp3',
+    powering_up: 'powering up.mp3',
     ge_shoot: 'axy eye shoot.mp3',   ge_hit: 'axy eye hit.mp3',   dk_shoot: 'dragon king shoot.mp3',   dk_hit: 'dragonking hit.mp3',   axe_throw: 'legendary axe throw.mp3',   mb_hit: 'mythic boomerang hit.mp3',   mb_shoot: 'mythic boomerang shoot.mp3',   mh_hit: 'mythic hammer hit.mp3',   mh_throw: 'mythical hammer throw.mp3',   ms_hit: 'mythic soccer hit.mp3',   ms_throw: 'mythic soccer throw.mp3',   msp_hit: 'mythic spear hit.mp3',   msp_throw: 'mythic spear throw.mp3',   sun_hit: 'solar sunbreaker hit.mp3',   sun_shoot: 'solar sunbreaker shoot.mp3',   vd_hit: 'void devourer hit.mp3',   vd_shoot: 'void devourer shoot.mp3',
     btn_all: 'all button.mp3',   btn_back: 'cancel or back button.mp3',   common_hit: 'common weapon hit.mp3',   common_shoot: 'common weapon shoot.mp3',   rare_hit: 'rare weapon hit.mp3',   rare_shoot: 'rare weapon shoot.mp3',   epic_hit: 'epic weapon hit.mp3',   epic_shoot: 'epic weapon shoot.mp3',   divine_hit: 'all divine heal hit.mp3',   divine_shoot: 'all divine heal shoot.mp3',   heal_self: 'fifty percent heal.mp3',   heal_team: 'team heal.mp3',   fly_launch: 'robo fly launch.mp3',   rpa_shoot: 'death reaper aura shoot.mp3',   rpa_hit: 'death reaper aura hit.mp3'
   };
@@ -52,7 +53,7 @@
     shuriken_shoot: ['plasma'], shuriken_hit: [], tempest_shoot: ['plasma'], tempest_hit: [], titan_fire: ['shotgun'], titan_hit: [],
     cen_run: [], doom_hit: [], forge_fail: ['dud'], forge_win: ['win'], gm_rock_hit: [['boom', 1.2]], gm_rock_throw: [['boom', .7], ['slash', .8]],
     kslime_land: ['boom'], kk_land: ['boom'], mk_land: ['boom'], bz_hit: [], bz_shoot: ['rocket'], robo_jump: ['jump'],
-    bone_throw: [['slash', .7]], bone_hit: [],
+    bone_throw: [['slash', .7]], bone_hit: [], powering_up: [],
     ge_shoot: ['plasma'], ge_hit: [], dk_shoot: ['rocket'], dk_hit: [], axe_throw: ['axe'], mb_hit: [], mb_shoot: ['axe'], mh_hit: [], mh_throw: ['axe'], ms_hit: [], ms_throw: ['shotgun'], msp_hit: [], msp_throw: ['axe'], sun_hit: [], sun_shoot: ['rocket'], vd_hit: [], vd_shoot: ['plasma'],
     btn_all: [], btn_back: [], common_hit: [], common_shoot: ['rocket'], rare_hit: [], rare_shoot: ['plasma'], epic_hit: [], epic_shoot: ['rocket'], divine_hit: ['divine'], divine_shoot: ['wing'], heal_self: ['heal'], heal_team: ['heal'], fly_launch: ['fly'], rpa_shoot: [['boom', .22]], rpa_hit: [['boom', .35]]
   };
@@ -91,13 +92,18 @@
   const _init = Snd.init;
   Snd.init = function () { _init.apply(this, arguments); if (!loaded && this.ctx) { loaded = true; Object.keys(FILES).forEach(load); } };
 
+  // Snd.stopFile('<key>', fadeSeconds): stops a long file that is still playing (a short fade so it does not click). Used for the Divine Heal shoot sound when the heal lands, and the POW charge sound
+  Snd.stopFile = function (key, fade) {
+    const L = this._live && this._live[key]; if (!L || !this.ctx) return; delete this._live[key]; fade = fade == null ? .1 : fade;
+    try { const t = this.ctx.currentTime; L.g.gain.cancelScheduledValues(t); L.g.gain.setValueAtTime(L.g.gain.value, t); L.g.gain.linearRampToValueAtTime(0, t + fade); L.s.stop(t + fade + .02); } catch (e) { }
+  };
   Snd.has = function (key) { const st = ST[key]; return !!(st && st.ready); };
   Snd.file = function (key, vol) {
     const st = ST[key]; if (!st || !st.ready) return false;
     if (this.muted) return true;   // muted: nothing should play, and the old sound must not play either
     try {
       if (st.buf && this.ctx) { const s = this.ctx.createBufferSource(), g = this.ctx.createGain(); s.buffer = st.buf; let gn = GAIN[key] || DEF_GAIN; if (st.peak && st.peak * gn * .5 > .95) gn = .95 / (st.peak * .5);   // keep loud files under full scale
-      g.gain.value = gn * (vol == null ? 1 : vol); s.connect(g); g.connect(this.master); s.start(); }
+      g.gain.value = gn * (vol == null ? 1 : vol); s.connect(g); g.connect(this.master); s.start(); const lv = (this._live = this._live || {}); lv[key] = { s, g }; s.onended = () => { if (lv[key] && lv[key].s === s) delete lv[key]; }; }
       else if (st.el) { const c = st.el.cloneNode(); c.volume = Math.min(1, .8 * (vol == null ? 1 : vol)); const p = c.play(); if (p && p.catch) p.catch(() => { }); }
       else return false;
     } catch (e) { return false; }

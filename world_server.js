@@ -242,7 +242,7 @@ function divineTrail(p) {
 function divineBurst(p) {   // everyone inside the blast (the thrower too) shares the heal: total / number of robots, capped at each robot's max health
   const pr = p.p, own = p.owner, R = pr.healR || DIVINE_RADIUS, tb = own ? teamBonus(own.team) : null, total = tb && tb.heal ? tb.heal : pr.heal;
   const az = isAzureHeal(p), my = isMythHeal(p), pc = my ? '#d8ffd0' : az ? '#cdeeff' : '#ffd0f5', hc = my ? '#6dff7a' : az ? '#9fdcff' : '#8dff9e';   // pop colours (Azure = light blue)
-  addFx(divFx('divine_burst', p), p.x, p.y, R / 112); shake(2); Snd.mp3('divine_hit');
+  addFx(divFx('divine_burst', p), p.x, p.y, R / 112); shake(2); Snd.stopFile('divine_shoot', .12); Snd.mp3('divine_hit');
   const hit = aliveWorms().filter(w => { const [cx, cy] = bodyCenter(w); return dist(p.x, p.y, cx, cy) - 22 * (w.sc || 1) < R && (DIVINE_HEALS_ENEMIES || !own || allies(w, own)); });
   if (!hit.length) { addPop(p.x, p.y - 30, 'No one in range', pc, 16); return; }
   const share = total / hit.length;
