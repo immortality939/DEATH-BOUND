@@ -1104,7 +1104,7 @@ const OnlineUI = (() => {
   const payBody = b => Object.assign({ server: session.player.server || curServer }, myInfo(), b);
   window.OnlinePay = {
     ready: () => !!(ns && session),
-    create: item => { if (!session) throw new Error('Log in online first.'); return api('/api/pay/create', payBody({ item }), session.token); },
+    create: (item, provider) => { if (!session) throw new Error('Log in online first.'); return api('/api/pay/create', payBody({ item, provider: provider || 'paymongo' }), session.token); },
     check: order => { if (!session) throw new Error('Log in online first.'); return api('/api/pay/check', payBody({ order }), session.token); },
     nudge: () => { try { Live.nudge(); } catch (e) { } }
   };
