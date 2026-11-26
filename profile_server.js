@@ -775,6 +775,40 @@ const mythUsd = it => MYTH_USD_FLAT[it && it.type] || (pesoPrice(it) ? pesoPrice
 const usdTag = d => d ? `<u class="cs-free" style="color:#ffd24a">$${d.toFixed(2)}</u>` : '<u class="cs-free">FREE</u>';
 const pesoTag = p => p ? `<u class="cs-free" style="color:#ffd24a">${usdOf(p)}</u>` : '<u class="cs-free">FREE</u>';
 const priceTag = n => n ? `<u class="cs-free" style="color:#ffd24a">${n.toLocaleString()} coins</u>` : '<u class="cs-free">FREE</u>';
+
+// ===== REAL-MONEY PAYMENTS (PayMongo, online game only). The phone never decides the price or hands out the goods: the SERVER makes the payment page, checks it with PayMongo, then sends the goods to your Envelope (mail). =====
+const Pay = {
+  ON: true,   // set to false to hide the Pay buttons (for example in a Google Play build)
+  api() { return this.ON && typeof window !== 'undefined' && window.OnlinePay && window.OnlinePay.ready() ? window.OnlinePay : null; },
+  pend() { return store.get('dbpay', null); },
+  busy: false,
+  row(id, msg) {
+    if (!this.api()) return `<p class="dim">Payments work in the ONLINE game (log in online, then open the Coin Shop).</p>${msg ? `<p class="shopmsg">${msg}</p>` : ''}`;
+    const p = this.pend();
+    return `<div class="row"><button class="btn sm" data-pay="${id}">Pay with GCash / Maya / card</button>${p ? '<button class="btn alt sm" data-paycheck="1">I paid - check</button>' : ''}</div>${msg ? `<p class="shopmsg">${msg}</p>` : ''}`;
+  },
+  async start(id, say) {
+    const A = this.api(); if (!A || this.busy) return; this.busy = true;
+    try {
+      say('Opening the payment page...');
+      const r = await A.create(id);
+      store.set('dbpay', { order: r.order, item: id, at: Date.now() });
+      say('Pay on the page that opened. When you are done come back here and press "I paid - check".');
+      let w = null; try { w = window.open(r.url, '_blank'); } catch (e) { }
+      if (!w) location.href = r.url;
+    } catch (e) { say((e && e.message) || 'Could not open the payment page.'); }
+    this.busy = false;
+  },
+  async check(say, quiet) {
+    const A = this.api(), p = this.pend(); if (!A || !p || this.busy) return; this.busy = true;
+    try {
+      const r = await A.check(p.order);
+      if (r.status === 'delivered') { store.set('dbpay', null); try { Snd.play('win'); } catch (e) { } say('Paid! Your purchase is in your ENVELOPE (mail icon in the town). Open it and take it.'); try { A.nudge(); } catch (e) { } }
+      else if (!quiet) say('Not paid yet. If you already paid, wait a few seconds and press "I paid - check" again.');
+    } catch (e) { if (e && e.status === 404) store.set('dbpay', null); if (!quiet) say((e && e.message) || 'Could not check right now.'); }
+    this.busy = false;
+  }
+};
 const Shop = {
   type: 'all', rar: 'all', sel: null, msg: '', view: 'items',   // view: 'items' = the chip shop, 'coin' = the Coin Shop (nothing for sale yet)
   open() { Profile.data || Profile.load(); this.msg = ''; this.view = 'items'; this.render(); UI.show('shop'); },
@@ -796,17 +830,20 @@ const Shop = {
       <h4 class="cs-h">Best deals</h4><div class="cs-row"><div class="cs-card deal${sel === 'deal_myth' ? ' sel' : ''}" data-cs="deal_myth"><img src="assets/ui/best_deal_mythical_bundle.png" alt="Mythical Equipment Bundle" draggable="false">${pesoTag(MYTH_PESO_BUNDLE)}</div></div>
       <h4 class="cs-h">Mythical items</h4><div class="cs-row">${MYTH_ITEMS.map(mythTile).join('')}</div>
       ${legendRows}<h4 class="cs-h">Stones &amp; Scrolls</h4><div class="cs-row">${MAT_ITEMS.map(matTile).join('')}</div>`;
-    let det = '<div class="pf-det"><p class="dim">Swipe each row left or right. Tap an item to see its stats. Tap an item to see its price and stats. Stones, Scrolls and Legendary gear are paid with coins. Coin packs show a dollar price (1 coin = 1 peso). Mythical items and the Best deal show a dollar price (pesos converted); payment is not connected yet, so they are free for now (test).</p></div>';
+    let det = '<div class="pf-det"><p class="dim">Swipe each row left or right. Tap an item to see its stats. Tap an item to see its price and stats. Stones, Scrolls and Legendary gear are paid with coins. Coin packs show a dollar price (1 coin = 1 peso). Mythical items and the Best deal show a dollar price (pesos converted); pay with GCash, Maya or card (online game). The goods arrive in your Envelope (mail).</p></div>';
     const take = (ids, label) => `<div class="row"><button class="btn sm" data-take="${ids.join(',')}">${label}</button></div>${this.csMsg ? `<p class="shopmsg">${this.csMsg}</p>` : ''}`;
-    if (sel && sel.startsWith('pack')) { const n = +sel.slice(4), b = coinBonus(n); det = `<div class="pf-det" style="--rc:#ffc93a"><img class="big" src="assets/ui/coins_${n}.png" alt="" draggable="false"><h3>${n.toLocaleString()} Coins <i>+${b.toLocaleString()} bonus</i></h3><div class="st"><span class="pos">You get ${(n + b).toLocaleString()} coins</span></div><p class="dim">Price: <b>${usdOf(n)}</b> (₱${n.toLocaleString()}). Every 500 coins bought adds 50 bonus coins. Payment is not connected yet, so the pack is free for now (test): press Take.</p><div class="row"><button class="btn sm" data-takecoin="${n}">Take ${(n + b).toLocaleString()} coins (free)</button></div>${this.csMsg ? `<p class="shopmsg">${this.csMsg}</p>` : ''}</div>`; }
-    else if (sel === 'deal_myth') det = `<div class="pf-det" style="--rc:${RARITY.mythical.color}"><h3>Mythical Equipment Bundle <i>Best deal</i></h3><p class="dim">Helmet, Armor, Gloves, Shoes, Ring and Necklace of the Inferno set.</p><p class="dim">Price: <b>${usdOf(MYTH_PESO_BUNDLE)}</b> (₱${MYTH_PESO_BUNDLE.toLocaleString()}). Payment is not connected yet, so it is free for now (test).</p><div class="st">${MYTH_BUNDLE.map(id => { const m = itemById(id); return `<span class="pos">${m.name}</span>`; }).join('')}</div>${take(MYTH_BUNDLE, 'Take the whole bundle (free test)')}</div>`;
+    if (sel && sel.startsWith('pack')) { const n = +sel.slice(4), b = coinBonus(n); det = `<div class="pf-det" style="--rc:#ffc93a"><img class="big" src="assets/ui/coins_${n}.png" alt="" draggable="false"><h3>${n.toLocaleString()} Coins <i>+${b.toLocaleString()} bonus</i></h3><div class="st"><span class="pos">You get ${(n + b).toLocaleString()} coins</span></div><p class="dim">Price: <b>${usdOf(n)}</b> (₱${n.toLocaleString()}). Every 500 coins bought adds 50 bonus coins. Paid with GCash, Maya or card. The coins arrive in your Envelope (mail).</p>${Pay.row('pack' + n, this.csMsg)}</div>`; }
+    else if (sel === 'deal_myth') det = `<div class="pf-det" style="--rc:${RARITY.mythical.color}"><h3>Mythical Equipment Bundle <i>Best deal</i></h3><p class="dim">Helmet, Armor, Gloves, Shoes, Ring and Necklace of the Inferno set.</p><p class="dim">Price: <b>${usdOf(MYTH_PESO_BUNDLE)}</b> (₱${MYTH_PESO_BUNDLE.toLocaleString()}). Paid with GCash, Maya or card. It arrives in your Envelope (mail).</p><div class="st">${MYTH_BUNDLE.map(id => { const m = itemById(id); return `<span class="pos">${m.name}</span>`; }).join('')}</div>${Pay.row('deal_myth', this.csMsg)}</div>`;
     else if (sel && itemById(sel) && itemById(sel).type === 'mat') { const it = itemById(sel); det = `<div class="pf-det" style="--rc:${it.col}"><img class="big" src="${it.img}" alt="" draggable="false"><h3>${it.name} <i>${it.tag}</i></h3><div class="st"><span class="pos">${it.line}</span></div><p class="dim">${it.desc}</p><p class="dim">You have <b>${Mats.get(it).toLocaleString()}</b>. Use it in the Forge (Forge anvil in Profile). Price: <b>${coinPrice(it).toLocaleString()} coins</b> each. You have <b>${Coins.get().toLocaleString()}</b> coins.</p><div class="row">${[1, 10, 100].map(n => `<button class="btn sm" data-takemat="${n}">Buy ×${n} (${(coinPrice(it) * n).toLocaleString()} coins)</button>`).join('')}</div>${this.csMsg ? `<p class="shopmsg">${this.csMsg}</p>` : ''}</div>`; }
     else if (sel && itemById(sel) && itemById(sel).rar === 'legendary') { const it = itemById(sel); det = `<div class="pf-det" style="--rc:${RARITY.legendary.color}"><img class="big" src="${it.img}" alt="" draggable="false"><h3>${it.name} <i>Legendary ${it.type}</i></h3><div class="st">${Profile.statText(it.stats)}</div><p class="dim">${it.desc}</p><p class="dim">You own <b>${Profile.copies(it.id)}</b>. Equip it in Profile. Price: <b>${coinPrice(it).toLocaleString()} coins</b>. You have <b>${Coins.get().toLocaleString()}</b> coins.</p>${take([it.id], 'Buy for ' + coinPrice(it).toLocaleString() + ' coins')}</div>`; }
-    else if (sel && itemById(sel)) { const it = itemById(sel); det = `<div class="pf-det" style="--rc:${RARITY.mythical.color}"><img class="cs-cardimg big" src="assets/cards/${it.id}${it.type === 'weapon' && this.csTier ? '_t' + this.csTier : ''}.png" alt="" draggable="false">${it.type === 'weapon' ? `<div class="cs-tiers">${[0, 1, 2, 3].map(t => `<img class="cs-cardimg${(this.csTier | 0) === t ? ' on' : ''}" data-tier="${t}" src="assets/cards/${it.id}${t ? '_t' + t : ''}.png" alt="" draggable="false">`).join('')}</div><p class="dim cs-tl">Looks: base, +10, +11, +12</p>` : ''}<h3>${it.name} <i>${RARITY[it.rar].name} ${it.type}</i></h3><div class="st">${Profile.statText(it.stats)}</div><p class="dim">${it.desc}</p><p class="dim">You own <b>${Profile.copies(it.id)}</b>. Equip it in Profile.</p>${mythUsd(it) ? `<p class="dim">Price: <b>$${mythUsd(it).toFixed(2)}</b>${pesoPrice(it) ? ' (₱' + pesoPrice(it).toLocaleString() + ')' : ''}. Payment is not connected yet, so it is free for now (test).</p>` : ''}${take([it.id], mythUsd(it) ? 'Take it (free test)' : 'Take it (free)')}</div>`; }
+    else if (sel && itemById(sel)) { const it = itemById(sel); det = `<div class="pf-det" style="--rc:${RARITY.mythical.color}"><img class="cs-cardimg big" src="assets/cards/${it.id}${it.type === 'weapon' && this.csTier ? '_t' + this.csTier : ''}.png" alt="" draggable="false">${it.type === 'weapon' ? `<div class="cs-tiers">${[0, 1, 2, 3].map(t => `<img class="cs-cardimg${(this.csTier | 0) === t ? ' on' : ''}" data-tier="${t}" src="assets/cards/${it.id}${t ? '_t' + t : ''}.png" alt="" draggable="false">`).join('')}</div><p class="dim cs-tl">Looks: base, +10, +11, +12</p>` : ''}<h3>${it.name} <i>${RARITY[it.rar].name} ${it.type}</i></h3><div class="st">${Profile.statText(it.stats)}</div><p class="dim">${it.desc}</p><p class="dim">You own <b>${Profile.copies(it.id)}</b>. Equip it in Profile.</p>${mythUsd(it) ? `<p class="dim">Price: <b>$${mythUsd(it).toFixed(2)}</b>${pesoPrice(it) ? ' (₱' + pesoPrice(it).toLocaleString() + ')' : ''}. Paid with GCash, Maya or card. It arrives in your Envelope (mail).</p>` : ''}${Pay.row(it.id, this.csMsg)}</div>`; }
     root.innerHTML = `<div class="panel pf shop"><div class="pf-top shop-top">${Coins.badge()}${this.titleImg(false)}<button class="btn alt sm" id="bShopBack">Back</button></div>
       <div class="shop-body"><div class="cs-main">${rows}</div><div class="shop-det">${det}</div></div></div>`;
     $('bShopBack').onclick = () => { Snd.play('beep'); this.view = 'items'; this.render(); };
     root.querySelectorAll('[data-cs]').forEach(e => e.onclick = () => { if (e.parentNode._drag) return; this.csSel = e.dataset.cs; this.csMsg = ''; this.csTier = 0; Snd.play('pick'); this.renderCoin(); });
+    const say = m => { this.csMsg = m; if (this.view === 'coin') this.renderCoin(); };
+    root.querySelectorAll('[data-pay]').forEach(b => b.onclick = () => { Snd.play('pick'); Pay.start(b.dataset.pay, say); });
+    root.querySelectorAll('[data-paycheck]').forEach(b => b.onclick = () => { Snd.play('pick'); Pay.check(say, false); });
     root.querySelectorAll('[data-takecoin]').forEach(b => b.onclick = () => { const n = +b.dataset.takecoin || 0, bo = coinBonus(n); if (!n) return; Coins.add(n + bo); Snd.play('win'); this.csMsg = `You got ${n.toLocaleString()} + ${bo.toLocaleString()} bonus = ${(n + bo).toLocaleString()} coins!`; this.renderCoin(); });
     root.querySelectorAll('[data-takemat]').forEach(b => b.onclick = () => { const it = itemById(this.csSel), n = +b.dataset.takemat || 1; if (!it) return; const cost = coinPrice(it) * n; if (cost && !Coins.spend(cost)) { Snd.play('dud'); this.csMsg = `You need ${cost.toLocaleString()} coins (you have ${Coins.get().toLocaleString()}).`; this.renderCoin(); return; } Mats.add(it, n); Snd.play('win'); this.csMsg = `You took ${n} ${it.name}${n > 1 ? 's' : ''}! You have ${Mats.get(it).toLocaleString()}.`; this.renderCoin(); });
     root.querySelectorAll('[data-tier]').forEach(e => e.onclick = () => { this.csTier = +e.dataset.tier; Snd.play('pick'); this.renderCoin(); });

@@ -1087,6 +1087,20 @@ const OnlineUI = (() => {
   }
   const questEv = (n, d) => { try { Quests.event(n, d); } catch (e) { } };
   function openQuests() { try { Quests.open(); } catch (e) { toastMsg('Could not open the Quests.'); } }
+  // Real-money payments (PayMongo): the Coin Shop's Pay buttons use this. The server sets the price and delivers to the envelope.
+  const payBody = b => Object.assign({ server: session.player.server || curServer }, myInfo(), b);
+  window.OnlinePay = {
+    ready: () => !!(ns && session),
+    create: item => { if (!session) throw new Error('Log in online first.'); return api('/api/pay/create', payBody({ item }), session.token); },
+    check: order => { if (!session) throw new Error('Log in online first.'); return api('/api/pay/check', payBody({ order }), session.token); },
+    nudge: () => { try { Live.nudge(); } catch (e) { } }
+  };
+  document.addEventListener('visibilitychange', () => {   // coming back from the payment page: check the payment by itself
+    try {
+      if (document.visibilityState !== 'visible' || !window.OnlinePay.ready() || typeof Pay === 'undefined' || !Pay.pend()) return;
+      Pay.check(m => { try { toastMsg(m); } catch (e) { } if (typeof Shop !== 'undefined') { Shop.csMsg = m; if (Shop.view === 'coin') Shop.renderCoin(); } }, true);
+    } catch (e) { }
+  });
   function auctionCtx() {
     return { h, beep, toast: toastMsg, expired, parent: () => root.firstChild, player: () => session.player,
       badge: n => { mailN = n | 0; paintMailBadge(); }, quest: questEv,
