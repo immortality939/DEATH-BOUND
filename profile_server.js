@@ -785,7 +785,7 @@ const Pay = {
   row(id, msg) {
     if (!this.api()) return `<p class="dim">Payments work in the ONLINE game (log in online, then open the Coin Shop).</p>${msg ? `<p class="shopmsg">${msg}</p>` : ''}`;
     const p = this.pend();
-    return `<div class="row"><button class="btn sm" data-pay="${id}">Pay with GCash / Maya / card</button>${p && p.url ? '<button class="btn sm" data-payopen="1">Open payment page</button><button class="btn alt sm" data-paycopy="1">Copy link</button>' : ''}${p ? '<button class="btn alt sm" data-paycheck="1">I paid - check</button>' : ''}</div>${msg ? `<p class="shopmsg">${msg}</p>` : ''}`;
+    return `<p class="dim">You are charged in Philippine pesos (₱). Foreign cards: your bank converts it, so the final amount may differ a little from the dollar price.</p><div class="row"><button class="btn sm" data-pay="${id}">Pay with GCash / Maya / card</button>${p && p.url ? '<button class="btn sm" data-payopen="1">Open payment page</button><button class="btn alt sm" data-paycopy="1">Copy link</button>' : ''}${p ? '<button class="btn alt sm" data-paycheck="1">I paid - check</button>' : ''}</div>${msg ? `<p class="shopmsg">${msg}</p>` : ''}`;
   },
   async start(id, say) {
     const A = this.api(); if (!A || this.busy) return; this.busy = true;
