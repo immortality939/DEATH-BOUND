@@ -785,19 +785,24 @@ const Pay = {
   row(id, msg) {
     if (!this.api()) return `<p class="dim">Payments work in the ONLINE game (log in online, then open the Coin Shop).</p>${msg ? `<p class="shopmsg">${msg}</p>` : ''}`;
     const p = this.pend();
-    return `<div class="row"><button class="btn sm" data-pay="${id}">Pay with GCash / Maya / card</button>${p ? '<button class="btn alt sm" data-paycheck="1">I paid - check</button>' : ''}</div>${msg ? `<p class="shopmsg">${msg}</p>` : ''}`;
+    return `<div class="row"><button class="btn sm" data-pay="${id}">Pay with GCash / Maya / card</button>${p && p.url ? '<button class="btn sm" data-payopen="1">Open payment page</button><button class="btn alt sm" data-paycopy="1">Copy link</button>' : ''}${p ? '<button class="btn alt sm" data-paycheck="1">I paid - check</button>' : ''}</div>${msg ? `<p class="shopmsg">${msg}</p>` : ''}`;
   },
   async start(id, say) {
     const A = this.api(); if (!A || this.busy) return; this.busy = true;
     try {
       say('Opening the payment page...');
       const r = await A.create(id);
-      store.set('dbpay', { order: r.order, item: id, at: Date.now() });
-      say('Pay on the page that opened. When you are done come back here and press "I paid - check".');
-      let w = null; try { w = window.open(r.url, '_blank'); } catch (e) { }
-      if (!w) location.href = r.url;
+      store.set('dbpay', { order: r.order, item: id, at: Date.now(), url: r.url });
+      say('Payment page is ready. Press "Open payment page". If nothing opens, press "Copy link" and paste it in Chrome. When you are done come back here and press "I paid - check".');
+      this.open();
     } catch (e) { say((e && e.message) || 'Could not open the payment page.'); }
     this.busy = false;
+  },
+  open() { const p = this.pend(); if (!p || !p.url) return false; let w = null; try { w = window.open(p.url, '_blank'); } catch (e) { } return !!w; },
+  copy(say) {
+    const p = this.pend(); if (!p || !p.url) return;
+    const fb = () => { try { const t = document.createElement('textarea'); t.value = p.url; document.body.appendChild(t); t.select(); const ok = document.execCommand('copy'); t.remove(); say(ok ? 'Link copied. Open Chrome, paste it in the address bar and pay. Then come back and press "I paid - check".' : 'Could not copy. Link: ' + p.url); } catch (e) { say('Could not copy. Link: ' + p.url); } };
+    try { navigator.clipboard.writeText(p.url).then(() => say('Link copied. Open Chrome, paste it in the address bar and pay. Then come back and press "I paid - check".'), fb); } catch (e) { fb(); }
   },
   async check(say, quiet) {
     const A = this.api(), p = this.pend(); if (!A || !p || this.busy) return; this.busy = true;
@@ -843,6 +848,8 @@ const Shop = {
     root.querySelectorAll('[data-cs]').forEach(e => e.onclick = () => { if (e.parentNode._drag) return; this.csSel = e.dataset.cs; this.csMsg = ''; this.csTier = 0; Snd.play('pick'); this.renderCoin(); });
     const say = m => { this.csMsg = m; if (this.view === 'coin') this.renderCoin(); };
     root.querySelectorAll('[data-pay]').forEach(b => b.onclick = () => { Snd.play('pick'); Pay.start(b.dataset.pay, say); });
+    root.querySelectorAll('[data-payopen]').forEach(b => b.onclick = () => { Snd.play('pick'); if (!Pay.open()) say('Your app did not open it. Press "Copy link" and paste it in Chrome.'); });
+    root.querySelectorAll('[data-paycopy]').forEach(b => b.onclick = () => { Snd.play('pick'); Pay.copy(say); });
     root.querySelectorAll('[data-paycheck]').forEach(b => b.onclick = () => { Snd.play('pick'); Pay.check(say, false); });
     root.querySelectorAll('[data-takecoin]').forEach(b => b.onclick = () => { const n = +b.dataset.takecoin || 0, bo = coinBonus(n); if (!n) return; Coins.add(n + bo); Snd.play('win'); this.csMsg = `You got ${n.toLocaleString()} + ${bo.toLocaleString()} bonus = ${(n + bo).toLocaleString()} coins!`; this.renderCoin(); });
     root.querySelectorAll('[data-takemat]').forEach(b => b.onclick = () => { const it = itemById(this.csSel), n = +b.dataset.takemat || 1; if (!it) return; const cost = coinPrice(it) * n; if (cost && !Coins.spend(cost)) { Snd.play('dud'); this.csMsg = `You need ${cost.toLocaleString()} coins (you have ${Coins.get().toLocaleString()}).`; this.renderCoin(); return; } Mats.add(it, n); Snd.play('win'); this.csMsg = `You took ${n} ${it.name}${n > 1 ? 's' : ''}! You have ${Mats.get(it).toLocaleString()}.`; this.renderCoin(); });
