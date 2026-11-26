@@ -793,12 +793,12 @@ const Pay = {
       say('Opening the payment page...');
       const r = await A.create(id);
       store.set('dbpay', { order: r.order, item: id, at: Date.now(), url: r.url });
-      say('Payment page is ready. Press "Open payment page". If nothing opens, press "Copy link" and paste it in Chrome. When you are done come back here and press "I paid - check".');
+      say('Opening the payment page... After you pay, press the phone BACK button to return to the game, then press "I paid - check".');
       this.open();
     } catch (e) { say((e && e.message) || 'Could not open the payment page.'); }
     this.busy = false;
   },
-  open() { const p = this.pend(); if (!p || !p.url) return false; let w = null; try { w = window.open(p.url, '_blank'); } catch (e) { } return !!w; },
+  open() { const p = this.pend(); if (!p || !p.url) return false; let w = null; try { w = window.open(p.url, '_blank'); } catch (e) { } if (!w) { try { location.href = p.url; } catch (e) { return false; } } return true; },
   copy(say) {
     const p = this.pend(); if (!p || !p.url) return;
     const fb = () => { try { const t = document.createElement('textarea'); t.value = p.url; document.body.appendChild(t); t.select(); const ok = document.execCommand('copy'); t.remove(); say(ok ? 'Link copied. Open Chrome, paste it in the address bar and pay. Then come back and press "I paid - check".' : 'Could not copy. Link: ' + p.url); } catch (e) { say('Could not copy. Link: ' + p.url); } };
