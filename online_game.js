@@ -243,12 +243,12 @@ const OnlineUI = (() => {
   const robotImg = (r, cls) => h('img', { src: 'assets/robots/front/' + r.id + '.webp', alt: '', class: cls || null });
 
   // ---------- separate ONLINE save (keys are prefixed while you are online) ----------
-  const GAME_KEYS = ['profile', 'chips', 'stones', 'amu', 'adv', 'wins', 'sup1', 'setup', 'quests', 'daily'];
-  let ns = null, setupBackup = null, storePatched = false;
+  const GAME_KEYS = ['profile', 'chips', 'coins', 'stones', 'amu', 'adv', 'wins', 'sup1', 'setup', 'quests', 'daily'];
+  let ns = null, setupBackup = null, storePatched = false, legacyGet = () => null;   // legacyGet: reads the OLD shared 'coins' value (before coins had their own per-character key)
 
   // ---------- CLOUD SAVE: a copy of this character's progress lives on the server, tied to your code ----------
   // Items, chips, stones, level / XP and Adventure progress are uploaded while you play and loaded again when you log in on a new phone / after a re-install.
-  const CLOUD_KEYS = ['profile', 'chips', 'stones', 'sup1', 'adv', 'wins', 'stones2', 'stones3', 'stones4', 'stones5', 'amu1', 'amu2', 'amu3', 'quests', 'daily'];
+  const CLOUD_KEYS = ['profile', 'chips', 'coins', 'stones', 'sup1', 'adv', 'wins', 'stones2', 'stones3', 'stones4', 'stones5', 'amu1', 'amu2', 'amu3', 'quests', 'daily'];
   const Cloud = (() => {
     let ready = false, dirty = false, timer = 0, gen = 0, retry = 0, waiting = null;
     const tKey = () => 'rwo_cloudt_' + ns;
@@ -261,6 +261,7 @@ const OnlineUI = (() => {
       Profile.data = null; Profile.load();
       try { const idx = Math.max(0, Math.min(session.player.robot | 0, robots().length - 1)); if (Profile.data.char !== idx) { Profile.data.char = idx; Profile.ensureWeapon(); Profile.save(); } } catch (e) { }
       try { Wallet.refresh(); Stones.refresh(); } catch (e) { }
+      try { Coins.refresh(); } catch (e) { }
       setT(tKey(), t);
     }
     async function sync(had, g) {   // returns true when the cloud copy was checked
@@ -273,12 +274,24 @@ const OnlineUI = (() => {
         take = !had || lt > 0;   // fresh install, or the server copy is newer than what this phone last synced
         if (had && lt === 0) { try { const o = JSON.parse(r.save), sl = (o.profile && o.profile.lvl) | 0; take = sl > Profile.level(); } catch (e) { take = false; } }   // two phones that never synced: keep the stronger character
       }
-      if (take) { try { restore(JSON.parse(r.save), r.t); toast0('Your saved progress is back!'); } catch (e) { } ready = true; dirty = false; return true; }
+      if (take) { try { restore(JSON.parse(r.save), r.t); toast0('Your saved progress is back!'); } catch (e) { } ready = true; dirty = false; settleOldCoins(); if (dirty) flush(false); return true; }
       ready = true;
-      if (had && (!r.save || lt > r.t || r.t === 0)) { dirty = true; flush(false); }   // the server has nothing (or an older copy): back up this phone's progress now
+      if (had && (!r.save || lt > r.t || r.t === 0)) { dirty = true; }   // the server has nothing (or an older copy): back up this phone's progress now
+      settleOldCoins();
+      if (dirty) flush(false);
       return true;
     }
     const toast0 = m => { try { toastMsg(m); } catch (e) { } };
+    // Coins used to live in one shared key that was never uploaded, so a re-install / new phone started at 0.
+    // The first time this phone logs in after the fix, the coins from that old key are ADDED to this character's coins (once only).
+    function settleOldCoins() {
+      try {
+        const fk = 'rwo_coins_moved'; if (localStorage.getItem(fk)) return;
+        const x = legacyGet('coins') | 0;
+        if (x > 0) { store.set('coins', Math.max(0, (store.get('coins', 0) | 0) + x)); try { Coins.refresh(); } catch (e) { } toast0('Your old coins were added: +' + x.toLocaleString()); }
+        localStorage.setItem(fk, '1'); dirty = true;
+      } catch (e) { }
+    }
     async function flush(unload) {
       if (!ready || !dirty || !ns || !session) return; clearTimeout(timer);
       const snap = JSON.stringify(collect()), t = Date.now(), key = tKey(), sess = session, sv = svOf(); dirty = false;
@@ -302,7 +315,7 @@ const OnlineUI = (() => {
   window.addEventListener('pagehide', () => Cloud.flush(true));
   function patchStore() {
     if (storePatched) return; storePatched = true;
-    const g = store.get.bind(store), st = store.set.bind(store);
+    const g = store.get.bind(store), st = store.set.bind(store); legacyGet = k => g(k, null);
     store.get = (k, d) => g(ns && GAME_KEYS.includes(k) ? ns + k : k, d);
     store.set = (k, v) => { st(ns && GAME_KEYS.includes(k) ? ns + k : k, v); if (ns && CLOUD_KEYS.includes(k)) Cloud.mark(); };
     const R = Profile.render;   // the Bag shows the NAME you gave your online character
