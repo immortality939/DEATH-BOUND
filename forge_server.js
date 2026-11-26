@@ -23,7 +23,7 @@ const AMULET_TYPES = [
   { n: 'Divine Amulet',  img: 'assets/items/amulet_3.png', pct: 50, price: 36000, col: '#b45cff', rar: 'legendary' },
 ];
 const SUPPORT_TYPES = [
-  { n: 'Guardian Scroll', img: 'assets/items/support_1.png', price: 4000, col: '#3d7bff', rar: 'epic' },
+  { n: 'Guardian Scroll', img: 'assets/items/support_1.png', price: 10000, col: '#3d7bff', rar: 'epic' },
 ];
 const MAT_ITEMS = [
   ...STONE_TYPES.map((s, i) => ({ id: 'mat_stone' + (i + 1), kind: 'stone', t: i + 1, img: s.img, name: s.n, type: 'mat', rar: ['common', 'rare', 'epic', 'epic', 'legendary'][i], stats: {}, col: s.col, price: s.price, tag: 'Upgrade stone',
