@@ -1189,6 +1189,8 @@ const OnlineUI = (() => {
     };
   }
   function unpatchShop() { if (shopBuyOrig) { Shop.buy = shopBuyOrig; shopBuyOrig = null; } }
+  // The COIN SHOP (profile.js) never puts anything straight into the Bag: after it took the coins it sends the goods here, to the envelope. ready() = you are logged in online.
+  window.OnlineShopMail = { ready: () => !!(ns && session), send: items => api('/api/mail/coinshop', { server: session.player.server || curServer, items }, session.token).then(r => { try { Live.nudge(); } catch (e) { } return r; }) };
 
   // ---- Adventure / Shop / Armory open the game's own screens (same as the offline game) ----
   let fromTown = false, retFn = null;   // retFn = where to come back to (the arena sets it; empty = the town)

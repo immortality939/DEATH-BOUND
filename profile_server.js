@@ -851,10 +851,21 @@ const Shop = {
     root.querySelectorAll('[data-payopen]').forEach(b => b.onclick = () => { Snd.play('pick'); if (!Pay.open()) say('Your app did not open it. Press "Copy link" and paste it in Chrome.'); });
     root.querySelectorAll('[data-paycopy]').forEach(b => b.onclick = () => { Snd.play('pick'); Pay.copy(say); });
     root.querySelectorAll('[data-paycheck]').forEach(b => b.onclick = () => { Snd.play('pick'); Pay.check(say, false); });
-    root.querySelectorAll('[data-takecoin]').forEach(b => b.onclick = () => { const n = +b.dataset.takecoin || 0, bo = coinBonus(n); if (!n) return; Coins.add(n + bo); Snd.play('win'); this.csMsg = `You got ${n.toLocaleString()} + ${bo.toLocaleString()} bonus = ${(n + bo).toLocaleString()} coins!`; this.renderCoin(); });
-    root.querySelectorAll('[data-takemat]').forEach(b => b.onclick = () => { const it = itemById(this.csSel), n = +b.dataset.takemat || 1; if (!it) return; const cost = coinPrice(it) * n; if (cost && !Coins.spend(cost)) { Snd.play('dud'); this.csMsg = `You need ${cost.toLocaleString()} coins (you have ${Coins.get().toLocaleString()}).`; this.renderCoin(); return; } Mats.add(it, n); Snd.play('win'); this.csMsg = `You took ${n} ${it.name}${n > 1 ? 's' : ''}! You have ${Mats.get(it).toLocaleString()}.`; this.renderCoin(); });
+    root.querySelectorAll('[data-takecoin]').forEach(b => b.onclick = () => { Snd.play('dud'); this.csMsg = 'Coin packs are paid with GCash, Maya or card and arrive in your Envelope (mail).'; this.renderCoin(); });   // (never gives coins directly any more)
+    // Everything bought in the Coin Shop goes to the ENVELOPE first (claim it there). The coins are taken now; if the envelope cannot be written they come back.
+    const toMail = (list, cost, okMsg) => {
+      const OM = typeof window !== 'undefined' && window.OnlineShopMail;
+      if (!OM || !OM.ready()) { Snd.play('dud'); this.csMsg = 'Log in to the online game to buy in the Coin Shop.'; this.renderCoin(); return; }
+      if (this.csBusy) return;
+      if (cost && !Coins.spend(cost)) { Snd.play('dud'); this.csMsg = `You need ${cost.toLocaleString()} coins (you have ${Coins.get().toLocaleString()}).`; this.renderCoin(); return; }
+      this.csBusy = true; this.csMsg = 'Sending it to your envelope...'; this.renderCoin();
+      OM.send(list).then(() => { Snd.play('win'); this.csMsg = okMsg; })
+        .catch(e => { if (cost) Coins.add(cost); Snd.play('dud'); this.csMsg = (e && e.message) || 'Could not send it. Your coins are back.'; })
+        .then(() => { this.csBusy = false; if (this.view === 'coin') this.renderCoin(); });
+    };
+    root.querySelectorAll('[data-takemat]').forEach(b => b.onclick = () => { const it = itemById(this.csSel), n = +b.dataset.takemat || 1; if (!it) return; toMail([{ item: it.id, qty: n }], coinPrice(it) * n, `Bought ${n} ${it.name}${n > 1 ? 's' : ''}! It is waiting in your Envelope (mail icon in the town).`); });
     root.querySelectorAll('[data-tier]').forEach(e => e.onclick = () => { this.csTier = +e.dataset.tier; Snd.play('pick'); this.renderCoin(); });
-    root.querySelectorAll('[data-take]').forEach(b => b.onclick = () => { const ids = b.dataset.take.split(','), cost = ids.reduce((a, id) => a + coinPrice(itemById(id)), 0); if (cost && !Coins.spend(cost)) { Snd.play('dud'); this.csMsg = `You need ${cost.toLocaleString()} coins (you have ${Coins.get().toLocaleString()}).`; this.renderCoin(); return; } ids.forEach(id => Profile.addCopy(id)); Profile.save(); Snd.play('win'); this.csMsg = ids.length > 1 ? 'You took the bundle! Equip the pieces in Profile.' : `You took ${itemById(ids[0]).name}! Equip it in Profile.`; this.renderCoin(); });
+    root.querySelectorAll('[data-take]').forEach(b => b.onclick = () => { const ids = b.dataset.take.split(',').filter(id => itemById(id)); if (!ids.length) return; toMail(ids.map(id => ({ item: id, qty: 1 })), ids.reduce((a, id) => a + coinPrice(itemById(id)), 0), ids.length > 1 ? 'Bought the bundle! It is waiting in your Envelope (mail icon in the town).' : `Bought ${itemById(ids[0]).name}! It is waiting in your Envelope (mail icon in the town).`); });
     root.querySelectorAll('.cs-row').forEach(r => {   // mouse drag = swipe (touch swipe is native)
       let x0 = 0, s0 = 0, down = false; r.onpointerdown = e => { if (e.pointerType !== 'mouse') return; down = true; x0 = e.clientX; s0 = r.scrollLeft; r._drag = false; };
       r.onpointermove = e => { if (!down) return; const dx = e.clientX - x0; if (Math.abs(dx) > 6) { r._drag = true; r.scrollLeft = s0 - dx; } };
