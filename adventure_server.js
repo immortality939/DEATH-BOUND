@@ -324,8 +324,8 @@ const Adventure = {
   // and a swipeable row of the loot it can drop. The Items button opens the full list (stage drops / boss drops) with the same rules Loot.roll uses.
   dropList(M, boss) {   // exactly what Loot.roll can drop on THIS map at the picked difficulty (each map / difficulty has its own table)
     const mi = ADV_MAPS.indexOf(M), df = this.diff | 0, rk = Loot.rank, lv = Loot.lvOf(mi, df, boss, 1.5);
-    let pool = Loot.pool(lv, false).map(c => c.it);
-    if (boss) pool = pool.concat(Loot.pool(lv, true).map(c => c.it));   // weapons only drop from bosses
+    let pool = Loot.pool(lv, false, mi, df).map(c => c.it);
+    if (boss) pool = pool.concat(Loot.pool(lv, true, mi, df).map(c => c.it));   // weapons only drop from bosses
     const sc = it => it.type === 'weapon' ? ((it.stats && it.stats.dmg) || 0) * 9 : Loot.score(it);
     pool.sort((a, b) => rk[b.rar] - rk[a.rar] || sc(b) - sc(a));
     const out = pool.map(it => ({ it })), c = 1 + mi * .5 + df * .8 + (boss ? .8 : 0);
@@ -335,7 +335,7 @@ const Adventure = {
     return out;
   },
   oddsText(M, boss) {   // "Common 62% · Rare 34% · Epic 4%" for the gear cards of this map / difficulty
-    const W = Loot.weights(Loot.lvOf(ADV_MAPS.indexOf(M), this.diff | 0, boss, 1.5)), tot = Loot.RAR.reduce((a, r) => a + W[r], 0);
+    const W = Loot.weights(Loot.lvOf(ADV_MAPS.indexOf(M), this.diff | 0, boss, 1.5), ADV_MAPS.indexOf(M), this.diff | 0), tot = Loot.RAR.reduce((a, r) => a + W[r], 0);
     return Loot.RAR.filter(r => W[r] / tot >= .005).map(r => RARITY[r].name + ' ' + Math.round(W[r] / tot * 100) + '%').join(' · ');
   },
   dropCard(e, mini) {
@@ -431,7 +431,7 @@ const Loot = {
   el: null, timer: null, left: 0, picksLeft: 0, items: [], picked: [], got: [], cb: null,
   // ---- LOOT BY MAP + DIFFICULTY ----  Every map and every difficulty has its OWN loot table.
   //   lv = how good the loot is = map number (0 = first ... 9 = last) + difficulty shift (NORMAL +0, HARD +5, HEROIC +10) (+ a little per stage, boss boards +3).
-  //   1) the rarity odds slide along ANCHORS: first NORMAL map = Common with a few Rares, HARD = good Rare / Epic gear, Legendary only on the late maps (and often on HEROIC).
+  //   1) (OLD, no longer used for the rarity odds: see EPLEG below) the rarity odds slide along ANCHORS: first NORMAL map = Common with a few Rares, HARD = good Rare / Epic gear, Legendary only on the late maps (and often on HEROIC).
   //   2) inside each rarity only a WINDOW of the item list can drop (weak items on early maps, the strongest on late ones; RAR_SPAN says where each rarity's window starts and ends),
   //      so every map drops different items with different stats.  Edit ANCHORS / RAR_SPAN / LV_SHIFT to rebalance.
   // ---- GUARDIAN SCROLL: a loot card on BOSS boards only, from Sandstorm Dunes up to the last map (never on the maps below Sandstorm Dunes, never on stage boards) ----
@@ -468,12 +468,20 @@ const Loot = {
   ANCHORS: [[0, [90, 10, 0, 0]], [3, [62, 34, 4, 0]], [6, [30, 50, 18, 2]], [9, [10, 42, 40, 8]], [12, [0, 25, 50, 25]], [15, [0, 12, 45, 43]], [18, [0, 5, 40, 55]]],   // [lv, [Common, Rare, Epic, Legendary] weights]
   RAR_SPAN: { common: [0, 8], rare: [1, 12], epic: [5, 16], legendary: [8, 18] },   // lv where a rarity's item window starts (weakest items) and ends (strongest items)
   lvOf(mi, diff, boss, st = 0) { return Math.min(this.LV_MAX, mi + this.LV_SHIFT[diff | 0] + (boss ? 3 : st * .4)); },
-  weights(lv) {   // rarity odds at a loot level (straight line between the ANCHORS)
-    const A = this.ANCHORS; lv = Math.max(0, Math.min(this.LV_MAX, lv)); let k = 0; while (k < A.length - 2 && lv > A[k + 1][0]) k++;
-    const l0 = A[k][0], l1 = A[k + 1][0], t = (lv - l0) / (l1 - l0), o = {}; this.RAR.forEach((r, i) => o[r] = A[k][1][i] + (A[k + 1][1][i] - A[k][1][i]) * t); return o;
+  // ---- CHANCE OF EPIC + LEGENDARY (per gear card) = ONE number for every MAP x DIFFICULTY (map 1 ... map 10) ----  (this replaces the old ANCHORS curve for the rarity odds)
+  //   HEROIC runs from a tiny chance on map 1 up to 85% on map 10 (40% on map 5); HARD = 75% of the HEROIC number, NORMAL = 37.5% of it (map 5: Heroic 40 / Hard 30 / Normal 15). Edit these 30 numbers to rebalance.
+  EPLEG: [
+    [1.1, 4.5, 8.3, 11.6, 15, 18.4, 21.8, 25.1, 28.5, 31.9],   // NORMAL
+    [2.3, 9, 16.5, 23.3, 30, 36.8, 43.5, 50.3, 57, 63.8],      // HARD
+    [3, 12, 22, 31, 40, 49, 58, 67, 76, 85]],                   // HEROIC
+  LEG_SHARE_MAX: .6, LEG_SHARE_K: 150,   // how much of the Epic+Legendary chance is Legendary: E / 150, at most 60% (E = 40% -> 27% of it is Legendary, E = 85% -> 57%)
+  weights(lv, mi, df) {   // rarity odds of a gear card on map mi (0 = map 1) at difficulty df (0 NORMAL, 1 HARD, 2 HEROIC); lv is only used for WHICH items of a rarity can drop (see pool)
+    mi = Math.max(0, Math.min(this.EPLEG[0].length - 1, (mi == null ? Adventure.mi : mi) | 0)); df = Math.max(0, Math.min(this.EPLEG.length - 1, (df == null ? Adventure.diff : df) | 0));
+    const E = this.EPLEG[df][mi], leg = E * Math.min(this.LEG_SHARE_MAX, E / this.LEG_SHARE_K), R = 100 - E, fr = .1 + .6 * Math.min(1, E / 50);   // the rest is Common / Rare: more Rare the better the loot
+    return { common: R * (1 - fr), rare: R * fr, epic: E - leg, legendary: leg };
   },
-  pool(lv, weapons) {   // the items that CAN drop at this loot level: [{ it, g }], g = how central the item is in its rarity window (1 = most likely)
-    const W = this.weights(lv), out = [], list = weapons ? SHOP_WEAPON_ITEMS.filter(i => i.id !== 'w_titan_cannon' && i.id !== 'w_tempest_arc').concat(WEAPON_ITEMS) : ITEMS, sc = it => weapons ? ((it.stats && it.stats.dmg) || 0) : this.score(it);
+  pool(lv, weapons, mi, df) {   // the items that CAN drop at this loot level: [{ it, g }], g = how central the item is in its rarity window (1 = most likely)
+    const W = this.weights(lv, mi, df), out = [], list = weapons ? SHOP_WEAPON_ITEMS.filter(i => i.id !== 'w_titan_cannon' && i.id !== 'w_tempest_arc').concat(WEAPON_ITEMS) : ITEMS, sc = it => weapons ? ((it.stats && it.stats.dmg) || 0) : this.score(it);
     this.RAR.forEach(r => {
       if (!(W[r] > .5)) return;
       const L = list.filter(i => i.rar === r).sort((a, b) => sc(a) - sc(b)); if (!L.length) return;
@@ -492,8 +500,8 @@ const Loot = {
   },
   roll(si, boss) {   // stages: 1-2 gear cards from this map's table, the rest chips / stones. Boss board: 30 cards = 6 gear + 2 weapons + stones + chips (the best rarity this map can give is guaranteed once).
     const mi = Adventure.mi | 0, st = Adventure.si | 0, df = Adventure.diff | 0, nItems = boss ? 6 : (Math.random() < .4 ? 2 : 1), n = boss ? 30 : 9;
-    const lv = this.lvOf(mi, df, boss, st), W = this.weights(lv), own = new Set((Profile.data || Profile.load()).owned.map(baseId)), out = [];
-    const gear = this.pool(lv, false), wpn = boss ? this.pool(lv, true) : [];
+    const lv = this.lvOf(mi, df, boss, st), W = this.weights(lv, mi, df), own = new Set((Profile.data || Profile.load()).owned.map(baseId)), out = [];
+    const gear = this.pool(lv, false, mi, df), wpn = boss ? this.pool(lv, true, mi, df) : [];
     const pick = (sub, from) => {   // pick the rarity by the map's odds, then an item of it (items you don't own yet show up more often)
       const R = {}; sub.forEach(c => (R[c.it.rar] = R[c.it.rar] || []).push(c)); const ks = Object.keys(R); if (!ks.length) return false;
       let r = Math.random() * ks.reduce((a, k) => a + (W[k] || 0) + .001, 0), rar = ks[ks.length - 1]; for (const k of ks) { r -= (W[k] || 0) + .001; if (r <= 0) { rar = k; break; } }
