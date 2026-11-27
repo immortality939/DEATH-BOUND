@@ -181,10 +181,10 @@ const ZS_TW = {"13-14":21,"14-15":22,"15-16":23,"16-17":24,"0-1":25,"1-2":26,"2-
         if (S.mv === 1) showBanner('⚡ ' + w.name + ' strides to the middle of you!', '#9fe4ff');
       }
       if (S.mv === 1) {
-        const dx = S.tx - w.x, dir = dx >= 0 ? 1 : -1; w.face = dir; w.walking = 1;
+        const dx = S.tx - w.x, dir = dx >= 0 ? 1 : -1; w.face = dir; w.walking = 3; w.actF = null; w.state = 'ground';
         const x0 = w.x; S.wt++;
         if (Math.abs(dx) > 6 && S.wt < 700 && S.stuck < 10) { placeOnGround(w, w.x + dir * Math.min(4, Math.abs(dx))); w.zPh = (w.zPh || 0) + .16; if (Math.abs(w.x - x0) < .05) S.stuck++; else S.stuck = 0; return false; }
-        w.walking = 0; S.mv = 2; S.t0 = S.t - 1;
+        w.walking = 0; w.actF = null; S.mv = 2; S.t0 = S.t - 1;
       }
     }
     const I = S.in || (S.in = {}); I.t = S.t - S.t0; return _zfl.call(this, w, I);
