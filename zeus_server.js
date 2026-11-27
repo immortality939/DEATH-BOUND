@@ -20,8 +20,8 @@ const ZS = { CW: 320, CH: 300, AX: 150, FY: 285, IDLE: 0, LIGHT: 4, THUNDER: 8, 
 const ZF = { CW: 384, CH: 256, AX: 193, FY: 242, N: 16 };
 const ZF_ACT = 'adventure/boss_zeus_fly.webp';
 const ZF_EVERY = 4;               // every Nth boss turn he floats (his thunder special stays on every 3rd turn)
-const ZF_STRIKES = 20;            // lightning strikes during the float
-const ZF_GAP = [0.3, 1.0];        // random wait between two strikes, in seconds
+const ZF_STRIKES = 40;            // lightning strikes during the float
+const ZF_GAP = [0.2, 0.6];        // random wait between two strikes, in seconds
 const ZF_HOVER = 150;             // how high above the ground he floats
 const ZF_DMG = .75;               // damage of ONE strike (x boss base damage; the thunder special is x1.2 on every player)
 const ZF_RISE = 90, ZF_FALL = 80; // game frames (60 per second) to rise / to come down
@@ -171,6 +171,23 @@ const ZS_TW = {"13-14":21,"14-15":22,"15-16":23,"16-17":24,"0-1":25,"1-2":26,"2-
     w.flyOff = ZF_HOVER * (1 - e); w.zfF = S.lf * (1 - e); w.zfB = u > .8 ? Math.max(0, 1 - (u - .8) / .2) : 1;
     if (u >= 1) { w.flyOff = 0; w.zfF = null; w.zfB = null; const f = nearestFoe(w); if (f) w.face = f.x >= w.x ? 1 : -1; return t > S.lt + ZF_FALL + 14; }
     return false;
+  };
+
+  const _zfl = BOSS3.s_zfloat;
+  BOSS3.s_zfloat = function (w, S) {   // 0) FIRST he walks to the middle of the players, 1) then the float + storm
+    if (S.mv !== 2) {
+      if (S.mv == null) {
+        const xs = this.foes(w).map(p => p.x); S.mv = xs.length ? 1 : 2; if (!xs.length) S.t0 = S.t - 1; S.tx = xs.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : w.x; S.stuck = 0; S.wt = 0;
+        if (S.mv === 1) showBanner('⚡ ' + w.name + ' strides to the middle of you!', '#9fe4ff');
+      }
+      if (S.mv === 1) {
+        const dx = S.tx - w.x, dir = dx >= 0 ? 1 : -1; w.face = dir; w.walking = 1;
+        const x0 = w.x; S.wt++;
+        if (Math.abs(dx) > 6 && S.wt < 700 && S.stuck < 10) { placeOnGround(w, w.x + dir * Math.min(4, Math.abs(dx))); w.zPh = (w.zPh || 0) + .16; if (Math.abs(w.x - x0) < .05) S.stuck++; else S.stuck = 0; return false; }
+        w.walking = 0; S.mv = 2; S.t0 = S.t - 1;
+      }
+    }
+    const I = S.in || (S.in = {}); I.t = S.t - S.t0; return _zfl.call(this, w, I);
   };
 
   const _as = BOSS3.assets; BOSS3.assets = function (st) { return _as.call(this, st).concat([loadImage(ZS_ACT).catch(() => { }), loadImage(ZF_ACT).catch(() => { })]); };

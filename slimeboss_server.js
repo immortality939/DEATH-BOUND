@@ -238,7 +238,7 @@ const SLIME = {
       return false;
     }
     if (t === 17 + FT) {   // landing
-      w.x = sp.x; w.y = sp.y; w.hop = 0; SH(w, 14); Snd.mp3('kslime_land', w.minion ? .55 : 1); SFX(w, 'splash', w.x, w.y - 6, 1.6); SDB(w, w.x, w.y - 4, 12, 'dirt'); ringFx(w.x, w.y - 4, slRing(w));
+      w.x = sp.x; w.y = sp.y; w.hop = 0; BOSS3.landHit(w, 1.2); SH(w, 14); Snd.mp3('kslime_land', w.minion ? .55 : 1); SFX(w, 'splash', w.x, w.y - 6, 1.6); SDB(w, w.x, w.y - 4, 12, 'dirt'); ringFx(w.x, w.y - 4, slRing(w));
     }
     const l = t - (16 + FT); w.actF = SL.JP + (l < 7 ? 6 : l < 13 ? 7 : 8);
     return l > 18;

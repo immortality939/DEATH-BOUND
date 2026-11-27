@@ -149,7 +149,7 @@ const MC = {
       w.x = L.x0 + (sp.x - L.x0) * e; w.y = L.y0 + (sp.y - L.y0) * e; w.hop = Math.sin(Math.PI * a) * (L.apex + up * (big ? .4 : .3));
       w.actF = J + (a < .25 ? 2 : a < .6 ? 3 : 4); w.face = sp.x >= L.x0 ? 1 : -1; return false;
     }
-    if (t === T0 + FT + 1) { w.x = sp.x; w.y = sp.y; w.hop = 0; w.hover = L.hov0; w.vx = w.vy = 0; w.state = 'ground'; shake(big ? 20 : 6); Snd.mp3('mk_land', big ? 1 : .6); debris(w.x, w.y - 4, big ? 16 : 7, 'dirt'); if (big) { ringFx(w.x, w.y - 4, '#ffcf8a'); addFx('explosion_small', w.x, w.y - 8, 1.4); } }
+    if (t === T0 + FT + 1) { w.x = sp.x; w.y = sp.y; w.hop = 0; w.hover = L.hov0; w.vx = w.vy = 0; w.state = 'ground'; if (big) BOSS3.landHit(w, 1.2); shake(big ? 20 : 6); Snd.mp3('mk_land', big ? 1 : .6); debris(w.x, w.y - 4, big ? 16 : 7, 'dirt'); if (big) { ringFx(w.x, w.y - 4, '#ffcf8a'); addFx('explosion_small', w.x, w.y - 8, 1.4); } }
     const l = t - (T0 + FT); w.actF = l < L.ld * .55 ? J + 5 : J; w.hop = 0; if (l > L.ld) { w.actF = null; return true; } return false;
   },
   key(w) { return String(w.rob.id || '').replace('boss_', ''); },
@@ -203,7 +203,7 @@ const MC = {
       w.x = S.x0 + (sp.x - S.x0) * e; w.y = S.y0 + (sp.y - S.y0) * e; w.hop = Math.sin(Math.PI * a) * (170 + up * .4);
       w.actF = J + (a < .25 ? 2 : a < .6 ? 3 : 4); w.face = sp.x >= S.x0 ? 1 : -1; return false;
     }
-    if (t === 21 + FT) { w.x = sp.x; w.y = sp.y; w.hop = 0; w.hover = false; shake(20); Snd.mp3('mk_land'); debris(w.x, w.y - 4, 16, 'dirt'); ringFx(w.x, w.y - 4, '#ffcf8a'); addFx('explosion_small', w.x, w.y - 8, 1.4); }
+    if (t === 21 + FT) { w.x = sp.x; w.y = sp.y; w.hop = 0; w.hover = false; BOSS3.landHit(w, 1.2); shake(20); Snd.mp3('mk_land'); debris(w.x, w.y - 4, 16, 'dirt'); ringFx(w.x, w.y - 4, '#ffcf8a'); addFx('explosion_small', w.x, w.y - 8, 1.4); }
     const l = t - (20 + FT); w.actF = l < 12 ? J + 5 : J; w.hop = 0; return l > 22;
   },
   // ---------------- 2) walk up to a player and slash ----------------

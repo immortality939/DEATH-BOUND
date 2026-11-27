@@ -67,6 +67,16 @@ const BOSS3 = {
   foes(w) { return aliveWorms().filter(t => t.team !== w.team && !bossAlly(w, t)); },
   endTurn(w, ai) { w.actF = null; w.hop = 0; w.b3 = null; G.firedThisTurn = true; G.phase = 'retreat'; G.timer = 50; if (ai) ai.st = 'fired'; },
   dmg(w, mul = 1) { return Math.round(bossBaseDmg(w) * mul); },
+  landHit(w, mul = 1.2, R0 = 240) {   // a heavy boss lands: every player near the landing spot takes damage by distance (no knockback), like the Golem. Minions never do this.
+    if (!w || w.minion) return 0;
+    const s = Math.max(1, (w.sc || 3) / 3), R = R0 * s, d0 = this.dmg(w, mul), ix = w.x, iy = w.y; let n = 0;
+    for (const p of this.foes(w)) {
+      const [pcx, pcy] = bodyCenter(p), d = Math.hypot(pcx - ix, pcy - (iy - 30)); if (d > R) continue;
+      n++; hurt(p, Math.max(1, Math.round(d0 * (1 - .65 * d / R)))); addFx('spark_hit', pcx, pcy, 1.3);
+    }
+    if (n) { shake(24); ringFx(ix, iy - 4, '#ffb36b'); }
+    return n;
+  },
   later(frames, fn) { (G.b3q = G.b3q || []).push({ t: frames, fn }); },
   bolt(x1, y1, x2, y2, o = {}) { (G.b3fx = G.b3fx || []).push(Object.assign({ k: 'bolt', x1, y1, x2, y2, age: 0, life: 14, seed: Math.random() * 999, col: '#9fe4ff', w: 7 }, o)); },
   // ---------------- AI hooks ----------------

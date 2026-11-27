@@ -301,7 +301,7 @@ const RP_CUT_END = 224;       // frames the "TIME TO DIE" cutscene lasts (~3.7 s
     s_rp_volcano(w, S) {
       const t = S.t, INTRO = 48, OUTRO = 56;
       if (t === 1) {
-        S.from = idle(w); S.ph = 'up'; S.u = 0; const tx = WORLD_W / 2, gt = groundTop(tx);
+        S.from = idle(w); S.ph = 'up'; S.u = 0; const fxs = BOSS3.foes(w).map(p => p.x), tx = clamp(fxs.length ? (Math.min(...fxs) + Math.max(...fxs)) / 2 : WORLD_W / 2, 200, WORLD_W - 200), gt = groundTop(tx);
         S.tx = tx; S.tf = clamp(w.y - (gt == null ? w.y : gt) + RP_VOL_H, 200, 560); S.dur = clamp(Math.hypot(tx - w.x, S.tf - (w.flyOff || 0)) / 14, 36, 80);
         showBanner('⚠ ' + w.name + ' rises to the sky - AURA VOLCANO!', '#c58bff'); Snd.play('freeze', .6); G.rpv = G.rpv || [];
       }

@@ -231,7 +231,7 @@ const KK_T_ROAR = [[0, KK.JUMP + 5], [4, KK.JUMP + 6], [10, KK.JUMP + 6], [18, K
         w.actF = a < .2 ? [J + 1, J + 2, sh(a / .2)] : a < .42 ? [J + 2, J + 3, sh((a - .2) / .22)] : a < .7 ? [J + 3, J + 4, sh((a - .42) / .28)] : [J + 4, J + 5, sh((a - .7) / .3)];
         if (t % 4 === 0) addFx('smoke', w.x - w.face * 40 * s, w.y - w.hop + 20, .5); return false;
       }
-      w.x = sp.x; w.y = sp.y; w.hop = 0; w.hover = L.hov0; w.vx = w.vy = 0; w.state = 'ground'; Snd.mp3('kk_land'); return true;
+      w.x = sp.x; w.y = sp.y; w.hop = 0; w.hover = L.hov0; w.vx = w.vy = 0; w.state = 'ground'; Snd.mp3('kk_land'); BOSS3.landHit(w, 1.3); return true;
     },
     // ---------- the shared "run to a player, jump onto him" part of every attack. 'go' | 'landed' | 'noleap' | 'abort' ----------
     hunt(w, S) {

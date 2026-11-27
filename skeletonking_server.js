@@ -251,7 +251,7 @@ const KG_WIDS = { C03_Storm_Skull: 1, C06_Tomb_Skull: 1 };  // the boss weapons 
         const u = ++S.u, a = Math.min(1, u / S.ft), e = a * a * (3 - 2 * a), sp = S.sp;
         w.x = S.x0 + (sp.x - S.x0) * e; w.y = S.y0 + (sp.y - S.y0) * e; w.hop = Math.sin(Math.PI * a) * S.apex; w.vx = w.vy = 0;
         w.actF = a < .2 ? to(KG.JUMP + 1, KG.JUMP + 2, a / .2) : a < .55 ? to(KG.JUMP + 2, KG.JUMP + 3, (a - .2) / .35) : to(KG.JUMP + 3, KG.JUMP + 4, (a - .55) / .45);
-        if (a >= 1) { w.x = sp.x; w.y = sp.y; w.hop = 0; w.hover = false; w.state = 'ground'; w.vx = w.vy = 0; S.ph = 'land'; S.u = 0; shake(14); Snd.mp3('mk_land'); debris(w.x, w.y - 4, 10, 'dirt'); smoke(w.x, w.y, 1.1); S.fromP = w.actF; }
+        if (a >= 1) { w.x = sp.x; w.y = sp.y; w.hop = 0; w.hover = false; w.state = 'ground'; w.vx = w.vy = 0; S.ph = 'land'; S.u = 0; BOSS3.landHit(w, 1.2); shake(14); Snd.mp3('mk_land'); debris(w.x, w.y - 4, 10, 'dirt'); smoke(w.x, w.y, 1.1); S.fromP = w.actF; }
         return false;
       }
       if (S.ph === 'land') {   // landing squash, then straight into the smash
