@@ -18,6 +18,9 @@ const G = {   // game state
 function wdef(id) { return WEAPONS.find(w => w.id === id); }
 function aliveWorms() { return G.worms.filter(w => w.state !== 'dead' && w.state !== 'drown'); }
 function sideOf(t) { const T = G.teams && G.teams[t]; return T && T.side != null ? T.side : t; }   // ARENA: every player is his OWN team (own robot, items, weapon, potions); a 'side' (Red / Blue) groups the allies. Everywhere else side = team
+function healGroup(ti) {   // everyone a Team Heal of team ti covers: Arena = all players of the same side, online Adventure = every player's robot (never the enemies), otherwise just the own team
+  const T = G.teams[ti]; return aliveWorms().filter(x => { const X = G.teams[x.team]; return x.team === ti || sideOf(x.team) === sideOf(ti) || !!(T && T.coop && X && X.coop); });
+}
 function allies(a, b) { return !!a && !!b && (a.team === b.team || sideOf(a.team) === sideOf(b.team)); }
 function teamAlive(t) { return G.worms.some(w => w.team === t && w.state !== 'dead' && w.state !== 'drown'); }
 function teamHP(t) { return G.worms.reduce((a, w) => a + (w.team === t && w.hp > 0 ? w.hp : 0), 0); }
@@ -56,13 +59,13 @@ function shake(a) { G.cam.shake = Math.min(26, G.cam.shake + a); }
 // ---------------- damage ----------------
 function potionNeeded(ti, k) {   // false when the item would heal nobody: everyone it covers is already at full health (the item box is then greyed out and cannot be tapped)
   const t = G.teams[ti], p = t && t.pots && t.pots[k], w = G.activeWorm; if (!p || !w || w.team !== ti) return true;
-  const list = p.kind === 'team' ? aliveWorms().filter(x => x.team === ti) : [w];
+  const list = p.kind === 'team' ? healGroup(ti) : [w];
   return list.some(x => Math.min((x.maxHp || 100) - x.hp, Math.round((x.maxHp || 100) * p.pct)) > 0);
 }
 function usePotion(ti, k) {   // Heal / Team Heal item box k (0 or 1) of team ti. Returns true when it was used (the turn goes on).
   const t = G.teams[ti], p = t && t.pots && t.pots[k], w = G.activeWorm;
   if (!p || p.left <= 0 || !w || w.team !== ti || (G.potUsed | 0) >= POTION_PER_TURN) return false;
-  const list = p.kind === 'team' ? aliveWorms().filter(x => x.team === ti || sideOf(x.team) === sideOf(ti)) : [w]; let tot = 0;
+  const list = p.kind === 'team' ? healGroup(ti) : [w]; let tot = 0;
   list.forEach(x => { const h = Math.max(0, Math.min((x.maxHp || 100) - x.hp, Math.round((x.maxHp || 100) * p.pct))); if (h > 0) { x.hp += h; x.healT = 36; tot += h; const s = x.sc || 1; addFx('heal_pulse', x.x, x.y - 57 * s, .95 * s); addPop(x.x, x.y - 95 * s, '+' + h + ' HP', '#8dff9e', 20); } });
   if (!tot) { addPop(w.x, w.y - 95 * (w.sc || 1), 'Full health', '#cfe8ff', 16); return false; }   // nothing to heal: the item is not used up
   p.left--; try { if (typeof Profile !== 'undefined') Profile.addStock(p.id, -1); } catch (e) { }   // gone for good: buy again in the Shop
