@@ -14,13 +14,16 @@
 
 const ZS_PX = .9;                 // world pixels per sprite pixel (at the boss size 3.0)
 const ZS = { CW: 320, CH: 300, AX: 150, FY: 285, IDLE: 0, LIGHT: 4, THUNDER: 8, DEATH: 12, WALK: 18 };
-// ---- FLOATING STORM (every 4th turn): he rises slowly into the air and 20 lightning bolts strike random spots on the ground ----
+// ---- FLOATING STORM (every 4th turn): he rises slowly into the air and lightning bolts strike the ground AROUND HIM, spread out like the Death Reaper's aura volcano (see ZF_SPREAD) ----
 //  Sheet adventure/boss_zeus_fly.webp: 16 frames of 384x256, 4 per row (0 = calm ... 8-11 = full storm ... 15 = dying down). Same size as his other frames (232px crown to sole),
 //  every frame has the same crown / belt / sole position, so he never shakes. AX / FY = the point under his body / his soles.
 const ZF = { CW: 384, CH: 256, AX: 193, FY: 242, N: 16 };
 const ZF_ACT = 'adventure/boss_zeus_fly.webp';
 const ZF_EVERY = 4;               // every Nth boss turn he floats (his thunder special stays on every 3rd turn)
 const ZF_STRIKES = 40;            // lightning strikes during the float
+const ZF_SPREAD = 1.0;            // how far from HIM the strikes land: 1.0 = exactly as wide as the Death Reaper's aura volcano balls land (they leave the Reaper's chest and fall around him).
+                                  //   0 = every strike on his own spot, 0.5 = half as wide, 2.0 = twice as wide. The strikes never land far across the map any more, they always land around him.
+const ZF_LAUNCH_H = 490;          // the Reaper's balls leave from about this height above the ground (330 hover + chest): used to turn their launch speeds into a landing distance
 const ZF_GAP = [0.2, 0.6];        // random wait between two strikes, in seconds
 const ZF_HOVER = 150;             // how high above the ground he floats
 const ZF_DMG = .75;               // damage of ONE strike (x boss base damage; the thunder special is x1.2 on every player)
@@ -124,13 +127,19 @@ const ZS_TW = {"13-14":21,"14-15":22,"15-16":23,"16-17":24,"0-1":25,"1-2":26,"2-
   };
 
   // ---------- FLOATING STORM (every 4th turn) ----------
-  //  He rises slowly (the standing sprite melts into the floating one), hovers with a gentle bob while 20 lightning bolts strike random spots of the ground
-  //  (each one: a ring warns on the ground, then the bolt falls and explodes), then comes down again and melts back to the standing sprite.
+  //  He rises slowly (the standing sprite melts into the floating one), hovers with a gentle bob while the lightning bolts strike the ground around him (spread like the Reaper's volcano balls)
+  //  (each one: a ring warns on the ground around him, then the bolt falls and explodes), then comes down again and melts back to the standing sprite.
   //  On turn 12, 24 ... (3rd AND 4th turn) the float wins and the thunder special is skipped that turn.
   const _th = BOSS3.think;
   BOSS3.think = function (w, ai) {
     if (isZ(w) && ai.bmoved && !ai.b3done && (w.bt | 0) % ZF_EVERY === 0) { ai.b3done = true; return this.start(w, ai, 'zfloat'); }
     return _th.call(this, w, ai);
+  };
+  // landing distance of one Death Reaper aura ball (reaper.js spawnOrb: angle +-.62 (and sometimes +-.25 more), speed 12.5-19.5, sideways x .62, gravity .36, small random start offset) from height ZF_LAUNCH_H
+  const ZF_OFF = () => {
+    const ang = rnd(-.62, .62) + (Math.random() < .5 ? 0 : rnd(-.25, .25)), sp = rnd(12.5, 19.5), g = .36;
+    const vx = Math.sin(ang) * sp * .62 + rnd(-1.2, 1.2), vy = -Math.cos(ang) * sp, T = (-vy + Math.sqrt(vy * vy + 2 * g * ZF_LAUNCH_H)) / g;
+    return (vx * T + rnd(-26, 26) * 1.1) * ZF_SPREAD;
   };
   const ZF_PING = f => { const m = 18, v = ((f % m) + m) % m; return 6 + (v > 9 ? m - v : v); };   // storm loop: frames 6 -> 15 -> 6 ...
   BOSS3.s_zfloat = function (w, S) {
@@ -152,7 +161,9 @@ const ZS_TW = {"13-14":21,"14-15":22,"15-16":23,"16-17":24,"0-1":25,"1-2":26,"2-
       if (t % 14 === 0) { const ox = w.x + w.face * 50, oy = w.y - w.flyOff - 150; BOSS3.bolt(ox + rnd(-90, 90), oy - rnd(0, 60), ox + rnd(-120, 120), oy + rnd(40, 120), { life: 8, w: 4 }); }
       if (S.n < ZF_STRIKES && t >= S.next) {
         S.n++; S.next = t + Math.round(rnd(ZF_GAP[0], ZF_GAP[1]) * 60); S.last = t;
-        let x = 0, y = -1; for (let i = 0; i < 30; i++) { x = rnd(120, WORLD_W - 120); y = G.terrain.surfaceBelow(x, 0); if (y >= 0 && y < WATER_Y - 30) break; y = -1; }
+        // WHERE: around his own spot. The distance to the left / right is drawn exactly like the Death Reaper's aura volcano ball (same random launch angle and speed, same gravity) and where that ball would land, times ZF_SPREAD.
+        let x = 0, y = -1; for (let i = 0; i < 30; i++) { x = w.x + ZF_OFF(); if (x < 120 || x > WORLD_W - 120) continue; y = G.terrain.surfaceBelow(x, 0); if (y >= 0 && y < WATER_Y - 30) break; y = -1; }
+        if (y < 0) { x = clamp(w.x, 120, WORLD_W - 120); y = G.terrain.surfaceBelow(x, 0); if (!(y >= 0 && y < WATER_Y - 30)) y = -1; }   // (no good ground in the spread: his own spot)
         if (y >= 0) {
           const d = BOSS3.dmg(w, ZF_DMG), gx = x, gy = y;
           ringFx(gx, gy - 4, '#9fe4ff'); Snd.play('freeze', .5);
