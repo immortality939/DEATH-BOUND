@@ -299,6 +299,7 @@ const LR_UP = 80, LR_DOWN = 60;   // frames to power up / to power down
     return false;
   };
 
+  const lrHas = p => { const im = getImg(p); return !!(im && im.naturalWidth > 1); };   // is this picture really in assets/?
   function lrUpdate() {
     if (G.lhUpOn && ((G.frame | 0) < 2 || !G.worms.some(w => isLH(w) && w.state !== 'dead' && w.state !== 'drown' && w.lhP != null) || !G.adv)) { G.lhUpOn = false; Snd.stopFile('lh_up', .7); }   // power-up sound ends when the flames die out
     if ((G.frame | 0) < 2) G.lhrock = [];
@@ -307,7 +308,8 @@ const LR_UP = 80, LR_DOWN = 60;   // frames to power up / to power down
       r.age++;
       if (r.age === r.life) {   // lands: damage to every player near the spot (same falloff as any explosion), ground burst, shake
         explode(r.gx, r.gy - 14, 72, r.d, { owner: r.w, fx: null, carve: 0, knock: 6 }); shake(9); if (!Snd.file('lh_rock_hit', .8)) snd('boom', .55);
-        (G.lhfx = G.lhfx || []).push({ k: 'rhit', x: r.gx, y: r.gy, age: 0, life: 26 });
+        if (lrHas(LR_HIT)) (G.lhfx = G.lhfx || []).push({ k: 'rhit', x: r.gx, y: r.gy, age: 0, life: 26 });
+        else addFx('b3_lava_hit', r.gx, r.gy - 44, 1.5);   // FIX: fx/lh_rock_hit.webp is not there -> the hit still animates with fx/b3_lava_hit.webp
       }
     }
     G.lhrock = L.filter(r => r.age <= r.life);
@@ -324,6 +326,15 @@ const LR_UP = 80, LR_DOWN = 60;   // frames to power up / to power down
         ctx.drawImage(rk, (i % 4) * LR_RW, Math.floor(i / 4) * LR_RH, LR_RW, LR_RH, -LR_RX, -LR_RY, LR_RW, LR_RH); ctx.restore();
       }
       ctx.restore();
+    }
+    if (L && L.length && !lrHas(LR_ROCK)) {   // FIX: fx/lh_flame_rock.webp is not there -> the falling rocks are drawn with fx/b3_flame.webp so they are not invisible
+      const bf = getImg('fx/b3_flame.webp');
+      if (bf && bf.naturalWidth > 1) for (const r of L) {
+        if (r.age >= r.life) continue;
+        const e = Math.pow(r.age / r.life, 1.5), x0 = r.gx - LR_SLANT * LR_DROP, y0 = r.gy - LR_DROP, i = (Math.floor(r.age / 3) + r.fr) % 8;
+        ctx.save(); ctx.translate(x0 + (r.gx - x0) * e, y0 + (r.gy - 14 - y0) * e); ctx.rotate(-Math.atan(LR_SLANT)); ctx.globalAlpha = Math.min(1, r.age / 5);
+        ctx.drawImage(bf, (i % 4) * 128, Math.floor(i / 4) * 128, 128, 128, -44, -62, 88, 88); ctx.restore();
+      }
     }
     if (H && H.length && ht && ht.complete && ht.naturalWidth) {
       ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
