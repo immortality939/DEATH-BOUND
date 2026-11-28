@@ -28,6 +28,23 @@ const LH_MOUTH = [   // mouth [x, y] of every picture, in cell pixels from the b
 const LH_BOT = [49,47,38,38,38,38];                             // death pictures: bottom edge below the belly anchor
 const LH_UNIT = .82, LH_FLAP_T = 5, LH_FLAP_FAST = 3, LH_XFADE = 7, LH_DEATH_T = 7;
 const LH_FLAME_S = .62, LH_SMOKE_S = .62;
+// ---- FLAME ROCK STORM (every 4th turn): he flies high above the middle of the players, powers up in flames, then flaming rocks fall slanted to the right ----
+const LR_FLAME = 'adventure/lava_hound_flame.webp', LR_ROCK = 'fx/lh_flame_rock.webp', LR_HIT = 'fx/lh_rock_hit.webp';
+const LR_CW = 416, LR_CH = 300, LR_AX = 178, LR_AY = 195;   // flame-hound cell (16 pictures, 4 per row) + belly anchor: same body size / same anchor as the normal atlas
+const LR_RW = 288, LR_RH = 336, LR_RX = 144, LR_RY = 222, LR_RN = 10;   // flame-rock cell (rock centre fixed at RX,RY) + number of pictures used (ping-pong loop)
+const LR_HW = 384, LR_HH = 256, LR_HGX = 192, LR_HGY = 230;  // rock-hit cell (16 pictures, 4 per row) + ground contact point inside the cell
+const LR_EVERY = 4;               // every Nth boss turn he does the rock storm
+const LR_ROCKS = 40;              // flaming rocks in the storm
+const LR_SPREAD = 1.0;            // 1.0 = exactly like Zeus's float storm / the Death Reaper's aura (0 = all on his spot, 2.0 = twice as wide)
+const LR_LAUNCH_H = 490;          // same launch height the Zeus storm uses to turn the Reaper's launch speeds into a landing distance
+const LR_GAP = [0.2, 0.6];        // random wait between two rocks, in seconds
+const LR_HOVER = 330;             // how high above the ground he floats while he powers up
+const LR_DMG = .75;               // damage of ONE rock (x boss base damage), same as one Zeus strike
+const LR_FALL = 46;               // frames a rock needs to fall
+const LR_SLANT = .22;             // how far a rock moves to the RIGHT for every pixel it falls (0 = straight down)
+const LR_DROP = 820;              // rocks start this far above where they land
+const LR_RS = .62, LR_HS = .75;   // size on screen of a rock / of the ground burst (1 = picture size)
+const LR_UP = 80, LR_DOWN = 60;   // frames to power up / to power down
 
 (function () {
   const isLH = w => !!(w && w.rob && w.rob.id === 'boss_lavahound');
@@ -37,6 +54,7 @@ const LH_FLAME_S = .62, LH_SMOKE_S = .62;
 
   // ---- load the new pictures; every OLD lava hound sheet path points at the new atlas, so the old art can never be drawn ----
   loadImage(LH_ATLAS).catch(() => { }); loadImage(LH_FLAME).catch(() => { }); loadImage(LH_SMOKE).catch(() => { });
+  loadImage(LR_FLAME).catch(() => { }); loadImage(LR_ROCK).catch(() => { }); loadImage(LR_HIT).catch(() => { });
   ['hold', 'death', 'act'].forEach(n => { Assets.img['adventure/boss_lavahound_' + n + '.webp'] = Assets.img[LH_ATLAS]; });
 
   // ---- where his belly is (the picture is anchored here; same point the game uses for his hit-body, 40*scale above his feet line) ----
@@ -208,7 +226,8 @@ const LH_FLAME_S = .62, LH_SMOKE_S = .62;
     { const k = Math.max(.45, 1 - fo / 260); ctx.fillStyle = 'rgba(0,0,0,' + (.28 * k) + ')'; ctx.beginPath(); ctx.ellipse(w.x, w.y + 1, 86 * k, 9 * k, 0, 0, 6.283); ctx.fill(); }   // ground shadow shrinks while he is high
     ctx.save(); ctx.translate(a0.x, a0.y); ctx.scale(f * U, U);
     const tint = w.frozen > 0 ? ['#9fe4ff', .55] : (w.flash > 0 && (w.flash % 4) < 2) ? ['#ff4a2a', .6] : w.healT > 0 ? ['#e8ffee', .55 * w.healT / 36] : null;
-    if (xf < 1 && st.prev) { blit(ctx, img, st.prev.row, st.prev.f, 1, tint); blit(ctx, img, p.row, p.f, xf, tint); } else blit(ctx, img, p.row, p.f, 1, tint);
+    if (!(w.lhB >= 1)) { if (xf < 1 && st.prev) { blit(ctx, img, st.prev.row, st.prev.f, 1, tint); blit(ctx, img, p.row, p.f, xf, tint); } else blit(ctx, img, p.row, p.f, 1, tint); }
+    if (w.lhB > 0 && w.lhP != null) { const fi = getImg(LR_FLAME); if (fi && fi.complete && fi.naturalWidth) blitF(ctx, fi, w.lhP, Math.min(1, w.lhB), tint); else loadImage(LR_FLAME).catch(() => { }); }   // powered up: flaming Lava Hound
     ctx.restore(); ctx.restore();
     if (w.state === 'drown') return;
     // ---- name / health bar / turn arrow (same as every other boss, above his wing) ----
@@ -220,5 +239,115 @@ const LH_FLAME_S = .62, LH_SMOKE_S = .62;
     if (isActive && (G.phase === 'aim' || G.phase === 'retreat')) { const bb = Math.sin(t / 8) * 4; ctx.fillStyle = T.color; ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(w.x, y - 24 + bb); ctx.lineTo(w.x - 9, y - 40 + bb); ctx.lineTo(w.x + 9, y - 40 + bb); ctx.closePath(); ctx.stroke(); ctx.fill(); }
     ctx.restore();
   };
+
+  // =================================================================================================
+  //  FLAME ROCK STORM  (every 4th turn)
+  //  1) he glides to the MIDDLE of the players and rises high above them   2) he powers up (flaming Lava Hound pictures, 16 steps)
+  //  3) 40 flaming rocks fall from the sky, slanted to the right, spread like Zeus's storm, each one damages the players where it lands   4) he calms down and comes back down
+  // =================================================================================================
+  const LR_OFF = () => {   // distance of a rock from his spot: same random launch angle / speed / gravity as the Death Reaper's aura ball (and Zeus's float storm) x LR_SPREAD
+    const ang = rnd(-.62, .62) + (Math.random() < .5 ? 0 : rnd(-.25, .25)), sp = rnd(12.5, 19.5), g = .36;
+    const vx = Math.sin(ang) * sp * .62 + rnd(-1.2, 1.2), vy = -Math.cos(ang) * sp, T = (-vy + Math.sqrt(vy * vy + 2 * g * LR_LAUNCH_H)) / g;
+    return (vx * T + rnd(-26, 26) * 1.1) * LR_SPREAD;
+  };
+  const _thLR = BOSS3.think;
+  BOSS3.think = function (w, ai) {
+    if (isLH(w) && ai.bmoved && !ai.b3done && !ai.bspecial && (w.bt | 0) % LR_EVERY === 0) {   // (turns 12, 24 ...: the floor-fire special always wins, it is never skipped)
+      ai.b3done = true; return this.start(w, ai, 'lhrain'); }
+    return _thLR.call(this, w, ai);
+  };
+  BOSS3.s_lhrain = function (w, S) {
+    const t = S.t, c = B3_BY_KIND[w.rob.b3] || {}, home = c.fly || 120;
+    if (t === 1) {
+      const xs = this.foes(w).map(p => p.x);
+      S.tx = clamp(xs.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : w.x, 200, WORLD_W - 200); S.ph = 0; S.n = 0; S.next = 0; S.last = 0;
+      w.lhP = 0; w.lhB = 0; w.flyGoal = LR_HOVER; w.bobBase = LR_HOVER;
+      showBanner('🔥 ' + w.name + ' flies above you and powers up!', '#ff9a3a'); snd('flame', .8);
+    }
+    const ft = nearestFoe(w);
+    if (S.ph === 0) {   // glide to the middle of the players and rise
+      const dx = S.tx - w.x, dir = dx >= 0 ? 1 : -1, sp = 8; w.face = dir;
+      if (Math.abs(dx) > sp) { if (!placeOnGround(w, w.x + dir * sp)) w.x += dir * sp; }
+      w.flyGoal = LR_HOVER;
+      if ((Math.abs(dx) <= sp + 1 && (w.flyOff || 0) >= LR_HOVER - 6) || t > 260) { S.ph = 1; S.t1 = t; if (ft) w.face = ft.x >= w.x ? 1 : -1; }
+      return false;
+    }
+    const bob = Math.sin(t / 22) * 6; w.flyGoal = LR_HOVER + bob;
+    if (ft) w.face = ft.x >= w.x ? 1 : -1;
+    if (S.ph === 1) {   // power up: the flames grow picture by picture
+      const u = Math.min(1, (t - S.t1) / LR_UP); w.lhP = 15 * u; w.lhB = Math.min(1, (t - S.t1) / 14);
+      if ((t - S.t1) === 24) { shake(8); ringFx(w.x, w.y - (w.flyOff || 0) - 40, '#ff9a3a'); }
+      if (u >= 1) { S.ph = 2; S.t2 = t; shake(14); snd('boom', .8); ringFx(w.x, w.y - (w.flyOff || 0) - 40, '#fff0a0', 6); }
+      return false;
+    }
+    if (S.ph === 2) {   // rain: the flames burn at full power while the rocks fall
+      w.lhB = 1; const m = 8, v = (((t - S.t2) / 5) % m + m) % m; w.lhP = 11 + (v > 4 ? m - v : v);   // pictures 11 -> 15 -> 11 ...
+      if (S.n < LR_ROCKS && t >= S.next) {
+        S.n++; S.next = t + Math.round(rnd(LR_GAP[0], LR_GAP[1]) * 60); S.last = t;
+        let x = 0, y = -1; for (let i = 0; i < 30; i++) { x = w.x + LR_OFF(); if (x < 120 || x > WORLD_W - 120) continue; y = G.terrain.surfaceBelow(x, 0); if (y >= 0 && y < WATER_Y - 30) break; y = -1; }
+        if (y < 0) { x = clamp(w.x, 120, WORLD_W - 120); y = G.terrain.surfaceBelow(x, 0); if (!(y >= 0 && y < WATER_Y - 30)) y = -1; }
+        if (y >= 0) { (G.lhrock = G.lhrock || []).push({ gx: x, gy: y, age: 0, life: LR_FALL, d: this.dmg(w, LR_DMG), w, fr: rint(0, LR_RN - 1) }); ringFx(x, y - 4, '#ff8a3a'); }
+      }
+      if (S.n >= LR_ROCKS && t > S.last + LR_FALL + 24) { S.ph = 3; S.t3 = t; }
+      return false;
+    }
+    // power down: the flames die out, he comes back down to his normal height
+    const u = Math.min(1, (t - S.t3) / LR_DOWN); w.lhP = 15 * (1 - u); w.lhB = u < .7 ? 1 : 1 - (u - .7) / .3; w.flyGoal = u < .5 ? LR_HOVER + bob : home; w.bobBase = home;
+    if (u >= 1 && (Math.abs((w.flyOff || 0) - home) < 6 || t > S.t3 + 220)) { w.lhP = null; w.lhB = 0; w.flyGoal = home; w.bobBase = home; if (ft) w.face = ft.x >= w.x ? 1 : -1; return true; }
+    return false;
+  };
+
+  function lrUpdate() {
+    if ((G.frame | 0) < 2) G.lhrock = [];
+    const L = G.lhrock; if (!L || !L.length) return;
+    for (const r of L) {
+      r.age++;
+      if (r.age === r.life) {   // lands: damage to every player near the spot (same falloff as any explosion), ground burst, shake
+        explode(r.gx, r.gy - 14, 72, r.d, { owner: r.w, fx: null, carve: 0, knock: 6 }); shake(9); snd('boom', .55);
+        (G.lhfx = G.lhfx || []).push({ k: 'rhit', x: r.gx, y: r.gy, age: 0, life: 26 });
+      }
+    }
+    G.lhrock = L.filter(r => r.age <= r.life);
+  }
+  function lrDraw(ctx) {
+    const L = G.lhrock, H = G.lhfx; const rk = getImg(LR_ROCK), ht = getImg(LR_HIT);
+    if (L && L.length && rk && rk.complete && rk.naturalWidth) {
+      ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+      for (const r of L) {
+        if (r.age >= r.life) continue;
+        const p = r.age / r.life, e = Math.pow(p, 1.5), y0 = r.gy - LR_DROP, x0 = r.gx - LR_SLANT * LR_DROP;
+        const x = x0 + (r.gx - x0) * e, y = y0 + (r.gy - 14 - y0) * e, fr = Math.floor(r.age / 2 + r.fr), m = 2 * (LR_RN - 1), v = ((fr % m) + m) % m, i = v > LR_RN - 1 ? m - v : v;
+        ctx.save(); ctx.translate(x, y); ctx.rotate(-Math.atan(LR_SLANT)); ctx.scale(LR_RS, LR_RS); ctx.globalAlpha = Math.min(1, r.age / 5);   // flames trail up-left, the rock falls down-right
+        ctx.drawImage(rk, (i % 4) * LR_RW, Math.floor(i / 4) * LR_RH, LR_RW, LR_RH, -LR_RX, -LR_RY, LR_RW, LR_RH); ctx.restore();
+      }
+      ctx.restore();
+    }
+    if (H && H.length && ht && ht.complete && ht.naturalWidth) {
+      ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+      for (const e of H) {
+        if (e.k !== 'rhit') continue;
+        const fi = Math.min(15, Math.floor(e.age / e.life * 16)); ctx.save(); ctx.translate(e.x, e.y + 4); ctx.scale(LR_HS, LR_HS);
+        ctx.drawImage(ht, (fi % 4) * LR_HW, Math.floor(fi / 4) * LR_HH, LR_HW, LR_HH, -LR_HGX, -LR_HGY, LR_HW, LR_HH); ctx.restore();
+      }
+      ctx.restore();
+    }
+  }
+  const _upLR = BOSS3.update; BOSS3.update = function () { _upLR.call(this); if (G.adv) lrUpdate(); };
+  const _drLR = BOSS3.draw; BOSS3.draw = function (ctx) { _drLR.call(this, ctx); lrDraw(ctx); };
+
+  // flame-hound pictures (power-up): same blending as the normal ones
+  const tfc = document.createElement('canvas'); tfc.width = LR_CW; tfc.height = LR_CH; const tfx = tfc.getContext('2d');
+  function oneF(ctx, img, i, alpha, tint) {
+    const sx = (i % 4) * LR_CW, sy = Math.floor(i / 4) * LR_CH;
+    if (tint) {
+      tfx.clearRect(0, 0, LR_CW, LR_CH); tfx.globalCompositeOperation = 'source-over'; tfx.globalAlpha = 1; tfx.drawImage(img, sx, sy, LR_CW, LR_CH, 0, 0, LR_CW, LR_CH);
+      tfx.globalCompositeOperation = 'source-atop'; tfx.globalAlpha = tint[1]; tfx.fillStyle = tint[0]; tfx.fillRect(0, 0, LR_CW, LR_CH);
+      ctx.globalAlpha = alpha; ctx.drawImage(tfc, 0, 0, LR_CW, LR_CH, -LR_AX, -LR_AY, LR_CW, LR_CH);
+    } else { ctx.globalAlpha = alpha; ctx.drawImage(img, sx, sy, LR_CW, LR_CH, -LR_AX, -LR_AY, LR_CW, LR_CH); }
+  }
+  function blitF(ctx, img, f, alpha, tint) {
+    f = Math.max(0, Math.min(15, f)); const i = Math.floor(f), fr = f - i, j = Math.min(15, i + 1);
+    oneF(ctx, img, i, alpha, tint); if (fr > .03 && j !== i) oneF(ctx, img, j, alpha * fr, tint); ctx.globalAlpha = 1;
+  }
   console.log('lavahound.js loaded - new Lava Hound sprites + muzzle flame/smoke active');
 })();
