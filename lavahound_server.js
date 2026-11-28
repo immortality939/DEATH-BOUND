@@ -262,14 +262,15 @@ const LR_UP = 80, LR_DOWN = 60;   // frames to power up / to power down
       const xs = this.foes(w).map(p => p.x);
       S.tx = clamp(xs.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : w.x, 200, WORLD_W - 200); S.ph = 0; S.n = 0; S.next = 0; S.last = 0;
       w.lhP = 0; w.lhB = 0; w.flyGoal = LR_HOVER; w.bobBase = LR_HOVER;
-      showBanner('🔥 ' + w.name + ' flies above you and powers up!', '#ff9a3a'); snd('flame', .8);
+      showBanner('🔥 ' + w.name + ' flies above you and powers up!', '#ff9a3a');
     }
     const ft = nearestFoe(w);
     if (S.ph === 0) {   // glide to the middle of the players and rise
       const dx = S.tx - w.x, dir = dx >= 0 ? 1 : -1, sp = 8; w.face = dir;
       if (Math.abs(dx) > sp) { if (!placeOnGround(w, w.x + dir * sp)) w.x += dir * sp; }
       w.flyGoal = LR_HOVER;
-      if ((Math.abs(dx) <= sp + 1 && (w.flyOff || 0) >= LR_HOVER - 6) || t > 260) { S.ph = 1; S.t1 = t; if (ft) w.face = ft.x >= w.x ? 1 : -1; }
+      if ((Math.abs(dx) <= sp + 1 && (w.flyOff || 0) >= LR_HOVER - 6) || t > 260) { S.ph = 1; S.t1 = t; if (ft) w.face = ft.x >= w.x ? 1 : -1;
+        G.lhUpOn = true; if (!Snd.file('lh_up', .85)) snd('flame', .8); }   // power-up flame sound (long file: it is faded out when he powers down, see lrUpdate)
       return false;
     }
     const bob = Math.sin(t / 22) * 6; w.flyGoal = LR_HOVER + bob;
@@ -286,24 +287,26 @@ const LR_UP = 80, LR_DOWN = 60;   // frames to power up / to power down
         S.n++; S.next = t + Math.round(rnd(LR_GAP[0], LR_GAP[1]) * 60); S.last = t;
         let x = 0, y = -1; for (let i = 0; i < 30; i++) { x = w.x + LR_OFF(); if (x < 120 || x > WORLD_W - 120) continue; y = G.terrain.surfaceBelow(x, 0); if (y >= 0 && y < WATER_Y - 30) break; y = -1; }
         if (y < 0) { x = clamp(w.x, 120, WORLD_W - 120); y = G.terrain.surfaceBelow(x, 0); if (!(y >= 0 && y < WATER_Y - 30)) y = -1; }
-        if (y >= 0) { (G.lhrock = G.lhrock || []).push({ gx: x, gy: y, age: 0, life: LR_FALL, d: this.dmg(w, LR_DMG), w, fr: rint(0, LR_RN - 1) }); ringFx(x, y - 4, '#ff8a3a'); }
+        if (y >= 0) { (G.lhrock = G.lhrock || []).push({ gx: x, gy: y, age: 0, life: LR_FALL, d: this.dmg(w, LR_DMG), w, fr: rint(0, LR_RN - 1) }); ringFx(x, y - 4, '#ff8a3a'); Snd.file('lh_rock_fall', .6); }
       }
       if (S.n >= LR_ROCKS && t > S.last + LR_FALL + 24) { S.ph = 3; S.t3 = t; }
       return false;
     }
     // power down: the flames die out, he comes back down to his normal height
+    if (G.lhUpOn && t === S.t3 + 1) { G.lhUpOn = false; Snd.stopFile('lh_up', .9); }
     const u = Math.min(1, (t - S.t3) / LR_DOWN); w.lhP = 15 * (1 - u); w.lhB = u < .7 ? 1 : 1 - (u - .7) / .3; w.flyGoal = u < .5 ? LR_HOVER + bob : home; w.bobBase = home;
     if (u >= 1 && (Math.abs((w.flyOff || 0) - home) < 6 || t > S.t3 + 220)) { w.lhP = null; w.lhB = 0; w.flyGoal = home; w.bobBase = home; if (ft) w.face = ft.x >= w.x ? 1 : -1; return true; }
     return false;
   };
 
   function lrUpdate() {
+    if (G.lhUpOn && ((G.frame | 0) < 2 || !G.worms.some(w => isLH(w) && w.state !== 'dead' && w.state !== 'drown' && w.lhP != null) || !G.adv)) { G.lhUpOn = false; Snd.stopFile('lh_up', .7); }   // power-up sound ends when the flames die out
     if ((G.frame | 0) < 2) G.lhrock = [];
     const L = G.lhrock; if (!L || !L.length) return;
     for (const r of L) {
       r.age++;
       if (r.age === r.life) {   // lands: damage to every player near the spot (same falloff as any explosion), ground burst, shake
-        explode(r.gx, r.gy - 14, 72, r.d, { owner: r.w, fx: null, carve: 0, knock: 6 }); shake(9); snd('boom', .55);
+        explode(r.gx, r.gy - 14, 72, r.d, { owner: r.w, fx: null, carve: 0, knock: 6 }); shake(9); if (!Snd.file('lh_rock_hit', .8)) snd('boom', .55);
         (G.lhfx = G.lhfx || []).push({ k: 'rhit', x: r.gx, y: r.gy, age: 0, life: 26 });
       }
     }
