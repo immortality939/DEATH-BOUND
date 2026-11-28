@@ -61,7 +61,8 @@ SIG_WMETA['MC11_Ghost_Boom'] = { muzzle: [170, 128], bbox: [0, 0, 1, 1] };
 const BOSS3 = {
   SPECS: { cwave: 1, grab: 1, burn: 1, thunder: 1, ghosts: 1 },
   ghostRob() { return { id: 'minion_reaperghost', name: 'Soul Wisp', sheet: 'adventure/boss_ghost_hold.webp', death: 'adventure/boss_ghost_death.webp', act: 'adventure/boss_ghost_act.webp', anchors: B3_ANCH.ghost }; },
-  assets(st) { const l = ['adventure/boss_ghost_hold.webp', 'adventure/boss_ghost_death.webp', 'adventure/boss_ghost_act.webp', 'fx/b3_flame.webp', 'proj/C11_Warchief_Rock_proj.png', 'proj/C12_Scorpion_Venom_proj.png', 'proj/C13_Lava_Hound_Lava_proj.png'];
+  assets(st) { if (Assets.fx) for (const k in DIVINE_FX) if (k.slice(0, 3) === 'b3_') Assets.fx[k] = DIVINE_FX[k];   // FIX: Assets.fx is read at start-up BEFORE this file adds the b3_ effects, so register them here (same as offline)
+    const l = ['adventure/boss_ghost_hold.webp', 'adventure/boss_ghost_death.webp', 'adventure/boss_ghost_act.webp', 'fx/b3_flame.webp', 'fx/b3_thunder_boom.webp', 'fx/b3_lava_hit.webp', 'fx/b3_rock_hit.webp', 'fx/b3_bolt_hit.webp', 'fx/b3_poison_hit.webp', 'fx/b3_ghost_boom.webp', 'proj/C11_Warchief_Rock_proj.png', 'proj/C12_Scorpion_Venom_proj.png', 'proj/C13_Lava_Hound_Lava_proj.png'];
     return l.map(p => loadImage(p).catch(() => { })); },
   // ---------------- helpers ----------------
   foes(w) { return aliveWorms().filter(t => t.team !== w.team && !bossAlly(w, t)); },
