@@ -332,7 +332,7 @@ const LOOT_LOCK = true;   // true = items must be won (Adventure loot cards). Se
 const INV_CELLS = 24;
 
 // ---- upgrading ----
-// Level n -> n+1 needs only ONE stone; each extra stone slot used in the Forge adds its UP_RATE chance (lower every level). A failure keeps the level but the stones are gone.
+// Level n -> n+1 needs only ONE stone; each extra stone slot used in the Forge adds its STONE_RATE chance (lower every level). A failure keeps the level but the stones are gone.
 // Every success adds a % of the item's BASE stats (see UP_STEPS: 10%, and 15% / 20% / 25% for +10 / +11 / +12). Max level +12. Upgradable: weapon, helmet, armor, rings, shoes.
 const UP_MAX = 12, UP_STEP = 0.10;
 const UP_STEPS = [.10, .10, .10, .10, .10, .10, .10, .10, .10, .15, .20, .25];   // bonus added by each success: +1..+9 give +10% each, +10 gives +15%, +11 gives +20%, +12 gives +25%
@@ -342,27 +342,36 @@ const HEAL_BONUS = HEAL_STEPS.reduce((a, x) => (a.push(a[a.length - 1] + x), a),
 const healBonus = lvl => HEAL_BONUS[Math.max(0, Math.min(UP_MAX, lvl | 0))];
 const healThrows = lvl => HEAL_AMMO + Math.max(0, Math.min(UP_MAX, lvl | 0));   // Divine Heal throws per match: 3 at +0, +1 for every upgrade (15 at +12)
 const upBonus = lvl => { let b = 0; for (let i = 0; i < lvl && i < UP_MAX; i++) b += UP_STEPS[i]; return b; };   // total bonus at a level (+9 = 90%, +10 = 105%, +11 = 125%, +12 = 150%)
-const UP_RATE = [90, 30, 26, 22.5, 19, 16, 13, 10, 7.5, 5.5, 4, 3];   // success chance of ONE stone (x the stone's mult); every extra stone in the Forge adds its own. A bit lower every level (Sun Stone: +0 100%, +1 39%, then lower every level)
 const UP_COST = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];   // one stone is enough (each Forge stone slot uses 1)
 const STONE_PRICE = 600;   // chips per Blue Stone in the upgrade panel
 // ---- 5 kinds of upgrade stones ----
-// mult = how strong the stone is: the success chance of an upgrade is UP_RATE[level] x mult (capped at 100%). Better stones are found on later Adventure maps and cost more chips.
+// Better stones are found on later Adventure maps and cost more chips. Their success chances are in STONE_RATE below.
 const STONE_TYPES = [
-  { n: 'Blue Stone',     img: 'assets/stone.png',  mult: .6,  price: 600,  col: '#4fb4ff' },
-  { n: 'Jade Stone',     img: 'assets/stone2.png', mult: .8,  price: 2400,  col: '#2fd68a' },
-  { n: 'Amethyst Stone', img: 'assets/stone3.png', mult: .9,  price: 6500,  col: '#c77bff' },
-  { n: 'Ruby Stone',     img: 'assets/stone4.png', mult: 1.1, price: 16000,  col: '#ff5a6a' },
-  { n: 'Sun Stone',      img: 'assets/stone5.png', mult: 1.3, price: 32000, col: '#ffc83a' },
+  { n: 'Blue Stone',     img: 'assets/stone.png',  price: 600,  col: '#4fb4ff' },
+  { n: 'Jade Stone',     img: 'assets/stone2.png', price: 2400,  col: '#2fd68a' },
+  { n: 'Amethyst Stone', img: 'assets/stone3.png', price: 6500,  col: '#c77bff' },
+  { n: 'Ruby Stone',     img: 'assets/stone4.png', price: 16000,  col: '#ff5a6a' },
+  { n: 'Sun Stone',      img: 'assets/stone5.png', price: 32000, col: '#ffc83a' },
 ];
 const stoneKey = t => t > 1 ? 'stones' + t : 'stones';
-// A LOW STONE FALLS OFF FAST: every stone has a level it is made for (STONE_FREE_TO). Up to that level it works at its full chance; for EVERY level above it, its chance is multiplied
-// by STONE_DECAY again (Blue Stone: +1 is fine, +2 only about a third of that, +3 a third again ...). So a Blue Stone cannot carry an item to +12, and only the best stones still have a real chance on the high levels.
-const STONE_FREE_TO = [1, 3, 5, 6, 9];            // Blue, Jade, Amethyst, Ruby, Sun: the highest item level (the +N you already have) the stone still works at full strength
-const STONE_DECAY = [.4, .5, .55, .6, .65];       // multiplier for each level above that (smaller = falls off faster)
-const upRate = (L, t = 1) => {
-  const T = STONE_TYPES[t - 1], over = Math.max(0, L - STONE_FREE_TO[t - 1]), r = (UP_RATE[L] || 0) * T.mult * Math.pow(STONE_DECAY[t - 1], over);
-  return Math.min(100, Math.max(0.1, Math.round(r * 10) / 10));   // never below 0.1% per slot
-};
+// SUCCESS CHANCE (%) of ONE stone: one row per upgrade (the level you are going TO), one column per stone. Edit the numbers here.
+// Every filled Forge stone slot adds its own number (3 slots of the same stone = 3 x), an amulet then boosts the total, 100% max.
+const STONE_RATE = [
+  // Blue  Jade  Amethyst  Ruby  Sun
+  [ 54,    72,   81,       99,   100 ],   // +1
+  [ 18,    24,   27,       33,   39  ],   // +2
+  [ 6,     18,   23,       28,   33  ],   // +3
+  [ 2,     6,    19,       24,   29  ],   // +4
+  [ 0.7,   2,    6,        20,   25  ],   // +5
+  [ 0.2,   0.7,  2,        11,   21  ],   // +6
+  [ 0.1,   0.3,  0.8,      7,    15  ],   // +7
+  [ 0.1,   0.2,  0.4,      3.5,  10  ],   // +8
+  [ 0.1,   0.1,  0.3,      1.8,  6.5 ],   // +9
+  [ 0.1,   0.1,  0.2,      0.8,  4   ],   // +10
+  [ 0.1,   0.1,  0.1,      0.4,  2   ],   // +11
+  [ 0.1,   0.1,  0.1,      0.2,  1   ],   // +12
+];
+const upRate = (L, t = 1) => (STONE_RATE[L] || [])[t - 1] || 0;   // L = the level the item has now, t = stone 1..5
 // ===== CHARACTER LEVEL + ATTRIBUTES =====
 // Your robot levels up from 1 to LVL_MAX by playing (XP from matches and Adventure stages). EVERY level gives +PTS_PER_LVL to each attribute.
 // vit: +5 health each | dex: +2 health and +1 defense each (Defense / (Defense + 600) = % less damage, max 2000 counted) | agi: +0.25% crit damage and +1 damage each | luk: +0.15% crit chance each. Gear adds to the same attributes.
